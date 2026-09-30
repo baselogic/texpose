@@ -8,7 +8,7 @@ use crate::parser::AtomKind;
 /// # Examples
 ///
 /// ```
-/// use latex_rust::{symbol_atom_kind, AtomKind};
+/// use texpose::{symbol_atom_kind, AtomKind};
 ///
 /// assert_eq!(symbol_atom_kind("times"), AtomKind::Bin);
 /// assert_eq!(symbol_atom_kind("sum"), AtomKind::Op);

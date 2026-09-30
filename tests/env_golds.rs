@@ -1,6 +1,6 @@
 //! Gold runner: `golds/envs.toml` is the Milestone 7 environment contract.
 
-use latex_rust::{
+use texpose::{
     layout, layout_with_numbering, parse, BoxContent, MathBox, MathFont, MathStyle, NumberingState,
     ParseError,
 };
@@ -102,7 +102,7 @@ fn variant_name(err: &ParseError) -> &'static str {
     }
 }
 
-fn glyph_xs(b: &MathBox, x: latex_rust::Dim, ch: char, out: &mut Vec<latex_rust::Dim>) {
+fn glyph_xs(b: &MathBox, x: texpose::Dim, ch: char, out: &mut Vec<texpose::Dim>) {
     match &b.content {
         BoxContent::Glyph { ch: c, .. } if *c == ch => out.push(x),
         BoxContent::HList(v) => {
@@ -162,7 +162,7 @@ fn env_golds() {
                     .unwrap_or_else(|e| panic!("{}: layout {e}", rec.name));
                 let ch = rec.expect.chars().next().expect("eq_x char");
                 let mut xs = Vec::new();
-                glyph_xs(&bx, latex_rust::Dim::zero(), ch, &mut xs);
+                glyph_xs(&bx, texpose::Dim::zero(), ch, &mut xs);
                 assert!(
                     xs.len() >= 2,
                     "{}: need two {ch:?} glyphs, got {}",

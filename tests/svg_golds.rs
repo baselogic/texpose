@@ -1,6 +1,6 @@
 //! Gold runner: `golds/svg.toml` is the SVG renderer contract.
 
-use latex_rust::{latex_to_svg, MathFont, SvgOptions};
+use texpose::{latex_to_svg, MathFont, SvgOptions};
 
 #[derive(Default)]
 struct Rec {
@@ -175,7 +175,7 @@ fn svg_golds() {
 
 #[test]
 fn missing_glyph_id_is_err() {
-    use latex_rust::{render_svg, BoxContent, Dim, MathBox, MathFont, SvgOptions};
+    use texpose::{render_svg, BoxContent, Dim, MathBox, MathFont, SvgOptions};
     let font = MathFont::stix_two_math().expect("STIX Two Math");
     let bx = MathBox {
         width: Dim::one(),

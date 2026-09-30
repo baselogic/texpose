@@ -1,6 +1,6 @@
 //! Nesting-depth limit: the default is safe on a 1 MiB stack, and callers can move it.
 
-use latex_rust::{
+use texpose::{
     layout, layout_with_max_depth, parse, parse_with_options, render_svg, MathFont, MathStyle,
     ParseOptions, SvgOptions, DEFAULT_MAX_NESTING_DEPTH,
 };

@@ -5,12 +5,12 @@
 
 use std::time::{Duration, Instant};
 
-use latex_rust::{layout, parse, render_svg, MathFont, MathStyle, SvgOptions};
+use texpose::{layout, parse, render_svg, MathFont, MathStyle, SvgOptions};
 
 #[cfg(feature = "png")]
-use latex_rust::{render_png, PngOptions};
+use texpose::{render_png, PngOptions};
 #[cfg(feature = "egui")]
-use latex_rust::{shapes, EguiOptions};
+use texpose::{shapes, EguiOptions};
 
 const FRAC: &str = r"\frac{1}{2}";
 const DISPLAY: &str = r"\sum_{n=1}^{N}\frac{1}{n^{2}}=\frac{\pi^{2}}{6}";
@@ -92,7 +92,7 @@ fn main() {
     #[cfg(feature = "png")]
     {
         let mut png144 = PngOptions::new();
-        png144.dpi = latex_rust::Dim::from_i64(144);
+        png144.dpi = texpose::Dim::from_i64(144);
         png144.display = true;
         let png_144 = avg(80, 4, || {
             let _ = render_png(&tree_disp, &font, &png144).expect("png 144");
@@ -100,7 +100,7 @@ fn main() {
         report("PNG 144 DPI (display)", png_144, Duration::from_millis(5));
 
         let mut png300 = PngOptions::new();
-        png300.dpi = latex_rust::Dim::from_i64(300);
+        png300.dpi = texpose::Dim::from_i64(300);
         png300.display = true;
         let png_300 = avg(40, 2, || {
             let _ = render_png(&tree_disp, &font, &png300).expect("png 300");

@@ -24,7 +24,7 @@ use crate::parser::parse;
 /// # Examples
 ///
 /// ```
-/// use latex_rust::{Color, PngBackground};
+/// use texpose::{Color, PngBackground};
 ///
 /// assert_eq!(PngBackground::Transparent, PngBackground::Transparent);
 /// let _ = PngBackground::White;
@@ -47,7 +47,7 @@ pub enum PngBackground {
 /// # Examples
 ///
 /// ```
-/// use latex_rust::{Dim, PngOptions};
+/// use texpose::{Dim, PngOptions};
 ///
 /// let mut opt = PngOptions::new();
 /// opt.dpi = Dim::from_i64(144);
@@ -111,7 +111,7 @@ impl PngOptions {
 /// # Examples
 ///
 /// ```
-/// use latex_rust::{latex_to_png, MathFont, PngOptions};
+/// use texpose::{latex_to_png, MathFont, PngOptions};
 ///
 /// let font = MathFont::stix_two_math().unwrap();
 /// let r = latex_to_png(r"x", &font, &PngOptions::new());
@@ -161,7 +161,7 @@ pub fn latex_to_png(latex: &str, font: &MathFont, options: &PngOptions) -> Resul
 /// # Examples
 ///
 /// ```
-/// use latex_rust::{render_png, MathBox, MathFont, PngOptions};
+/// use texpose::{render_png, MathBox, MathFont, PngOptions};
 ///
 /// let font = MathFont::stix_two_math().unwrap();
 /// let r = render_png(&MathBox::empty(), &font, &PngOptions::new());

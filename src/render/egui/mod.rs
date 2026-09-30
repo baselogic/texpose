@@ -22,7 +22,7 @@ use crate::layout::MathBox;
 /// # Examples
 ///
 /// ```
-/// use latex_rust::{Color, Dim, EguiOptions};
+/// use texpose::{Color, Dim, EguiOptions};
 ///
 /// let mut opt = EguiOptions::new();
 /// opt.font_size_pt = Dim::from_i64(14);
@@ -80,7 +80,7 @@ impl EguiOptions {
 /// # Examples
 ///
 /// ```
-/// use latex_rust::{render_egui, MathBox, MathFont};
+/// use texpose::{render_egui, MathBox, MathFont};
 ///
 /// let font = MathFont::stix_two_math().unwrap();
 /// let r = render_egui(&MathBox::empty(), &font);
@@ -133,7 +133,7 @@ pub fn render_egui(tree: &MathBox, font: &MathFont) -> Result<(), Error> {
 /// ```
 /// # #[cfg(feature = "egui")]
 /// # {
-/// use latex_rust::{layout, parse, shapes, EguiOptions, MathFont, MathStyle};
+/// use texpose::{layout, parse, shapes, EguiOptions, MathFont, MathStyle};
 ///
 /// let ast = parse(r"x").unwrap();
 /// let font = MathFont::stix_two_math().unwrap();
@@ -177,7 +177,7 @@ pub fn shapes(
 /// ```
 /// # #[cfg(feature = "egui")]
 /// # {
-/// use latex_rust::{latex_to_shapes, EguiOptions, MathFont};
+/// use texpose::{latex_to_shapes, EguiOptions, MathFont};
 ///
 /// let font = MathFont::stix_two_math().unwrap();
 /// let (shapes, _) = latex_to_shapes(r"x", &font, &EguiOptions::new(), egui::Pos2::ZERO, 1.0).unwrap();

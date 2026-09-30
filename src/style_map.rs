@@ -7,7 +7,7 @@ use crate::parser::TextStyle;
 /// # Examples
 ///
 /// ```
-/// use latex_rust::{styled_char, TextStyle};
+/// use texpose::{styled_char, TextStyle};
 ///
 /// assert_eq!(styled_char('R', TextStyle::Bb), 'ℝ');
 /// ```

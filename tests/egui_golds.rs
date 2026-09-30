@@ -2,7 +2,7 @@
 #![cfg(feature = "egui")]
 
 use egui::{Pos2, Shape};
-use latex_rust::{
+use texpose::{
     latex_to_shapes, render_egui, shapes, BoxContent, Color, Dim, EguiOptions, MathBox, MathFont,
 };
 

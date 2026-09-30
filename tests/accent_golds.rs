@@ -1,6 +1,6 @@
 //! Gold runner: `golds/accents.toml` is the accent/decoration contract.
 
-use latex_rust::{
+use texpose::{
     latex_to_svg, layout, parse, BoxContent, MathBox, MathFont, MathStyle, ParseError, SvgOptions,
 };
 

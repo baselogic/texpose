@@ -7,7 +7,7 @@
 #![cfg(feature = "egui")]
 
 use egui::{Pos2, Shape};
-use latex_rust::{latex_to_shapes, symbols, EguiOptions, MathFont, SymbolKind};
+use texpose::{latex_to_shapes, symbols, EguiOptions, MathFont, SymbolKind};
 
 fn meshes(latex: &str) -> usize {
     let font = MathFont::stix_two_math().expect("STIX Two Math");
@@ -108,7 +108,7 @@ fn every_catalog_symbol_renders_in_egui() {
             }
             _ => e.latex.replace("{}", "{x}"),
         };
-        if latex_rust::parse(&latex).is_err() {
+        if texpose::parse(&latex).is_err() {
             continue;
         }
         meshes(&latex);

@@ -1,6 +1,6 @@
 //! Gold runner: `golds/symbols.toml` plus a catalog corpus.
 
-use latex_rust::{
+use texpose::{
     latex_to_svg, layout, parse, styled_char, symbol_atom_kind, symbols, AtomKind, BoxContent,
     Error, MathBox, MathFont, MathNode, MathStyle, SvgOptions, SymbolKind, TextStyle,
 };
@@ -209,7 +209,7 @@ fn symbol_golds() {
             "err_parse" => {
                 let err = parse(&rec.input).expect_err(&rec.name);
                 assert!(
-                    matches!(err, latex_rust::ParseError::Unsupported(_)),
+                    matches!(err, texpose::ParseError::Unsupported(_)),
                     "{}: {err}",
                     rec.name
                 );

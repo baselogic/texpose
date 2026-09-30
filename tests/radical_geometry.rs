@@ -1,4 +1,4 @@
-use latex_rust::{layout, parse, BoxContent, Dim, MathBox, MathFont, MathParams, MathStyle};
+use texpose::{layout, parse, BoxContent, Dim, MathBox, MathFont, MathParams, MathStyle};
 
 struct RadicalParts<'a> {
     surd_index: usize,

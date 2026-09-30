@@ -1,6 +1,6 @@
 //! Gold runner: `golds/parse.toml` is the parser contract.
 
-use latex_rust::{parse, symbols, ParseError, SymbolKind};
+use texpose::{parse, symbols, ParseError, SymbolKind};
 
 #[derive(Default)]
 struct Rec {

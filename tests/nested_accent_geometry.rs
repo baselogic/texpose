@@ -1,4 +1,4 @@
-use latex_rust::{
+use texpose::{
     layout, parse, BoxContent, MathBox, MathFont,
     MathParams, MathStyle,
 };

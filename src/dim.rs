@@ -28,7 +28,7 @@ fn gcd_u(mut a: u128, mut b: u128) -> u128 {
 /// # Examples
 ///
 /// ```
-/// use latex_rust::Dim;
+/// use texpose::Dim;
 ///
 /// let half = Dim::ratio(1, 2);
 /// assert!(half.eq_dim(&(&Dim::one() / &Dim::from_i64(2))));
@@ -271,7 +271,7 @@ impl Dim {
     /// # Examples
     ///
     /// ```
-    /// use latex_rust::Dim;
+    /// use texpose::Dim;
     ///
     /// assert_eq!(Dim::ratio(2, 6).as_ratio(), Some((1, 3)));
     /// assert_eq!(Dim::ratio(1, -2).as_ratio(), Some((-1, 2)));

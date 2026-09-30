@@ -15,7 +15,7 @@ use crate::parser::parse;
 /// # Examples
 ///
 /// ```
-/// use latex_rust::{Color, Dim, SvgOptions};
+/// use texpose::{Color, Dim, SvgOptions};
 ///
 /// let mut opt = SvgOptions::new();
 /// opt.font_size_pt = Dim::from_i64(12);
@@ -73,7 +73,7 @@ impl SvgOptions {
 /// # Examples
 ///
 /// ```
-/// use latex_rust::{latex_to_svg, MathFont, SvgOptions};
+/// use texpose::{latex_to_svg, MathFont, SvgOptions};
 ///
 /// let font = MathFont::stix_two_math().unwrap();
 /// let svg = latex_to_svg(r"\frac{1}{2}", &font, &SvgOptions::new()).unwrap();
@@ -110,7 +110,7 @@ pub fn latex_to_svg(latex: &str, font: &MathFont, options: &SvgOptions) -> Resul
 /// # Examples
 ///
 /// ```
-/// use latex_rust::{layout, parse, render_svg, MathFont, MathStyle, SvgOptions};
+/// use texpose::{layout, parse, render_svg, MathFont, MathStyle, SvgOptions};
 ///
 /// let ast = parse(r"x").unwrap();
 /// let font = MathFont::stix_two_math().unwrap();

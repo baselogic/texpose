@@ -1,6 +1,6 @@
 //! Gold runner: `golds/milestone1.toml` is the contract.
 
-use latex_rust::{
+use texpose::{
     category_count, format_tokens, lookup, named_color, parse_color_spec, symbols, tokenize,
     ColorTable, Dim, Error, MathBox, MathFont, ParseError, STIX_TWO_MATH_OTF, STIX_TWO_MATH_SHA256,
 };

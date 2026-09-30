@@ -21,7 +21,7 @@ const DVIPS: &str = include_str!("../data/dvipsnames.tsv");
 /// # Examples
 ///
 /// ```
-/// use latex_rust::Color;
+/// use texpose::Color;
 ///
 /// let c = Color::rgb(255, 0, 0);
 /// assert_eq!(c.css_hex(), "#ff0000");
@@ -43,7 +43,7 @@ impl Color {
     /// # Examples
     ///
     /// ```
-    /// use latex_rust::Color;
+    /// use texpose::Color;
     /// assert_eq!(Color::rgb(0, 0, 0).css_hex(), "#000000");
     /// ```
     #[must_use]
@@ -86,7 +86,7 @@ const BASE: &[(&str, Color)] = &[
 /// # Examples
 ///
 /// ```
-/// use latex_rust::ColorTable;
+/// use texpose::ColorTable;
 ///
 /// let mut t = ColorTable::new();
 /// assert!(!t.is_empty());
@@ -196,7 +196,7 @@ fn load_dvips() -> Vec<(String, Color)> {
 /// # Examples
 ///
 /// ```
-/// use latex_rust::parse_color_spec;
+/// use texpose::parse_color_spec;
 ///
 /// let c = parse_color_spec("RGB", "255,0,0", None).unwrap();
 /// assert_eq!(c.css_hex(), "#ff0000");
@@ -276,7 +276,7 @@ fn builtin() -> &'static ColorTable {
 /// # Examples
 ///
 /// ```
-/// use latex_rust::named_color;
+/// use texpose::named_color;
 ///
 /// assert_eq!(named_color("red").unwrap().css_hex(), "#ff0000");
 /// assert!(named_color("not-a-color").is_err());

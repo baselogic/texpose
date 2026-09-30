@@ -25,11 +25,6 @@ include = [
     "NOTICE",
 ]
 
-[lib]
-# Temporary inherited crate target name during the hard-fork cutover.
-name = "latex_rust"
-path = "src/lib.rs"
-
 [features]
 default = ["std"]
 std = []

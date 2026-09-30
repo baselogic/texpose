@@ -43,7 +43,7 @@ pub const DEFAULT_MAX_NESTING_DEPTH: usize = 32;
 /// # Examples
 ///
 /// ```
-/// use latex_rust::{parse_with_options, ParseOptions};
+/// use texpose::{parse_with_options, ParseOptions};
 ///
 /// let deep = "{".repeat(40) + "x" + &"}".repeat(40);
 /// assert!(parse_with_options(&deep, &ParseOptions::new()).is_err());
@@ -107,7 +107,7 @@ impl ParseOptions {
 /// # Examples
 ///
 /// ```
-/// use latex_rust::parse;
+/// use texpose::parse;
 ///
 /// let ast = parse(r"\frac{1}{2}").unwrap();
 /// assert_eq!(ast.gold(), r#"(frac (atom Ord "1") (atom Ord "2"))"#);
@@ -133,7 +133,7 @@ pub fn parse(input: &str) -> Result<MathNode, ParseError> {
 /// # Examples
 ///
 /// ```
-/// use latex_rust::parse_with_colors;
+/// use texpose::parse_with_colors;
 ///
 /// let (ast, table) = parse_with_colors(r"\definecolor{ok}{named}{red}x").unwrap();
 /// assert!(table.get("ok").is_ok());
@@ -154,7 +154,7 @@ pub fn parse_with_colors(input: &str) -> Result<(MathNode, ColorTable), ParseErr
 /// # Examples
 ///
 /// ```
-/// use latex_rust::{parse_with_options, ParseOptions};
+/// use texpose::{parse_with_options, ParseOptions};
 ///
 /// let tight = ParseOptions::new().with_max_depth(4);
 /// assert!(parse_with_options(r"\frac{1}{\frac{1}{\frac{1}{2}}}", &tight).is_err());

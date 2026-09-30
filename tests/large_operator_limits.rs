@@ -1,4 +1,4 @@
-use latex_rust::{layout, parse, BoxContent, Dim, MathBox, MathFont, MathParams, MathStyle};
+use texpose::{layout, parse, BoxContent, Dim, MathBox, MathFont, MathParams, MathStyle};
 
 fn limit_branches(tree: &MathBox) -> (&MathBox, &MathBox, &MathBox) {
     let BoxContent::Overlap(branches) = &tree.content else {

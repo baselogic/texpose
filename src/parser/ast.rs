@@ -528,7 +528,7 @@ impl DelimSize {
 /// # Examples
 ///
 /// ```
-/// use latex_rust::parse;
+/// use texpose::parse;
 ///
 /// let n = parse("x^2").unwrap();
 /// assert!(n.gold().contains("sup"));

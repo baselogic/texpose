@@ -25,7 +25,7 @@ pub const STIX_TWO_MATH_NAME: &str = "STIX Two Math";
 /// # Examples
 ///
 /// ```
-/// use latex_rust::MathFont;
+/// use texpose::MathFont;
 ///
 /// let font = MathFont::stix_two_math().unwrap();
 /// let g = font.glyph('x').unwrap();
@@ -59,7 +59,7 @@ struct ScriptAlternateEntry {
 /// # Examples
 ///
 /// ```
-/// use latex_rust::MathFont;
+/// use texpose::MathFont;
 ///
 /// let font = MathFont::stix_two_math().unwrap();
 /// assert_eq!(font.units_per_em(), 1000);
@@ -83,7 +83,7 @@ impl MathFont {
     /// # Examples
     ///
     /// ```
-    /// use latex_rust::MathFont;
+    /// use texpose::MathFont;
     /// assert!(MathFont::stix_two_math().is_ok());
     /// ```
     pub fn stix_two_math() -> Result<Self, Error> {
@@ -139,7 +139,7 @@ impl MathFont {
     /// # Examples
     ///
     /// ```
-    /// use latex_rust::{ttf_parser, MathFont};
+    /// use texpose::{ttf_parser, MathFont};
     ///
     /// let font = MathFont::stix_two_math().expect("STIX Two Math");
     /// let metrics = font.glyph('x').expect("x");

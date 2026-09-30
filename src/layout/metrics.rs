@@ -10,7 +10,7 @@ use crate::layout::style::MathStyle;
 /// # Examples
 ///
 /// ```
-/// use latex_rust::{MathFont, MathParams, MathStyle};
+/// use texpose::{MathFont, MathParams, MathStyle};
 ///
 /// let font = MathFont::stix_two_math().unwrap();
 /// let p = MathParams::from_font(&font).unwrap();

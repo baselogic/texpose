@@ -85,7 +85,7 @@ pub enum BoxContent {
 /// # Examples
 ///
 /// ```
-/// use latex_rust::{Dim, MathBox};
+/// use texpose::{Dim, MathBox};
 ///
 /// let packed = MathBox::hpack(vec![
 ///     MathBox::rule(Dim::one(), Dim::zero(), Dim::zero()),

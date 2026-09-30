@@ -53,7 +53,7 @@ impl fmt::Display for Token {
 /// # Examples
 ///
 /// ```
-/// use latex_rust::{format_tokens, tokenize};
+/// use texpose::{format_tokens, tokenize};
 ///
 /// let t = tokenize(r"a^2").unwrap();
 /// assert_eq!(format_tokens(&t), "char:a ^ char:2");
@@ -90,7 +90,7 @@ pub fn format_tokens(tokens: &[Token]) -> String {
 /// # Examples
 ///
 /// ```
-/// use latex_rust::{tokenize, Token};
+/// use texpose::{tokenize, Token};
 ///
 /// let t = tokenize(r"\frac{1}{2}").unwrap();
 /// assert!(matches!(&t[0], Token::Command(s) if s == "frac"));

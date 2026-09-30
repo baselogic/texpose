@@ -1,6 +1,6 @@
 //! Gold runner: `golds/layout.toml` is the layout-dimension contract.
 
-use latex_rust::{layout, parse, BoxContent, Color, MathBox, MathFont, MathStyle};
+use texpose::{layout, parse, BoxContent, Color, MathBox, MathFont, MathStyle};
 
 #[derive(Default)]
 struct Rec {

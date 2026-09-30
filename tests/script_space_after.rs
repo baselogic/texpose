@@ -1,6 +1,6 @@
-use latex_rust::{layout, parse, MathFont, MathParams, MathStyle};
+use texpose::{layout, parse, MathFont, MathParams, MathStyle};
 
-fn layout_source(source: &str, style: MathStyle, font: &MathFont) -> latex_rust::MathBox {
+fn layout_source(source: &str, style: MathStyle, font: &MathFont) -> texpose::MathBox {
     let ast = parse(source).expect("parse math case");
     layout(&ast, font, style).expect("layout math case")
 }

@@ -1,4 +1,4 @@
-use latex_rust::{layout, parse, BoxContent, MathFont, MathStyle};
+use texpose::{layout, parse, BoxContent, MathFont, MathStyle};
 
 fn ssty_alternate(face: &ttf_parser::Face<'_>, glyph_id: u16, script_level: u8) -> Option<u16> {
     let alternate_index = match script_level {

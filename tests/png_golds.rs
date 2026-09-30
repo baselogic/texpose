@@ -1,7 +1,7 @@
 //! Gold runner: `golds/png.toml` is the PNG renderer contract.
 #![cfg(feature = "png")]
 
-use latex_rust::{
+use texpose::{
     latex_to_png, named_color, render_png, BoxContent, Dim, MathBox, MathFont, PngBackground,
     PngOptions,
 };

@@ -1,6 +1,6 @@
 use core::cmp::Ordering;
 
-use latex_rust::{
+use texpose::{
     layout_with_em_size_pt, parse, BoxContent, Dim, MathBox,
     MathFont, MathParams, MathStyle,
 };

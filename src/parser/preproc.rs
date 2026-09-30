@@ -14,7 +14,7 @@
 /// # Examples
 ///
 /// ```
-/// use latex_rust::preprocess;
+/// use texpose::preprocess;
 ///
 /// assert!(preprocess(r"{a \over b}").contains(r"\frac"));
 /// ```

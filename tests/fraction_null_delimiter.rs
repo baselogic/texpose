@@ -1,4 +1,4 @@
-use latex_rust::{layout, layout_with_em_size_pt, layout_with_max_depth, parse, Dim, MathFont, MathStyle, SvgOptions};
+use texpose::{layout, layout_with_em_size_pt, layout_with_max_depth, parse, Dim, MathFont, MathStyle, SvgOptions};
 
 #[test]
 fn fraction_null_delimiter_space_remains_physical_across_em_sizes() {
@@ -34,7 +34,7 @@ fn svg_frontend_uses_its_physical_em_size_for_fraction_layout() {
     let tree = layout_with_em_size_pt(&ast, &font, MathStyle::Text, &options.font_size_pt)
         .expect("20 pt fraction");
     let expected_width_pt = &tree.width * &options.font_size_pt;
-    let svg = latex_rust::latex_to_svg(r"\frac{1}{2}", &font, &options).expect("svg");
+    let svg = texpose::latex_to_svg(r"\frac{1}{2}", &font, &options).expect("svg");
 
     assert!(
         svg.contains(&format!(

@@ -8,7 +8,7 @@
 /// # Examples
 ///
 /// ```
-/// use latex_rust::MathStyle;
+/// use texpose::MathStyle;
 ///
 /// assert_eq!(MathStyle::Display.numerator().gold(), "text");
 /// assert!(MathStyle::Display.cramp().is_cramped());

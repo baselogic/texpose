@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 
-use latex_rust::{
+use texpose::{
     layout, parse, styled_char, BoxContent, Dim, MathBox, MathFont,
     MathParams, MathStyle, TextStyle,
 };

@@ -31,7 +31,7 @@ pub enum NumberFormat {
 /// # Examples
 ///
 /// ```
-/// use latex_rust::{NumberFormat, NumberStyle, NumberingConfig};
+/// use texpose::{NumberFormat, NumberStyle, NumberingConfig};
 ///
 /// let cfg = NumberingConfig::new();
 /// assert_eq!(cfg.style, NumberStyle::Arabic);
@@ -71,7 +71,7 @@ impl NumberingConfig {
 /// # Examples
 ///
 /// ```
-/// use latex_rust::{NumberingConfig, NumberingState};
+/// use texpose::{NumberingConfig, NumberingState};
 ///
 /// let state = NumberingState::new(NumberingConfig::new());
 /// assert!(state.label("eq:1").is_none());

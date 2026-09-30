@@ -48,7 +48,7 @@ impl SymbolKind {
 /// # Examples
 ///
 /// ```
-/// use latex_rust::lookup;
+/// use texpose::lookup;
 ///
 /// let e = lookup(r"\alpha").unwrap();
 /// assert_eq!(e.glyph, "α");
@@ -131,7 +131,7 @@ fn catalog() -> &'static [SymbolEntry] {
 /// # Examples
 ///
 /// ```
-/// use latex_rust::symbols;
+/// use texpose::symbols;
 ///
 /// assert!(!symbols().is_empty());
 /// ```
@@ -155,7 +155,7 @@ pub fn symbols() -> &'static [SymbolEntry] {
 /// # Examples
 ///
 /// ```
-/// use latex_rust::lookup;
+/// use texpose::lookup;
 ///
 /// assert_eq!(lookup(r"\alpha").unwrap().glyph, "α");
 /// assert!(lookup(r"\notacommand").is_none());
@@ -183,7 +183,7 @@ pub fn lookup(query: &str) -> Option<&'static SymbolEntry> {
 /// # Examples
 ///
 /// ```
-/// use latex_rust::glyph_char;
+/// use texpose::glyph_char;
 ///
 /// assert_eq!(glyph_char(r"\alpha"), Some('α'));
 /// ```
@@ -207,7 +207,7 @@ fn is_bare_latex(latex: &str, name: &str) -> bool {
 /// # Examples
 ///
 /// ```
-/// use latex_rust::category_count;
+/// use texpose::category_count;
 ///
 /// assert!(category_count("Greek") > 0);
 /// ```

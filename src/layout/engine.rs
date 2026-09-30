@@ -56,7 +56,7 @@ const TEX_LINE_SKIP_PT: i64 = 1;
 /// # Examples
 ///
 /// ```
-/// use latex_rust::{layout, parse, MathFont, MathStyle};
+/// use texpose::{layout, parse, MathFont, MathStyle};
 ///
 /// let ast = parse(r"\frac{1}{2}").unwrap();
 /// let font = MathFont::stix_two_math().unwrap();
@@ -122,7 +122,7 @@ pub fn layout_with_em_size_pt(
 /// # Examples
 ///
 /// ```
-/// use latex_rust::{layout_with_numbering, parse, MathFont, MathStyle, NumberingState};
+/// use texpose::{layout_with_numbering, parse, MathFont, MathStyle, NumberingState};
 ///
 /// let ast = parse(r"\begin{equation}x\end{equation}").unwrap();
 /// let font = MathFont::stix_two_math().unwrap();
@@ -186,7 +186,7 @@ pub fn layout_with_numbering_and_em_size_pt(
 /// # Examples
 ///
 /// ```
-/// use latex_rust::{layout_with_max_depth, parse, MathFont, MathStyle};
+/// use texpose::{layout_with_max_depth, parse, MathFont, MathStyle};
 ///
 /// let ast = parse(r"\frac{1}{2}").unwrap();
 /// let font = MathFont::stix_two_math().unwrap();

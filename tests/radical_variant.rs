@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 
-use latex_rust::{layout, parse, BoxContent, Dim, MathFont, MathParams, MathStyle};
+use texpose::{layout, parse, BoxContent, Dim, MathFont, MathParams, MathStyle};
 
 fn selected_radical_glyph(font: &MathFont, target: &Dim, scale: &Dim) -> u16 {
     let base = font.glyph('√').expect("radical glyph");
@@ -39,7 +39,7 @@ fn selected_radical_glyph(font: &MathFont, target: &Dim, scale: &Dim) -> u16 {
         .0
 }
 
-fn radical_glyph_id(tree: &latex_rust::MathBox) -> u16 {
+fn radical_glyph_id(tree: &texpose::MathBox) -> u16 {
     let BoxContent::HList(children) = &tree.content else {
         panic!("expected radical HList");
     };

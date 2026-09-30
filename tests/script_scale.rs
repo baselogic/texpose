@@ -1,7 +1,7 @@
 //! Issue #1: script glyphs are drawn at script size by every backend, not
 //! only laid out at script size.
 
-use latex_rust::{
+use texpose::{
     latex_to_svg, layout, parse, BoxContent, Dim, MathBox, MathFont, MathStyle, SvgOptions,
 };
 
@@ -73,7 +73,7 @@ fn svg_script_glyph_transform_is_scaled() {
 #[cfg(feature = "png")]
 #[test]
 fn png_glyph_ink_follows_glyph_scale() {
-    use latex_rust::{render_png, PngOptions};
+    use texpose::{render_png, PngOptions};
     let font = MathFont::stix_two_math().expect("STIX Two Math");
     let two = layout(&parse("2").expect("parse"), &font, MathStyle::Text).expect("layout");
     let gid = match &two.content {
@@ -121,7 +121,7 @@ fn png_glyph_ink_follows_glyph_scale() {
 #[test]
 fn egui_script_glyph_mesh_is_scaled() {
     use egui::{Pos2, Shape};
-    use latex_rust::{shapes, EguiOptions};
+    use texpose::{shapes, EguiOptions};
 
     let font = MathFont::stix_two_math().expect("STIX Two Math");
     let glyph_id = font.glyph('2').expect("digit 2").glyph_id;
