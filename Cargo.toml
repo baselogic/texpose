@@ -1,0 +1,51 @@
+[package]
+name = "texpose"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.76"
+publish = false
+license = "MIT OR Apache-2.0"
+description = "Portable Rust engine for TeX/LaTeX mathematical notation parsing and layout."
+readme = "README.md"
+repository = "https://github.com/baselogic/texpose"
+homepage = "https://github.com/baselogic/texpose"
+documentation = "https://docs.rs/texpose"
+keywords = ["latex", "tex", "math", "typesetting", "rust"]
+categories = ["rendering", "science", "mathematics"]
+include = [
+    "src/**",
+    "data/**",
+    "fonts/**",
+    "golds/**",
+    "tests/**",
+    "benches/layout.rs",
+    "LICENSE-MIT",
+    "LICENSE-APACHE",
+    "README.md",
+    "NOTICE",
+]
+
+[lib]
+# Temporary inherited crate target name during the hard-fork cutover.
+name = "latex_rust"
+path = "src/lib.rs"
+
+[features]
+default = ["std"]
+std = []
+png = ["dep:tiny-skia"]
+egui = ["dep:egui"]
+
+[dependencies]
+ttf-parser = "0.25"
+tiny-skia = { version = "0.11", optional = true }
+egui = { version = "0.28", optional = true }
+
+[[bench]]
+name = "layout"
+harness = false
+required-features = []
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
