@@ -1,0 +1,75 @@
+# name	family	style	size_pt	source
+hard-script-deep	scripts	text	10	x_{i_j}^{a^{b^c}}
+hard-script-extreme	scripts	display	10	A_{B_{C_{D_E}}}^{F^{G^{H^I}}}
+hard-script-boxes	scripts	display	10	x_{\frac{a}{b}}^{\sqrt{1+\frac{c}{d}}}
+hard-script-on-delimited	scripts	display	10	\left(\frac{a}{b}\right)_{\sum_{i=1}^{n}i}^{\prod_{j=1}^{m}j}
+hard-fraction-depth4	fractions	display	10	\frac{1}{1+\frac{1}{1+\frac{1}{1+x}}}
+hard-fraction-balanced	fractions	display	10	\frac{\frac{a_1+a_2}{b_1+b_2}}{\frac{c_1+c_2}{d_1+d_2}}
+hard-fraction-radicals	fractions	display	10	\frac{\sqrt{1+\frac{x^2}{1+x^2}}}{1+\sqrt[3]{\frac{1-\alpha}{1+\beta}}}
+hard-radical-nested	radicals	display	10	\sqrt{1+\sqrt{1+\sqrt{1+\sqrt{1+x}}}}
+hard-radical-index-complex	radical-degree	display	10	\sqrt[\frac{1+\alpha}{2}]{\frac{x_i^{2n}+y_j^{2n}}{1+\sqrt{1+z^2}}}
+hard-radical-scripted	radicals	display	10	\sqrt[7]{\frac{x_i^2+y_j^2}{1+\alpha}}
+hard-delim-nested-fraction	delimiters	display	10	\left[\frac{\frac{a}{b}}{\frac{c}{d}}\right]
+hard-delim-radical	delimiters	display	10	\left\{\sqrt{\frac{1+x}{1-x}}\right\}
+hard-delim-angle-sum	delimiters	display	10	\left\langle\frac{\sum_{i=1}^{n}x_i}{\sqrt{\sum_{i=1}^{n}x_i^2}}\right\rangle
+hard-delim-abs	delimiters	display	10	\left|\frac{a+b}{c+d}\right|
+hard-delim-vert	delimiters	display	10	\left\Vert\frac{a+b}{c+d}\right\Vert
+hard-delim-eval	delimiters	display	10	\left.\frac{d}{dx}x^n\right|_{x=1}
+hard-explicit-big	delimiters	display	10	\Biggl\{\frac{\frac{a}{b}}{\frac{c}{d}}\Biggr\}
+hard-accent-long-hat	accents	display	10	\widehat{ABCDEFGHIJK}
+hard-accent-long-tilde	accents	display	10	\widetilde{ABCDEFGHIJK}
+hard-accent-nested	accents	display	10	\widehat{\widetilde{\widehat{ABC}}}
+hard-accent-fraction	accents	display	10	\widehat{\frac{a+b}{c+d}}
+hard-accent-radical	accents	display	10	\widetilde{\sqrt{x^2+y^2}}
+hard-accent-deep-script	accents	display	10	\widehat{X_{i_j}^{a^{b^c}}}
+hard-overline-fraction	accents	display	10	\overline{\frac{a+b}{c+d}}
+hard-overarrow-long	accents	display	10	\overrightarrow{ABCDEFGHIJK}
+hard-overbrace	accents	display	10	\overbrace{a+b+c+d+e}^{n\ \mathrm{terms}}
+hard-underbrace	accents	display	10	\underbrace{x_1+x_2+\cdots+x_n}_{\mathrm{sum}}
+hard-sum-chain	operators	display	10	\sum_{i=1}^{n}\sum_{j=1}^{m}\sum_{k=1}^{p}a_{ijk}
+hard-product-delimited	operators	display	10	\prod_{i=1}^{n}\left(1+\frac{x_i}{1+x_i^2}\right)
+hard-sum-substack	operators	display	10	\sum_{\substack{1\le i\le n\\1\le j\le m\\i\ne j}}\frac{x_i-x_j}{1+(x_i-x_j)^2}
+hard-sum-substack-extreme	operators	display	10	\sum_{\substack{1\le i\le n\\1\le j\le m\\1\le k\le p\\i\ne j\\j\ne k\\i\ne k}}a_{ijk}
+hard-integral-gaussian	integrals	display	10	\int_{-\infty}^{\infty}e^{-x^2}\,dx
+hard-integral-rational	integrals	display	10	\int_0^\infty\frac{x^{\alpha-1}}{1+x}\,dx
+hard-double-integral	integrals	display	10	\iint\frac{1}{1+x^2+y^2}\,dx\,dy
+hard-contour-integral	integrals	display	10	\oint_\Gamma\frac{dz}{z}
+hard-matrix-fractions	matrices	display	10	\begin{pmatrix}\frac{a}{b}&\sqrt{x}&\sum_{i=1}^{n}i\\\widehat{J}_G&\int_0^1x\,dx&x_{i_j}^{a^{b^c}}\\\overbrace{a+b+c}^{3}&\left(\frac{p}{q}\right)^2&\widetilde{XYZ}\end{pmatrix}
+hard-matrix-3x3	matrices	display	10	\begin{bmatrix}1&2&3\\4&5&6\\7&8&9\end{bmatrix}
+hard-determinant	matrices	display	10	\begin{vmatrix}a&b\\c&d\end{vmatrix}
+hard-cases	cases	display	10	\begin{cases}x^2,&x<0,\\\sqrt{x},&0\le x<1,\\\frac{1}{1+x},&x\ge1.\end{cases}
+hard-aligned	aligned	display	10	\begin{aligned}a&=b+c+d,\\&=e+f+g,\\&=\frac{x+y}{z}+\sqrt{w}.\end{aligned}
+hard-aligned-model	aligned	display	10	\begin{aligned}\widehat{J}_G&=b_0+b_EE+b_RR+b_PP+b_DD+b_VV+\varepsilon,\\R^2&=1-\frac{\sum_i(y_i-\widehat y_i)^2}{\sum_i(y_i-\bar y)^2}.\end{aligned}
+hard-overset-fraction	overunder	display	10	\overset{\widehat{ABC}}{\frac{a+b}{c+d}}
+hard-phantom-full	phantom	display	10	a+\phantom{\frac{X}{Y}}+b
+hard-vphantom-delim	phantom	display	10	\left(\vphantom{\frac{\frac{A}{B}}{\frac{C}{D}}}x\right)
+hard-wide-expression	composite	display	10	a_1+a_2+a_3+a_4+a_5+a_6+a_7+a_8+a_9+a_{10}+b_1+b_2+b_3+b_4+b_5+b_6+b_7+b_8+b_9+b_{10}
+hard-depth-typography	composite	display	10	\left(\frac{g_j+y_q+p_g}{A^B+C^D}\right)_{gypq}^{ABCDEFGHIJKLMNOPQRSTUVWXYZ}
+hard-stat-r2	composite	display	10	R^2=1-\frac{\sum_{i=1}^{n}\left(y_i-\widehat y_i\right)^2}{\sum_{i=1}^{n}\left(y_i-\bar y\right)^2}
+hard-logit	composite	display	10	\operatorname{logit}\left[P(Y_i=1\mid X_i)\right]=\beta_0+\sum_{j=1}^{p}\beta_jX_{ij}
+hard-gradient	calculus	display	10	\nabla f=\left(\frac{\partial f}{\partial x},\frac{\partial f}{\partial y},\frac{\partial f}{\partial z}\right)
+hard-laplacian	calculus	display	10	\nabla^2f=\frac{\partial^2f}{\partial x^2}+\frac{\partial^2f}{\partial y^2}+\frac{\partial^2f}{\partial z^2}
+hard-tensor-einstein	tensors	display	10	G_{\mu\nu}+\Lambda g_{\mu\nu}=\frac{8\pi G}{c^4}T_{\mu\nu}
+hard-tensor-double-sum	tensors	display	10	\sum_{\mu=0}^{3}\sum_{\nu=0}^{3}g^{\mu\nu}T_{\mu\nu}
+hard-brutal-core	composite	display	10	\left\{\frac{\sum_{\substack{1\le i\le n\\1\le j\le m\\i\ne j}}\left[\widehat{\mathbf X_{ij}^{2}}+\widetilde{\frac{\alpha_i+\beta_j}{1+\gamma_{ij}^2}}\right]}{\sqrt[3]{1+\prod_{k=1}^{p}\left(1+\frac{\int_0^\infty e^{-t^2}\cos(kt)\,dt}{1+k^2}\right)}}\right\}_{\mathrm{inferior}}^{\mathrm{superior}}
+# Physical-size sweep. Same semantic case at four TeX em sizes.
+size-frac-6pt	size-sweep	display	6	\frac{a+b}{c+d}
+size-frac-10pt	size-sweep	display	10	\frac{a+b}{c+d}
+size-frac-20pt	size-sweep	display	20	\frac{a+b}{c+d}
+size-frac-40pt	size-sweep	display	40	\frac{a+b}{c+d}
+size-nested-frac-6pt	size-sweep	display	6	\frac{1+\frac{a}{b}}{1+\frac{c}{d}}
+size-nested-frac-10pt	size-sweep	display	10	\frac{1+\frac{a}{b}}{1+\frac{c}{d}}
+size-nested-frac-20pt	size-sweep	display	20	\frac{1+\frac{a}{b}}{1+\frac{c}{d}}
+size-nested-frac-40pt	size-sweep	display	40	\frac{1+\frac{a}{b}}{1+\frac{c}{d}}
+size-delim-6pt	size-sweep	display	6	\left(\frac{a+b}{c+d}\right)
+size-delim-10pt	size-sweep	display	10	\left(\frac{a+b}{c+d}\right)
+size-delim-20pt	size-sweep	display	20	\left(\frac{a+b}{c+d}\right)
+size-delim-40pt	size-sweep	display	40	\left(\frac{a+b}{c+d}\right)
+size-radical-frac-6pt	size-sweep	display	6	\sqrt{\frac{a+b}{c+d}}
+size-radical-frac-10pt	size-sweep	display	10	\sqrt{\frac{a+b}{c+d}}
+size-radical-frac-20pt	size-sweep	display	20	\sqrt{\frac{a+b}{c+d}}
+size-radical-frac-40pt	size-sweep	display	40	\sqrt{\frac{a+b}{c+d}}
+size-indexed-radical-6pt	size-sweep	display	6	\sqrt[\frac{1+\alpha}{2}]{x}
+size-indexed-radical-10pt	size-sweep	display	10	\sqrt[\frac{1+\alpha}{2}]{x}
+size-indexed-radical-20pt	size-sweep	display	20	\sqrt[\frac{1+\alpha}{2}]{x}
+size-indexed-radical-40pt	size-sweep	display	40	\sqrt[\frac{1+\alpha}{2}]{x}
