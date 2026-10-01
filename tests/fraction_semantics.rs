@@ -126,14 +126,14 @@ fn binom_choose_over_and_nested_forms_are_structural() {
 
 #[test]
 fn plain_tex_font_switches_and_mbox_are_parsed_without_preprocessing() {
-    assert_eq!(parse(r"{\rm ab}").unwrap().gold(), r#"(text rm "ab")"#);
+    assert_eq!(parse(r"{\rm ab}").unwrap().gold(), r#"(mathalpha rm "ab")"#);
     assert_eq!(
         parse(r"{x\bf yz}").unwrap().gold(),
-        r#"(row (atom Ord "x") (text bf "yz"))"#
+        r#"(row (atom Ord "x") (mathalpha bf "yz"))"#
     );
     assert_eq!(
         parse(r"\mbox{Diagonal}").unwrap().gold(),
-        r#"(text text "Diagonal")"#
+        r#"(literal "Diagonal")"#
     );
 }
 
@@ -243,9 +243,9 @@ fn infix_fraction_stays_at_group_level_across_declarations() {
     };
     assert_eq!(
         styled.numerator.gold(),
-        r#"(row (atom Ord "a") (text bf "b"))"#
+        r#"(row (atom Ord "a") (mathalpha bf "b"))"#
     );
-    assert_eq!(styled.denominator.gold(), r#"(text bf "c")"#);
+    assert_eq!(styled.denominator.gold(), r#"(mathalpha bf "c")"#);
 }
 
 #[test]

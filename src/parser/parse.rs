@@ -372,17 +372,17 @@ impl ParsedList {
         }
     }
 
-    fn with_text_style(self, style: TextStyle) -> Self {
+    fn with_math_alphabet(self, style: TextStyle) -> Self {
         match self {
-            Self::Plain(node) => Self::Plain(collapse_text(apply_text_style(node, style))),
+            Self::Plain(node) => Self::Plain(collapse_runs(apply_math_alphabet(node, style))),
             Self::Infix {
                 kind,
                 numerator,
                 denominator,
             } => Self::Infix {
                 kind,
-                numerator: collapse_text(apply_text_style(numerator, style)),
-                denominator: collapse_text(apply_text_style(denominator, style)),
+                numerator: collapse_runs(apply_math_alphabet(numerator, style)),
+                denominator: collapse_runs(apply_math_alphabet(denominator, style)),
             },
         }
     }
@@ -541,11 +541,11 @@ impl Parser {
                 break;
             }
             if let Token::Command(name) = &tok {
-                if let Some(style) = plain_tex_font_style(name) {
+                if let Some(style) = plain_tex_math_alphabet(name) {
                     self.bump();
                     let rest = self
                         .parse_list_inner(stop, allow_infix_fraction)?
-                        .with_text_style(style)
+                        .with_math_alphabet(style)
                         .prepend(items);
                     return Ok(rest);
                 }
@@ -906,20 +906,23 @@ impl Parser {
                     None,
                 ))
             }
-            "mathrm" | "textrm" => self.font(TextStyle::Rm),
-            "mathbf" | "textbf" => self.font(TextStyle::Bf),
-            "mathit" | "textit" => self.font(TextStyle::It),
-            "mathsf" | "textsf" => self.font(TextStyle::Sf),
-            "mathtt" | "texttt" => self.font(TextStyle::Tt),
-            "mathbb" => self.font(TextStyle::Bb),
-            "mathcal" => self.font(TextStyle::Cal),
-            "mathfrak" => self.font(TextStyle::Frak),
-            "mathscr" => self.font(TextStyle::Scr),
-            "boldsymbol" => self.font(TextStyle::Boldsymbol),
-            "pmb" => self.font(TextStyle::Pmb),
+            "mathrm" => self.math_alphabet(TextStyle::Rm),
+            "mathbf" => self.math_alphabet(TextStyle::Bf),
+            "mathit" => self.math_alphabet(TextStyle::It),
+            "mathsf" => self.math_alphabet(TextStyle::Sf),
+            "mathtt" => self.math_alphabet(TextStyle::Tt),
+            "mathbb" => self.math_alphabet(TextStyle::Bb),
+            "mathcal" => self.math_alphabet(TextStyle::Cal),
+            "mathfrak" => self.math_alphabet(TextStyle::Frak),
+            "mathscr" => self.math_alphabet(TextStyle::Scr),
+            "boldsymbol" => self.math_alphabet(TextStyle::Boldsymbol),
+            "pmb" => self.math_alphabet(TextStyle::Pmb),
+            "textrm" | "textbf" | "textit" | "textsf" | "texttt" => {
+                Err(ParseError::unsupported(command_span, format!("\\{name}")))
+            }
             "xrightarrow" => self.parse_xarrow("longrightarrow"),
             "xleftarrow" => self.parse_xarrow("longleftarrow"),
-            "text" | "mbox" => self.parse_text(TextStyle::Text),
+            "text" | "mbox" => self.parse_literal_text(),
             "operatorname" => {
                 let name = self.collect_group_text()?;
                 Ok(MathNode::Operator(name, false))
@@ -1016,11 +1019,8 @@ impl Parser {
             "nonumber" | "notag" => Ok(MathNode::NoNumber),
             "hline" => Ok(MathNode::Hline),
             "intertext" => {
-                let s = self.collect_group_text()?;
-                Ok(MathNode::Intertext(Box::new(MathNode::Text(
-                    s,
-                    TextStyle::Text,
-                ))))
+                let s = self.collect_literal_text()?;
+                Ok(MathNode::Intertext(Box::new(MathNode::LiteralText(s))))
             }
             "substack" => self.parse_substack(),
             "displaystyle" => Ok(MathNode::Style(MathStyleDeclaration::Display)),
@@ -1100,14 +1100,13 @@ impl Parser {
         ))
     }
 
-    fn font(&mut self, style: TextStyle) -> Result<MathNode, ParseError> {
+    fn math_alphabet(&mut self, style: TextStyle) -> Result<MathNode, ParseError> {
         let inner = self.parse_arg()?;
-        Ok(collapse_text(apply_text_style(inner, style)))
+        Ok(collapse_runs(apply_math_alphabet(inner, style)))
     }
 
-    fn parse_text(&mut self, style: TextStyle) -> Result<MathNode, ParseError> {
-        let s = self.collect_group_text()?;
-        Ok(MathNode::Text(s, style))
+    fn parse_literal_text(&mut self) -> Result<MathNode, ParseError> {
+        Ok(MathNode::LiteralText(self.collect_literal_text()?))
     }
 
     fn parse_delimited(&mut self) -> Result<MathNode, ParseError> {
@@ -1278,11 +1277,8 @@ impl Parser {
             }
             if matches!(self.peek(), Some(Token::Command(n)) if n == "intertext") {
                 self.bump();
-                let text = self.collect_group_text()?;
-                rows.push(EnvRow::Intertext(Box::new(MathNode::Text(
-                    text,
-                    TextStyle::Text,
-                ))));
+                let text = self.collect_literal_text()?;
+                rows.push(EnvRow::Intertext(Box::new(MathNode::LiteralText(text))));
                 continue;
             }
             let mut cells = Vec::new();
@@ -1484,6 +1480,77 @@ impl Parser {
             .define(&name, &model, &spec.text)
             .map_err(|error| color_err(error, spec.span))?;
         Ok(())
+    }
+
+    fn collect_literal_text(&mut self) -> Result<String, ParseError> {
+        self.skip_ws();
+        let open_span = self.current_span();
+        match self.bump_raw() {
+            Some(Token::BeginGroup) => {}
+            _ => {
+                return Err(self.malformed_at(
+                    ParseErrorKind::MalformedArgument,
+                    open_span,
+                    "expected '{'",
+                ))
+            }
+        }
+
+        let depth = self.depth.checked_add(1).ok_or_else(|| {
+            ParseError::resource_limit(open_span, ParseResource::NestingDepth, self.max_depth)
+        })?;
+        if depth > self.max_depth {
+            return Err(ParseError::resource_limit(
+                open_span,
+                ParseResource::NestingDepth,
+                self.max_depth,
+            ));
+        }
+
+        let mut text = String::new();
+        loop {
+            let token_span = self.current_span();
+            match self.bump_raw() {
+                None => {
+                    return Err(self.malformed_at(
+                        ParseErrorKind::UnclosedGroup,
+                        open_span,
+                        "unmatched '{'",
+                    ))
+                }
+                Some(Token::EndGroup) => return Ok(text),
+                Some(Token::Space) => text.push(' '),
+                Some(Token::Char(c)) => text.push(c),
+                Some(Token::Command(name)) => match name.as_str() {
+                    "{" => text.push('{'),
+                    "}" => text.push('}'),
+                    "%" => text.push('%'),
+                    "$" => text.push('$'),
+                    "#" => text.push('#'),
+                    "&" => text.push('&'),
+                    "_" => text.push('_'),
+                    " " => text.push(' '),
+                    _ => {
+                        return Err(ParseError::unsupported(
+                            token_span,
+                            format!("literal text command \\{name}"),
+                        ))
+                    }
+                },
+                Some(Token::BeginGroup) => {
+                    return Err(ParseError::unsupported(
+                        token_span,
+                        "nested literal-text groups".into(),
+                    ))
+                }
+                Some(other) => {
+                    return Err(ParseError::unsupported(
+                        token_span,
+                        format!("literal text token {other}"),
+                    ))
+                }
+            }
+        }
     }
 
     fn collect_group_text(&mut self) -> Result<String, ParseError> {
@@ -1717,7 +1784,8 @@ fn enforce_ast_node_limit(
             | MathNode::Label(_)
             | MathNode::NoNumber
             | MathNode::Hline
-            | MathNode::Text(_, _)
+            | MathNode::MathAlphabet(_, _)
+            | MathNode::LiteralText(_)
             | MathNode::Space(_)
             | MathNode::Style(_)
             | MathNode::Operator(_, _)
@@ -1983,23 +2051,23 @@ fn apply_scripts(nucleus: MathNode, sub: Option<MathNode>, sup: Option<MathNode>
     }
 }
 
-/// Apply a math font style to a whole subformula.
+/// Apply a math-alphabet style to stylable mathematical characters.
 ///
-/// A LaTeX font command such as `\mathrm` switches the font for everything in
-/// its argument, not only for the characters at the top of the argument's list,
-/// so this descends into scripts, fractions, radicals, accents and delimited
-/// bodies as well as rows. Delimiters themselves are `Delimiter` values rather
-/// than nodes and are left alone, as they are in LaTeX.
-fn apply_text_style(node: MathNode, style: TextStyle) -> MathNode {
+/// A math-alphabet command such as `\mathrm` descends through mathematical
+/// structure, but literal text is a separate semantic construct and is never
+/// restyled by the surrounding math alphabet. Delimiters are `Delimiter` values
+/// rather than nodes and are left unchanged.
+fn apply_math_alphabet(node: MathNode, style: TextStyle) -> MathNode {
     match node {
         MathNode::Atom(c, _) if crate::style_map::is_stylable(c) => {
-            MathNode::Text(c.to_string(), style)
+            MathNode::MathAlphabet(c.to_string(), style)
         }
-        MathNode::Text(s, _) => MathNode::Text(s, style),
+        MathNode::MathAlphabet(s, _) => MathNode::MathAlphabet(s, style),
+        MathNode::LiteralText(s) => MathNode::LiteralText(s),
         MathNode::Symbol(name) => {
             if let Some(ch) = crate::symbols::glyph_char(&name) {
                 if crate::style_map::is_stylable(ch) {
-                    MathNode::Text(ch.to_string(), style)
+                    MathNode::MathAlphabet(ch.to_string(), style)
                 } else {
                     MathNode::Symbol(name)
                 }
@@ -2007,64 +2075,69 @@ fn apply_text_style(node: MathNode, style: TextStyle) -> MathNode {
                 MathNode::Symbol(name)
             }
         }
-        MathNode::Row(v) => collapse_text(MathNode::Row(
-            v.into_iter().map(|n| apply_text_style(n, style)).collect(),
+        MathNode::Row(v) => collapse_runs(MathNode::Row(
+            v.into_iter()
+                .map(|n| apply_math_alphabet(n, style))
+                .collect(),
         )),
-        MathNode::Substack(v) => {
-            MathNode::Substack(v.into_iter().map(|n| apply_text_style(n, style)).collect())
-        }
+        MathNode::Substack(v) => MathNode::Substack(
+            v.into_iter()
+                .map(|n| apply_math_alphabet(n, style))
+                .collect(),
+        ),
         MathNode::Superscript(b, sup) => MathNode::Superscript(
-            Box::new(apply_text_style(*b, style)),
-            Box::new(apply_text_style(*sup, style)),
+            Box::new(apply_math_alphabet(*b, style)),
+            Box::new(apply_math_alphabet(*sup, style)),
         ),
         MathNode::Subscript(b, sub) => MathNode::Subscript(
-            Box::new(apply_text_style(*b, style)),
-            Box::new(apply_text_style(*sub, style)),
+            Box::new(apply_math_alphabet(*b, style)),
+            Box::new(apply_math_alphabet(*sub, style)),
         ),
         MathNode::SubSup(b, sub, sup) => MathNode::SubSup(
-            Box::new(apply_text_style(*b, style)),
-            Box::new(apply_text_style(*sub, style)),
-            Box::new(apply_text_style(*sup, style)),
+            Box::new(apply_math_alphabet(*b, style)),
+            Box::new(apply_math_alphabet(*sub, style)),
+            Box::new(apply_math_alphabet(*sup, style)),
         ),
         MathNode::Fraction(mut spec) => {
-            spec.numerator = Box::new(apply_text_style(*spec.numerator, style));
-            spec.denominator = Box::new(apply_text_style(*spec.denominator, style));
+            spec.numerator = Box::new(apply_math_alphabet(*spec.numerator, style));
+            spec.denominator = Box::new(apply_math_alphabet(*spec.denominator, style));
             MathNode::Fraction(spec)
         }
         MathNode::Radical(index, body) => MathNode::Radical(
-            index.map(|i| Box::new(apply_text_style(*i, style))),
-            Box::new(apply_text_style(*body, style)),
+            index.map(|i| Box::new(apply_math_alphabet(*i, style))),
+            Box::new(apply_math_alphabet(*body, style)),
         ),
         MathNode::Limits(body, mode) => {
-            MathNode::Limits(Box::new(apply_text_style(*body, style)), mode)
+            MathNode::Limits(Box::new(apply_math_alphabet(*body, style)), mode)
         }
         MathNode::Accent(body, kind) => {
-            MathNode::Accent(Box::new(apply_text_style(*body, style)), kind)
+            MathNode::Accent(Box::new(apply_math_alphabet(*body, style)), kind)
         }
         MathNode::Delimited(open, body, close) => {
-            MathNode::Delimited(open, Box::new(apply_text_style(*body, style)), close)
+            MathNode::Delimited(open, Box::new(apply_math_alphabet(*body, style)), close)
         }
         other => other,
     }
 }
 
-fn collapse_text(node: MathNode) -> MathNode {
+fn collapse_runs(node: MathNode) -> MathNode {
     let MathNode::Row(v) = node else {
         return node;
     };
     let mut out: Vec<MathNode> = Vec::new();
     for n in v {
         match (out.last_mut(), &n) {
-            (Some(MathNode::Text(a, sa)), MathNode::Text(b, sb)) if sa == sb => {
+            (Some(MathNode::MathAlphabet(a, sa)), MathNode::MathAlphabet(b, sb)) if sa == sb => {
                 a.push_str(b);
             }
+            (Some(MathNode::LiteralText(a)), MathNode::LiteralText(b)) => a.push_str(b),
             _ => out.push(n),
         }
     }
     wrap_row(out)
 }
 
-fn plain_tex_font_style(name: &str) -> Option<TextStyle> {
+fn plain_tex_math_alphabet(name: &str) -> Option<TextStyle> {
     match name {
         "rm" => Some(TextStyle::Rm),
         "bf" => Some(TextStyle::Bf),

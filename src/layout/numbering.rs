@@ -215,7 +215,8 @@ fn collect_node(node: &MathNode, st: &mut NumberingState) {
         }
         MathNode::Atom(_, _)
         | MathNode::SizedDelim(_, _, _)
-        | MathNode::Text(_, _)
+        | MathNode::MathAlphabet(_, _)
+        | MathNode::LiteralText(_)
         | MathNode::Space(_)
         | MathNode::Style(_)
         | MathNode::Operator(_, _)
@@ -294,7 +295,7 @@ fn assign(number: &EqNumber, st: &mut NumberingState) -> Option<String> {
 fn node_plain(n: &MathNode) -> String {
     match n {
         MathNode::Atom(c, _) => c.to_string(),
-        MathNode::Text(s, _) => s.clone(),
+        MathNode::MathAlphabet(s, _) | MathNode::LiteralText(s) => s.clone(),
         MathNode::Symbol(name) => name.clone(),
         MathNode::Row(v) => v.iter().map(node_plain).collect(),
         MathNode::Tag { body, .. } => node_plain(body),

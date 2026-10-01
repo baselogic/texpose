@@ -407,103 +407,103 @@ expect = "(accent not (atom Rel \"=\"))"
 name = "font_rm"
 kind = "ast"
 input = "\\mathrm{R}"
-expect = "(text rm \"R\")"
+expect = "(mathalpha rm \"R\")"
 
 [[gold]]
 name = "font_bf"
 kind = "ast"
 input = "\\mathbf{R}"
-expect = "(text bf \"R\")"
+expect = "(mathalpha bf \"R\")"
 
 [[gold]]
 name = "font_it"
 kind = "ast"
 input = "\\mathit{R}"
-expect = "(text it \"R\")"
+expect = "(mathalpha it \"R\")"
 
 [[gold]]
 name = "font_rm_script_base"
 kind = "ast"
 input = "\\mathrm{rad\\,s^{-1}}"
-expect = "(row (text rm \"rad\") (space thin) (sup (text rm \"s\") (row (atom Bin \"-\") (text rm \"1\"))))"
+expect = "(row (mathalpha rm \"rad\") (space thin) (sup (mathalpha rm \"s\") (row (atom Bin \"-\") (mathalpha rm \"1\"))))"
 
 [[gold]]
 name = "font_rm_script"
 kind = "ast"
 input = "\\mathrm{x^a}"
-expect = "(sup (text rm \"x\") (text rm \"a\"))"
+expect = "(sup (mathalpha rm \"x\") (mathalpha rm \"a\"))"
 
 [[gold]]
 name = "font_bf_fraction"
 kind = "ast"
 input = "\\mathbf{\\frac{a}{b}}"
-expect = "(frac (text bf \"a\") (text bf \"b\"))"
+expect = "(frac (mathalpha bf \"a\") (mathalpha bf \"b\"))"
 
 [[gold]]
 name = "font_rm_radical"
 kind = "ast"
 input = "\\mathrm{\\sqrt{n}}"
-expect = "(sqrt (text rm \"n\"))"
+expect = "(sqrt (mathalpha rm \"n\"))"
 
 [[gold]]
 name = "font_bf_delimited"
 kind = "ast"
 input = "\\mathbf{\\left(x\\right)}"
-expect = "(delim ( (text bf \"x\") ))"
+expect = "(delim ( (mathalpha bf \"x\") ))"
 
 [[gold]]
 name = "font_sf"
 kind = "ast"
 input = "\\mathsf{R}"
-expect = "(text sf \"R\")"
+expect = "(mathalpha sf \"R\")"
 
 [[gold]]
 name = "font_tt"
 kind = "ast"
 input = "\\mathtt{R}"
-expect = "(text tt \"R\")"
+expect = "(mathalpha tt \"R\")"
 
 [[gold]]
 name = "font_bb"
 kind = "ast"
 input = "\\mathbb{R}"
-expect = "(text bb \"R\")"
+expect = "(mathalpha bb \"R\")"
 
 [[gold]]
 name = "font_cal"
 kind = "ast"
 input = "\\mathcal{L}"
-expect = "(text cal \"L\")"
+expect = "(mathalpha cal \"L\")"
 
 [[gold]]
 name = "font_frak"
 kind = "ast"
 input = "\\mathfrak{g}"
-expect = "(text frak \"g\")"
+expect = "(mathalpha frak \"g\")"
 
 [[gold]]
 name = "font_scr"
 kind = "ast"
 input = "\\mathscr{H}"
-expect = "(text scr \"H\")"
+expect = "(mathalpha scr \"H\")"
 
 [[gold]]
 name = "font_boldsymbol"
 kind = "ast"
 input = "\\boldsymbol{x}"
-expect = "(text boldsymbol \"x\")"
+expect = "(mathalpha boldsymbol \"x\")"
 
 [[gold]]
 name = "font_pmb"
 kind = "ast"
 input = "\\pmb{x}"
-expect = "(text pmb \"x\")"
+expect = "(mathalpha pmb \"x\")"
 
 [[gold]]
 name = "text"
 kind = "ast"
 input = "\\text{hello world}"
-expect = "(text text \"hello world\")"
+expect = "(literal \"hello world\")"
 
 [[gold]]
 name = "operatorname"

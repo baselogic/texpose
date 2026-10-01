@@ -168,9 +168,11 @@ pub(super) fn noad_class(node: &MathNode) -> Option<AtomKind> {
         MathNode::OverUnder(base, _, _) => noad_class(base),
         MathNode::Accent(base, AccentKind::Not) => noad_class(base),
         MathNode::Accent(_, _) | MathNode::CancelTo(_, _) => Some(AtomKind::Ord),
-        MathNode::Text(_, _) | MathNode::Ref(_) | MathNode::Tag { .. } | MathNode::Intertext(_) => {
-            Some(AtomKind::Ord)
-        }
+        MathNode::MathAlphabet(_, _)
+        | MathNode::LiteralText(_)
+        | MathNode::Ref(_)
+        | MathNode::Tag { .. }
+        | MathNode::Intertext(_) => Some(AtomKind::Ord),
         MathNode::Color(_, body) | MathNode::TextColor(_, body) | MathNode::Phantom(_, body) => {
             noad_class(body)
         }

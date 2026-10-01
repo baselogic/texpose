@@ -553,7 +553,8 @@ impl Engine<'_> {
                     bx,
                 })
             }
-            MathNode::Text(s, ts) => self.text_run(s, *ts, style),
+            MathNode::MathAlphabet(s, ts) => self.math_alphabet_run(s, *ts, style),
+            MathNode::LiteralText(s) => self.literal_text_run(s, style),
             MathNode::OverUnder(base, over, under) => {
                 let (under_style, over_style) = script_styles(style);
                 let mut b = self.layout(base, style)?;
@@ -683,7 +684,7 @@ impl Engine<'_> {
         }
     }
 
-    fn text_run(&self, s: &str, ts: TextStyle, style: MathStyle) -> Result<Item, Error> {
+    fn math_alphabet_run(&self, s: &str, ts: TextStyle, style: MathStyle) -> Result<Item, Error> {
         if ts == TextStyle::Pmb {
             return self.pmb(s, style);
         }
@@ -703,8 +704,32 @@ impl Engine<'_> {
         })
     }
 
+    fn literal_text_run(&self, s: &str, style: MathStyle) -> Result<Item, Error> {
+        let mut kids = Vec::with_capacity(s.chars().count());
+        for ch in s.chars() {
+            kids.push(self.literal_glyph(ch, style)?);
+        }
+        Ok(Item {
+            bx: MathBox::hpack(kids)?,
+            class: Some(AtomKind::Ord),
+        })
+    }
+
+    fn literal_glyph(&self, ch: char, style: MathStyle) -> Result<MathBox, Error> {
+        let glyph = self.font.glyph(ch)?;
+        let scale = self.params.scale(style);
+        Ok(MathBox {
+            width: glyph.advance.checked_mul(&scale)?,
+            height: glyph.height.checked_mul(&scale)?,
+            depth: glyph.depth.checked_mul(&scale)?,
+            italic: Dim::zero(),
+            shift: Dim::zero(),
+            content: BoxContent::glyph(ch, glyph.glyph_id, scale),
+        })
+    }
+
     fn pmb(&self, s: &str, style: MathStyle) -> Result<Item, Error> {
-        let base = self.text_run(s, TextStyle::Rm, style)?;
+        let base = self.math_alphabet_run(s, TextStyle::Rm, style)?;
         let dx = self.params.em(style)?.checked_div(&Dim::from_i64(25))?;
         let shifted = MathBox::hpack(vec![MathBox::kern(dx.clone()), base.bx.clone()])?;
         Ok(Item {
@@ -754,7 +779,7 @@ impl Engine<'_> {
                     }
                 }
 
-                let op = self.text_run(name, TextStyle::Rm, style)?.bx;
+                let op = self.math_alphabet_run(name, TextStyle::Rm, style)?.bx;
                 if lower.is_none() && upper.is_none() {
                     return Ok(Item {
                         bx: op,
@@ -2286,7 +2311,7 @@ impl Engine<'_> {
     }
 
     fn number_box(&self, s: &str, style: MathStyle) -> Result<MathBox, Error> {
-        Ok(self.text_run(s, TextStyle::Rm, style)?.bx)
+        Ok(self.math_alphabet_run(s, TextStyle::Rm, style)?.bx)
     }
 
     fn attach_number(
@@ -2306,7 +2331,7 @@ impl Engine<'_> {
         let s = self.numbers.lookup(key).ok_or_else(|| Error::Unsupported {
             what: format!("undefined label {key}"),
         })?;
-        self.text_run(s, TextStyle::Rm, style)
+        self.math_alphabet_run(s, TextStyle::Rm, style)
     }
 
     fn tag_box(&self, star: bool, body: &MathNode, style: MathStyle) -> Result<Item, Error> {
@@ -3409,7 +3434,7 @@ fn single_glyph(name: &str) -> Option<char> {
 ///
 /// `-` in math mode is `\mathchar"2200`, the minus sign, not the text hyphen.
 /// The atom keeps its class, so binary-operator spacing is unchanged; `-`
-/// inside `\text{...}` arrives as [`MathNode::Text`] and is not mapped.
+/// inside `\text{...}` arrives as [`MathNode::LiteralText`] and is not mapped.
 fn math_char(c: char) -> char {
     match c {
         '-' => '\u{2212}',
@@ -3422,7 +3447,8 @@ fn math_char(c: char) -> char {
 /// Latin letters and lowercase Greek (with its variant forms) are drawn from
 /// the Mathematical Italic block, as plain TeX's `\fam1` does. Uppercase
 /// Greek, digits and everything else stay upright. Explicit font commands
-/// (`\mathrm`, `\text`, ...) arrive as [`MathNode::Text`] and bypass this.
+/// Math-alphabet runs arrive as [`MathNode::MathAlphabet`] and literal text as
+/// [`MathNode::LiteralText`]; both bypass default-variable remapping here.
 fn is_default_math_variable(c: char) -> bool {
     let lower_greek = ('\u{03B1}'..='\u{03C9}').contains(&c);
 

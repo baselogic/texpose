@@ -34,10 +34,10 @@ Primary references used by this contract map:
 
 ## Math alphabets
 
-- **Accepted syntax:** `\mathrm`, `\textrm`, `\mathbf`, `\textbf`, `\mathit`, `\textit`, `\mathsf`, `\textsf`, `\mathtt`, `\texttt`, `\mathbb`, `\mathcal`, `\mathfrak`, `\mathscr`, `\boldsymbol`, `\pmb`; group-level plain-TeX switches `\rm`, `\bf`, `\cal`, `\it`, `\sf`, `\tt` are parsed structurally.
-- **Semantic representation:** stylable characters become `MathNode::Text(String, TextStyle)` while non-stylable syntax keeps its semantic node and styled descendants.
+- **Accepted syntax:** `\mathrm`, `\mathbf`, `\mathit`, `\mathsf`, `\mathtt`, `\mathbb`, `\mathcal`, `\mathfrak`, `\mathscr`, `\boldsymbol`, `\pmb`; group-level plain-TeX switches `\rm`, `\bf`, `\cal`, `\it`, `\sf`, `\tt` are parsed structurally.
+- **Semantic representation:** stylable mathematical characters become `MathNode::MathAlphabet(String, TextStyle)` while non-stylable syntax keeps its semantic node and styled descendants. Literal text is never rewritten by an enclosing math alphabet.
 - **Malformed-input behavior:** missing arguments return `MalformedArgument`; unknown `\math...` style commands return `UnsupportedCommand` rather than being treated as symbols.
-- **Unsupported forms:** arbitrary font-family assignment, `\fam`, NFSS declarations, and user-defined alphabet commands are outside this subset.
+- **Unsupported forms:** text-font selectors such as `\textrm` / `\textbf`, arbitrary font-family assignment, `\fam`, NFSS declarations, and user-defined alphabet commands are outside this subset and fail as `UnsupportedCommand`.
 - **Primary contract test:** `tests/fraction_semantics.rs::plain_tex_font_switches_and_mbox_are_parsed_without_preprocessing` and `tests/symbol_golds.rs::font_style_letter_classes`.
 - **Governing authority:** TeX/LaTeX math alphabet semantics plus explicit TeXpose supported-subset policy.
 
@@ -197,11 +197,13 @@ Primary references used by this contract map:
 ## Literal text runs
 
 - **Accepted syntax:** `\text{...}` and `\mbox{...}`; `\intertext{...}` is recognized inside supported environments.
-- **Semantic representation:** `MathNode::Text(String, TextStyle::Text)` or `EnvRow::Intertext`; adjacent compatible text nodes may be collapsed without changing text semantics.
-- **Malformed-input behavior:** missing or unclosed text groups return typed parser errors with original-source byte spans.
-- **Unsupported forms:** full TeX paragraph/text-mode parsing, arbitrary nested text macros, and general macro expansion are outside this math parser.
-- **Primary contract test:** `tests/fraction_semantics.rs::plain_tex_font_switches_and_mbox_are_parsed_without_preprocessing`, text records in parser golds, and environment golds for `\intertext`.
-- **Governing authority:** LaTeX/amsmath text-in-math constructs plus explicit TeXpose literal-run policy.
+- **Semantic representation:** literal text is `MathNode::LiteralText(String)`; `EnvRow::Intertext` contains the same literal-text node. Math alphabets and literal text are distinct AST constructs.
+- **Layout contract:** one selected face; a Unicode scalar sequence; one direct cmap/glyph lookup per scalar; U+0020 uses that face's U+0020 advance; glyphs are placed left-to-right without shaping, kerning, bidi reordering, ligatures, or text-font fallback. Math-style scaling still applies to the completed literal run.
+- **Literal escapes:** the parser accepts direct scalars plus the unambiguous control-symbol escapes `\%`, `\$`, `\#`, `\&`, `\_`, `\{`, `\}`, and control-space. Other control sequences are not reinterpreted as literal bytes.
+- **Malformed-input behavior:** missing or unclosed text groups return typed parser errors with original-source byte spans. Multi-letter control sequences, nested text groups, and other text-mode syntax requiring semantics outside the literal-run contract return `UnsupportedCommand`.
+- **Unsupported forms:** text font selection (`\textrm`, `\textbf`, ...), full TeX paragraph/text-mode parsing, nested text macros/groups, shaping, bidi, font fallback, and general macro expansion are outside this math parser. Missing glyphs fail through the typed font error instead of fabricating replacement output.
+- **Primary contract test:** `tests/literal_text.rs`, text records in parser golds, and environment golds for `\intertext`.
+- **Governing authority:** LaTeX/amsmath text-in-math constructs narrowed to TeXpose's explicit literal glyph-run contract.
 
 ## Diagnostic and resource contract
 

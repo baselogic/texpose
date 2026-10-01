@@ -1,4 +1,4 @@
-//! Unicode Mathematical Alphanumeric Symbols for `\mathrm`, `\mathbb`, …
+//! Unicode Mathematical Alphanumeric Symbols for math-alphabet commands.
 
 use crate::parser::TextStyle;
 
@@ -14,7 +14,7 @@ use crate::parser::TextStyle;
 #[must_use]
 pub fn styled_char(ch: char, style: TextStyle) -> char {
     match style {
-        TextStyle::Rm | TextStyle::Text | TextStyle::Pmb => ch,
+        TextStyle::Rm | TextStyle::Pmb => ch,
         TextStyle::Bf => bold(ch).unwrap_or(ch),
         TextStyle::It => italic(ch).unwrap_or(ch),
         TextStyle::Sf => sans(ch).unwrap_or(ch),

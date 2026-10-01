@@ -141,7 +141,7 @@ impl AccentKind {
     }
 }
 
-/// Font / text style for a run of characters.
+/// Math-alphabet style for a run of mathematical characters.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TextStyle {
     /// `\mathrm`
@@ -166,8 +166,6 @@ pub enum TextStyle {
     Boldsymbol,
     /// `\pmb`
     Pmb,
-    /// `\text`
-    Text,
 }
 
 impl TextStyle {
@@ -184,7 +182,6 @@ impl TextStyle {
             Self::Scr => "scr",
             Self::Boldsymbol => "boldsymbol",
             Self::Pmb => "pmb",
-            Self::Text => "text",
         }
     }
 }
@@ -774,8 +771,10 @@ pub enum MathNode {
     Accent(Box<MathNode>, AccentKind),
     /// `\cancelto{value}{expr}`
     CancelTo(Box<MathNode>, Box<MathNode>),
-    /// Styled character run (`\mathrm`, `\text`, …).
-    Text(String, TextStyle),
+    /// Math-alphabet character run (`\mathrm`, `\mathbf`, …).
+    MathAlphabet(String, TextStyle),
+    /// Literal text run (`\text`, `\mbox`, `\intertext`).
+    LiteralText(String),
     /// Explicit math skip.
     Space(SpaceKind),
     /// Named operator (`\sin`). The flag selects the operator's default display-limits policy.
@@ -890,7 +889,10 @@ impl MathNode {
             }
             Self::Accent(b, a) => format!("(accent {} {})", a.gold(), b.gold()),
             Self::CancelTo(v, e) => format!("(cancelto {} {})", v.gold(), e.gold()),
-            Self::Text(t, st) => format!("(text {} {})", st.gold(), quote_text(t)),
+            Self::MathAlphabet(t, st) => {
+                format!("(mathalpha {} {})", st.gold(), quote_text(t))
+            }
+            Self::LiteralText(t) => format!("(literal {})", quote_text(t)),
             Self::Space(SpaceKind::Thin) => "(space thin)".into(),
             Self::Space(SpaceKind::Medium) => "(space medium)".into(),
             Self::Space(SpaceKind::Thick) => "(space thick)".into(),

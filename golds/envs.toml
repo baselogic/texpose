@@ -142,7 +142,7 @@ name = "cases-piecewise-dims"
 kind = "dims"
 style = "display"
 input = "f(x)=\\begin{cases} x^2 & \\text{if } x > 0 \\\\ 0 & \\text{if } x = 0 \\\\ -x^2 & \\text{if } x < 0 \\end{cases}"
-expect = "w=9.550133333333333333333333 h=2.058 d=1.542"
+expect = "w=9.562911111111111111111111 h=2.058 d=1.542"
 
 [[gold]]
 name = "cases-frac-dims"
@@ -220,7 +220,7 @@ expect = "w=1.1417 h=1.5824 d=1.8156"
 name = "intertext-ast"
 kind = "ast"
 input = "\\begin{align} x &= 1 \\\\ \\intertext{note} y &= 2 \\end{align}"
-expect = "(matrix align ((atom Ord \"x\") (row (atom Rel \"=\") (atom Ord \"1\"))) (intertext (text text \"note\")) ((atom Ord \"y\") (row (atom Rel \"=\") (atom Ord \"2\"))))"
+expect = "(matrix align ((atom Ord \"x\") (row (atom Rel \"=\") (atom Ord \"1\"))) (intertext (literal \"note\")) ((atom Ord \"y\") (row (atom Rel \"=\") (atom Ord \"2\"))))"
 
 [[gold]]
 name = "intertext-dims"
