@@ -1,4 +1,6 @@
-use texpose::{layout, parse, BoxContent, Dim, MathBox, MathFont, MathParams, MathStyle};
+mod common;
+
+use texpose::{layout, parse, BoxContent, Dim, MathBox, MathParams, MathStyle};
 
 fn add(a: &Dim, b: &Dim) -> Dim {
     a.checked_add(b).unwrap()
@@ -110,7 +112,7 @@ fn assert_hat_tilde_layer(
 
 #[test]
 fn nested_hat_tilde_chain_propagates_completed_inner_geometry() {
-    let font = MathFont::stix_two_math().expect("embedded STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math fixture");
 
     let params = MathParams::from_font(&font).expect("OpenType MATH constants");
 
@@ -123,7 +125,7 @@ fn nested_hat_tilde_chain_propagates_completed_inner_geometry() {
 
 #[test]
 fn single_hat_tilde_keeps_the_existing_accent_geometry() {
-    let font = MathFont::stix_two_math().expect("embedded STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math fixture");
 
     let params = MathParams::from_font(&font).expect("OpenType MATH constants");
 

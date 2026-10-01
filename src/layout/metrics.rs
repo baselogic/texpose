@@ -9,10 +9,11 @@ use crate::layout::style::MathStyle;
 ///
 /// # Examples
 ///
-/// ```
+/// ```no_run
 /// use texpose::{MathFont, MathParams, MathStyle};
+/// # fn font_bytes() -> &'static [u8] { unimplemented!() }
 ///
-/// let font = MathFont::stix_two_math().unwrap();
+/// let font = MathFont::from_bytes(font_bytes()).unwrap();
 /// let p = MathParams::from_font(&font).unwrap();
 /// assert!(!p.axis_height.is_zero());
 /// assert!(!p.em(MathStyle::Text).unwrap().is_zero());

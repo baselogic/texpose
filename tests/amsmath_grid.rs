@@ -1,8 +1,8 @@
+mod common;
+
 use core::cmp::Ordering;
 
-use texpose::{
-    layout_with_em_size_pt, parse, BoxContent, Dim, MathBox, MathFont, MathParams, MathStyle,
-};
+use texpose::{layout_with_em_size_pt, parse, BoxContent, Dim, MathBox, MathParams, MathStyle};
 
 fn add(a: &Dim, b: &Dim) -> Dim {
     a.checked_add(b).unwrap()
@@ -67,7 +67,7 @@ fn kern_width(bx: &MathBox) -> &Dim {
 
 #[test]
 fn matrix_uses_textstyle_physical_array_spacing_and_axis_center() {
-    let font = MathFont::stix_two_math().expect("STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math");
 
     let params = MathParams::from_font(&font).expect("MATH constants");
 
@@ -138,7 +138,7 @@ fn matrix_uses_textstyle_physical_array_spacing_and_axis_center() {
 
 #[test]
 fn cases_use_arraystretch_quad_gap_and_axis_center() {
-    let font = MathFont::stix_two_math().expect("STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math");
 
     let params = MathParams::from_font(&font).expect("MATH constants");
 
@@ -183,7 +183,7 @@ fn cases_use_arraystretch_quad_gap_and_axis_center() {
 
 #[test]
 fn aligned_applies_empty_ord_right_field_preamble() {
-    let font = MathFont::stix_two_math().expect("STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math");
 
     let em_size_pt = Dim::from_i64(10);
 
@@ -224,7 +224,7 @@ fn aligned_applies_empty_ord_right_field_preamble() {
 
 #[test]
 fn aligned_uses_displaystyle_cells_and_physical_minalignsep() {
-    let font = MathFont::stix_two_math().expect("STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math");
 
     let em_size_pt = Dim::from_i64(20);
 
@@ -266,7 +266,7 @@ fn aligned_uses_displaystyle_cells_and_physical_minalignsep() {
 
 #[test]
 fn aligned_uses_jot_lineskip_and_centers_complete_stack() {
-    let font = MathFont::stix_two_math().expect("STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math");
 
     let params = MathParams::from_font(&font).expect("MATH constants");
 

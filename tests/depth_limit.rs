@@ -1,7 +1,9 @@
 //! Parser resource budgets: recursion stays stack-safe and hostile input is bounded.
 
+mod common;
+
 use texpose::{
-    layout, layout_with_max_depth, parse, parse_with_options, MathFont, MathStyle, ParseOptions,
+    layout, layout_with_max_depth, parse, parse_with_options, MathStyle, ParseOptions,
     DEFAULT_MAX_AST_NODES, DEFAULT_MAX_ENVIRONMENT_CELLS, DEFAULT_MAX_ENVIRONMENT_ROWS,
     DEFAULT_MAX_NESTING_DEPTH, DEFAULT_MAX_TOKENS,
 };
@@ -52,7 +54,7 @@ fn on_small_stack(f: impl FnOnce() + Send + 'static) {
 #[test]
 fn deepest_default_input_parses_and_lays_out_on_small_stack() {
     on_small_stack(|| {
-        let font = MathFont::stix_two_math().expect("font");
+        let font = common::stix_two_math().expect("font");
         let opts = ParseOptions::default();
         for (name, make) in shapes() {
             let n = deepest(make, &opts);
@@ -82,7 +84,7 @@ fn caller_can_raise_and_lower_the_limit() {
     std::thread::Builder::new()
         .stack_size(64 << 20)
         .spawn(|| {
-            let font = MathFont::stix_two_math().expect("font");
+            let font = common::stix_two_math().expect("font");
             let tight = ParseOptions::new().with_max_depth(8);
             let roomy = ParseOptions::new().with_max_depth(128);
             for (name, make) in shapes() {

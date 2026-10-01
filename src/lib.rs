@@ -21,7 +21,7 @@ mod hash;
 mod style_map;
 mod symbols;
 
-/// OpenType MATH metrics and the embedded STIX Two Math face.
+/// OpenType MATH metrics for caller-provided font data.
 pub mod font;
 /// AST → TeX-faithful [`MathBox`](layout::MathBox).
 pub mod layout;
@@ -38,9 +38,7 @@ pub use error::{
     Error, FontError, NumericError, ParseError, ParseErrorDetail, ParseErrorKind, ParseResource,
     SourceSpan,
 };
-pub use font::{
-    GlyphMetrics, MathFont, STIX_TWO_MATH_NAME, STIX_TWO_MATH_OTF, STIX_TWO_MATH_SHA256,
-};
+pub use font::{GlyphMetrics, MathFont};
 pub use layout::{
     layout, layout_with_em_size_pt, layout_with_max_depth, layout_with_numbering,
     layout_with_numbering_and_em_size_pt, BoxContent, MathBox, MathParams, MathStyle, NumberFormat,

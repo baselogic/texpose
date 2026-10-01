@@ -5,8 +5,11 @@ Copyright 2026 Jeffrey S Carr
 
 LaTeX-Rust and derived code are licensed under MIT OR Apache-2.0.
 
-This product embeds STIX Two Math (version 2.13), licensed under the
-SIL Open Font License 1.1. See fonts/stix-two-math/OFL.txt.
+Verification fixtures under tests/fixtures/fonts/ include STIX Two Math,
+Libertinus Math, and Fira Math. These fonts are test/oracle resources and
+are not embedded in the production crate. Each is distributed under the
+SIL Open Font License 1.1; see the OFL.txt and SOURCE.md files in its
+fixture directory for attribution and provenance.
 
 STIX Fonts is a trademark of The Institute of Electrical and
 Electronics Engineers, Inc.

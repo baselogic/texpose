@@ -1,4 +1,6 @@
-use texpose::{layout, parse, BoxContent, MathFont, MathNode, MathStyle, ParseErrorKind};
+mod common;
+
+use texpose::{layout, parse, BoxContent, MathNode, MathStyle, ParseErrorKind};
 
 fn literal_glyphs(node: &texpose::MathBox) -> Vec<char> {
     match &node.content {
@@ -31,7 +33,7 @@ fn math_alphabet_and_literal_text_are_distinct_semantic_constructs() {
 
 #[test]
 fn literal_text_uses_direct_scalar_glyphs_and_face_space_advance() {
-    let font = MathFont::stix_two_math().expect("STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math");
     let ast = parse(r"\text{A A}").expect("literal text");
     let laid = layout(&ast, &font, MathStyle::Text).expect("literal text layout");
 

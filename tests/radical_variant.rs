@@ -1,3 +1,5 @@
+mod common;
+
 use std::cmp::Ordering;
 
 use texpose::{layout, parse, BoxContent, Dim, MathFont, MathParams, MathStyle};
@@ -61,7 +63,7 @@ fn radical_glyph_id(tree: &texpose::MathBox) -> u16 {
 
 #[test]
 fn radical_variant_selection_excludes_extra_ascender_from_minimum_span() {
-    let font = MathFont::stix_two_math().expect("STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math");
     let params = MathParams::from_font(&font).expect("MATH constants");
     let style = MathStyle::Display;
     let scale = params.scale(style);

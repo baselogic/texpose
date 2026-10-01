@@ -1,3 +1,5 @@
+mod common;
+
 use core::cmp::Ordering;
 
 use texpose::{
@@ -93,7 +95,7 @@ fn expected_center_shift(font: &MathFont, ch: char, glyph_id: u16, scale: &Dim, 
 
 #[test]
 fn delimited_fraction_uses_tex_target_and_math_axis_centering() {
-    let font = MathFont::stix_two_math().expect("STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math");
     let params = MathParams::from_font(&font).expect("MATH constants");
     let style = MathStyle::Display;
     let scale = params.scale(style);
@@ -159,7 +161,7 @@ fn delimited_fraction_uses_tex_target_and_math_axis_centering() {
 
 #[test]
 fn delimiter_shortfall_remains_a_physical_five_points() {
-    let font = MathFont::stix_two_math().expect("STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math");
     let params = MathParams::from_font(&font).expect("MATH constants");
     let style = MathStyle::Display;
     let scale = params.scale(style);

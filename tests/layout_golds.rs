@@ -1,5 +1,7 @@
 //! Gold runner: `golds/layout.toml` is the layout-dimension contract.
 
+mod common;
+
 use texpose::{layout, parse, BoxContent, Color, MathBox, MathFont, MathStyle};
 
 #[derive(Default)]
@@ -152,7 +154,7 @@ fn lay(font: &MathFont, rec: &Rec) -> MathBox {
 fn layout_golds() {
     let recs = load_golds();
     assert!(!recs.is_empty(), "no layout golds loaded");
-    let font = MathFont::stix_two_math().expect("STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math");
     for rec in recs {
         match rec.kind.as_str() {
             "dims" => {

@@ -1,9 +1,10 @@
 //! Gold runner: `golds/milestone1.toml` is the contract.
 
+mod common;
+
 use texpose::{
     category_count, format_tokens, lookup, named_color, parse_color_spec, symbols, tokenize,
-    ColorTable, Dim, Error, MathBox, MathFont, ParseErrorKind, STIX_TWO_MATH_OTF,
-    STIX_TWO_MATH_SHA256,
+    ColorTable, Dim, Error, MathBox, MathFont, ParseErrorKind,
 };
 
 #[derive(Default)]
@@ -121,7 +122,7 @@ fn csv_dims(s: &str) -> Vec<Dim> {
 fn milestone1_golds() {
     let recs = load_golds();
     assert!(!recs.is_empty(), "no golds loaded");
-    let font = MathFont::stix_two_math().expect("STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math");
     for rec in recs {
         match rec.kind.as_str() {
             "tokenize" => {
@@ -249,9 +250,8 @@ fn milestone1_golds() {
                     assert_eq!(g.advance_fu.to_string(), rec.expect, "{}", rec.name);
                 }
                 "sha256" => {
-                    assert_eq!(STIX_TWO_MATH_SHA256, rec.expect, "{}", rec.name);
                     assert_eq!(
-                        MathFont::sha256_hex(STIX_TWO_MATH_OTF),
+                        MathFont::sha256_hex(common::STIX_TWO_MATH_OTF),
                         rec.expect,
                         "{}",
                         rec.name

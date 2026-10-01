@@ -1,3 +1,5 @@
+mod common;
+
 use core::cmp::Ordering;
 
 use texpose::{layout, parse, BoxContent, Dim, MathBox, MathFont, MathParams, MathStyle};
@@ -59,7 +61,7 @@ fn paired_script_shifts(bx: &MathBox) -> Option<(&Dim, &Dim)> {
 
 #[test]
 fn paired_scripts_obey_open_type_vertical_constraints() {
-    let font = MathFont::stix_two_math().expect("embedded STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math fixture");
 
     let params = MathParams::from_font(&font).expect("OpenType MATH constants");
 
@@ -68,7 +70,7 @@ fn paired_scripts_obey_open_type_vertical_constraints() {
         .tables()
         .math
         .and_then(|math| math.constants)
-        .expect("embedded font MATH constants");
+        .expect("fixture font MATH constants");
 
     let units_per_em = font.units_per_em();
 
@@ -154,7 +156,7 @@ fn paired_scripts_obey_open_type_vertical_constraints() {
 
 #[test]
 fn explicit_style_declaration_drives_following_script_semantics() {
-    let font = MathFont::stix_two_math().expect("embedded STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math fixture");
 
     let declared = layout_source(r"\scriptstyle x_2^3", MathStyle::Text, &font);
     let direct = layout_source("x_2^3", MathStyle::Script, &font);

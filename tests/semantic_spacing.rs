@@ -1,3 +1,5 @@
+mod common;
+
 use texpose::{layout, parse, Dim, MathFont, MathParams, MathStyle};
 
 fn layout_width(source: &str, style: MathStyle, font: &MathFont) -> Dim {
@@ -9,7 +11,7 @@ fn layout_width(source: &str, style: MathStyle, font: &MathFont) -> Dim {
 
 #[test]
 fn explicit_glue_does_not_hide_adjacent_noads_from_binary_spacing() {
-    let font = MathFont::stix_two_math().expect("embedded STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math fixture");
     let params = MathParams::from_font(&font).expect("OpenType MATH constants");
 
     for style in [

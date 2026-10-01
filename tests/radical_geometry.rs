@@ -1,4 +1,6 @@
-use texpose::{layout, parse, BoxContent, Dim, MathBox, MathFont, MathParams, MathStyle};
+mod common;
+
+use texpose::{layout, parse, BoxContent, Dim, MathBox, MathParams, MathStyle};
 
 fn add(a: &Dim, b: &Dim) -> Dim {
     a.checked_add(b).unwrap()
@@ -71,7 +73,7 @@ fn expected_vertical_geometry(
 
 #[test]
 fn radical_variant_slack_is_redistributed_into_gap_and_descent() {
-    let font = MathFont::stix_two_math().expect("STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math");
     let params = MathParams::from_font(&font).expect("MATH constants");
     let style = MathStyle::Display;
     let source = r"\sqrt{x^2+y^2}";
@@ -100,7 +102,7 @@ fn radical_variant_slack_is_redistributed_into_gap_and_descent() {
 
 #[test]
 fn radical_degree_uses_bottom_of_corrected_surd_span() {
-    let font = MathFont::stix_two_math().expect("STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math");
     let params = MathParams::from_font(&font).expect("MATH constants");
     let style = MathStyle::Display;
     let source = r"\sqrt[\frac{1+\alpha}{2}]{x}";

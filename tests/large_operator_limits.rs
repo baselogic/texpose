@@ -1,4 +1,6 @@
-use texpose::{layout, parse, BoxContent, Dim, MathBox, MathFont, MathParams, MathStyle};
+mod common;
+
+use texpose::{layout, parse, BoxContent, Dim, MathBox, MathParams, MathStyle};
 
 fn add(a: &Dim, b: &Dim) -> Dim {
     a.checked_add(b).unwrap()
@@ -25,7 +27,7 @@ fn limit_branches(tree: &MathBox) -> (&MathBox, &MathBox, &MathBox) {
 
 #[test]
 fn display_large_operator_uses_math_axis_and_independent_limit_constraints() {
-    let font = MathFont::stix_two_math().expect("STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math");
     let params = MathParams::from_font(&font).expect("MATH constants");
     let style = MathStyle::Display;
     let scale = params.scale(style);
@@ -89,7 +91,7 @@ fn is_limit_overlap(tree: &MathBox) -> bool {
 
 #[test]
 fn explicit_limit_controls_override_operator_defaults() {
-    let font = MathFont::stix_two_math().expect("STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math");
 
     let forced_sum = layout(
         &parse(r"\sum\limits_1^n").expect("forced sum limits"),

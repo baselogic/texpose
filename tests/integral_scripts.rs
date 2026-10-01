@@ -1,3 +1,5 @@
+mod common;
+
 use core::cmp::Ordering;
 
 use texpose::{layout, parse, BoxContent, Dim, MathBox, MathFont, MathParams, MathStyle};
@@ -30,13 +32,13 @@ struct ScriptConstants {
 }
 
 fn script_constants(font: &MathFont) -> ScriptConstants {
-    let face = ttf_parser::Face::parse(font.bytes(), 0).expect("parse embedded STIX face");
+    let face = ttf_parser::Face::parse(font.bytes(), 0).expect("parse STIX fixture face");
 
     let constants = face
         .tables()
         .math
         .and_then(|math| math.constants)
-        .expect("embedded STIX MATH constants");
+        .expect("STIX fixture MATH constants");
 
     let units_per_em = font.units_per_em();
 
@@ -87,7 +89,7 @@ fn integral_attachment_parts(tree: &MathBox, expected: char) -> (&MathBox, &Math
 
 #[test]
 fn display_contour_integral_uses_axis_baseline_drop_and_nolimits_width() {
-    let font = MathFont::stix_two_math().expect("embedded STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math fixture");
 
     let params = MathParams::from_font(&font).expect("OpenType MATH parameters");
 
@@ -156,7 +158,7 @@ fn display_contour_integral_uses_axis_baseline_drop_and_nolimits_width() {
 
 #[test]
 fn display_integral_offsets_only_superscript_by_math_italic_correction() {
-    let font = MathFont::stix_two_math().expect("embedded STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math fixture");
 
     let params = MathParams::from_font(&font).expect("OpenType MATH parameters");
 
@@ -258,7 +260,7 @@ fn display_integral_offsets_only_superscript_by_math_italic_correction() {
 
 #[test]
 fn top_level_row_propagates_repaired_integral_geometry() {
-    let font = MathFont::stix_two_math().expect("embedded STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math fixture");
 
     let standalone = layout_source(r"\oint_\Gamma", MathStyle::Display, &font);
 
@@ -302,7 +304,7 @@ fn top_level_row_propagates_repaired_integral_geometry() {
 
 #[test]
 fn unscripted_double_integral_keeps_existing_variant_path() {
-    let font = MathFont::stix_two_math().expect("embedded STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math fixture");
 
     let tree = layout_source(r"\iint", MathStyle::Display, &font);
 

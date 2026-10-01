@@ -1,3 +1,5 @@
+mod common;
+
 use std::cmp::Ordering;
 
 use texpose::{
@@ -103,7 +105,7 @@ fn largest_fitting_variant(
 
 #[test]
 fn hat_tilde_accents_follow_math_attachment_and_accent_base_height() {
-    let font = MathFont::stix_two_math().expect("embedded STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math fixture");
 
     let params = MathParams::from_font(&font).expect("OpenType MATH constants");
 
@@ -160,7 +162,7 @@ fn hat_tilde_accents_follow_math_attachment_and_accent_base_height() {
 
 #[test]
 fn script_style_hat_attachment_uses_script_scale() {
-    let font = MathFont::stix_two_math().expect("embedded STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math fixture");
 
     let params = MathParams::from_font(&font).expect("OpenType MATH constants");
 
@@ -206,7 +208,7 @@ fn script_style_hat_attachment_uses_script_scale() {
 
 #[test]
 fn wide_accents_use_the_largest_font_variant_that_fits() {
-    let font = MathFont::stix_two_math().expect("embedded STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math fixture");
 
     let base_ast = parse("XYZ").expect("parse base");
 

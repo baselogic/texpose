@@ -163,7 +163,7 @@ def parse_math_probe(
         or scriptscript is None
         or not (0 < scriptscript <= script <= 100)
     ):
-        fail("invalid/missing embedded font script parameters")
+        fail("invalid/missing oracle font script parameters")
 
     return cases, script, scriptscript
 
@@ -337,11 +337,20 @@ def gate_math(
             ROOT / "tools" / "math_compare.lua",
             work / "math_compare.lua",
         )
-        font = work / "STIXTwoMath-TeXpose.otf"
+        fixture = (
+            ROOT
+            / "tests"
+            / "fixtures"
+            / "fonts"
+            / "stix-two-math"
+            / "STIXTwoMath-Regular.otf"
+        )
+        require_file(fixture)
+        font = work / fixture.name
+        shutil.copy2(fixture, font)
         target = work / "target"
 
         env = {
-            "TEXPOSE_MATH_COMPARE_FONT_PATH": str(font),
             "CARGO_TARGET_DIR": str(target),
         }
         if stress:

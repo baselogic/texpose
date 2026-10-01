@@ -1,3 +1,5 @@
+mod common;
+
 use texpose::{layout, parse, Dim, MathFont, MathParams, MathStyle};
 
 fn add(a: &Dim, b: &Dim) -> Dim {
@@ -14,7 +16,7 @@ fn layout_source(source: &str, style: MathStyle, font: &MathFont) -> texpose::Ma
 
 #[test]
 fn space_after_script_uses_parent_style_scale() {
-    let font = MathFont::stix_two_math().expect("embedded STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math fixture");
     let params = MathParams::from_font(&font).expect("OpenType MATH constants");
 
     let base = layout_source("i", MathStyle::Text, &font);

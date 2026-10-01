@@ -18,4 +18,4 @@ The initial codebase derives from LaTeX-Rust by Jeffrey S Carr. Source provenanc
 
 TeXpose is distributed under MIT OR Apache-2.0.
 
-The embedded STIX Two Math font remains licensed under the SIL Open Font License 1.1. See `fonts/stix-two-math/OFL.txt`.
+Verification fonts live under `tests/fixtures/fonts/` and are not embedded in the production crate. Each fixture records its upstream source, SHA-256, and font license in its own directory.

@@ -5,7 +5,10 @@
 
 use std::time::{Duration, Instant};
 
-use texpose::{layout, parse, MathFont, MathStyle};
+#[path = "../tests/common/mod.rs"]
+mod common;
+
+use texpose::{layout, parse, MathStyle};
 
 const FRAC: &str = r"\frac{1}{2}";
 const DISPLAY: &str = r"\sum_{n=1}^{N}\frac{1}{n^{2}}=\frac{\pi^{2}}{6}";
@@ -36,11 +39,11 @@ fn observe(name: &str, got: Duration) {
 
 fn main() {
     let font_construct = avg(200, 8, || {
-        let _ = MathFont::stix_two_math().expect("STIX Two Math");
+        let _ = common::stix_two_math().expect("STIX Two Math");
     });
     observe("construct STIX Two Math", font_construct);
 
-    let font = MathFont::stix_two_math().expect("STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math");
 
     let parse_frac = avg(8_000, 64, || {
         let _ = parse(FRAC).expect("parse frac");

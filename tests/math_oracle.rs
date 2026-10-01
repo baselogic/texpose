@@ -1,7 +1,6 @@
-use texpose::{
-    layout_with_em_size_pt, parse, BoxContent, Dim, MathBox, MathFont, MathParams, MathStyle,
-    STIX_TWO_MATH_OTF,
-};
+mod common;
+
+use texpose::{layout_with_em_size_pt, parse, BoxContent, Dim, MathBox, MathParams, MathStyle};
 
 #[derive(Clone, Copy)]
 struct MathComparisonCase<'a> {
@@ -498,16 +497,8 @@ fn dim_f32_rounds_directly_to_binary32() {
 #[ignore = "explicit LuaLaTeX differential math-layout probe"]
 fn lualatex_math_comparison_probe() {
     // LuaLaTeX is an external differential oracle, not a production dependency.
-    // Export the exact embedded font bytes and compare TeXpose and LuaLaTeX using
-    // the same formula, style, physical root-em size, and OpenType MATH face.
-    let font_path = std::path::PathBuf::from(
-        std::env::var_os("TEXPOSE_MATH_COMPARE_FONT_PATH")
-            .expect("TEXPOSE_MATH_COMPARE_FONT_PATH must name the temporary oracle font file"),
-    );
-    std::fs::write(&font_path, STIX_TWO_MATH_OTF)
-        .expect("the math comparison probe must be able to export the embedded font");
-
-    let font = MathFont::stix_two_math().unwrap();
+    // TeXpose and LuaLaTeX consume the same committed verification fixture.
+    let font = common::stix_two_math().unwrap();
     let params = MathParams::from_font(&font).unwrap();
     println!(
         "TEXPOSE_MATH_COMPARE_PARAMS script_percent={} scriptscript_percent={}",

@@ -1,5 +1,7 @@
 //! Gold runner: `golds/accents.toml` is the accent/decoration contract.
 
+mod common;
+
 use texpose::{layout, parse, BoxContent, MathBox, MathFont, MathStyle, ParseError};
 
 #[derive(Default)]
@@ -144,7 +146,7 @@ fn lay(font: &MathFont, rec: &Rec) -> MathBox {
 fn accent_golds() {
     let recs = load_golds();
     assert!(!recs.is_empty(), "no accent golds loaded");
-    let font = MathFont::stix_two_math().expect("STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math");
     for rec in recs {
         match rec.kind.as_str() {
             "ast" => {

@@ -15,7 +15,6 @@ categories = ["rendering", "science", "mathematics"]
 include = [
     "src/**",
     "data/**",
-    "fonts/**",
     "golds/**",
     "tests/**",
     "benches/layout.rs",

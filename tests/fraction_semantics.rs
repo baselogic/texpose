@@ -1,3 +1,5 @@
+mod common;
+
 use texpose::{
     layout, parse, BoxContent, Dim, Error, FractionAlignment, FractionRule, FractionSpec,
     FractionStyle, Length, MathBox, MathFont, MathNode, MathStyle,
@@ -139,7 +141,7 @@ fn plain_tex_font_switches_and_mbox_are_parsed_without_preprocessing() {
 
 #[test]
 fn style_overrides_are_observable_in_layout() {
-    let font = MathFont::stix_two_math().unwrap();
+    let font = common::stix_two_math().unwrap();
 
     let dfrac = layout(&parse(r"\dfrac{1}{2}").unwrap(), &font, MathStyle::Script).unwrap();
     let frac_in_script = layout(&parse(r"\frac{1}{2}").unwrap(), &font, MathStyle::Script).unwrap();
@@ -153,7 +155,7 @@ fn style_overrides_are_observable_in_layout() {
 
 #[test]
 fn binomial_fraction_suppresses_the_fraction_rule() {
-    let font = MathFont::stix_two_math().unwrap();
+    let font = common::stix_two_math().unwrap();
     let frac = layout(&parse(r"\frac{n}{k}").unwrap(), &font, MathStyle::Text).unwrap();
     let binom = layout(&parse(r"\binom{n}{k}").unwrap(), &font, MathStyle::Text).unwrap();
     assert!(count_rules(&frac.content) >= 1);
@@ -162,7 +164,7 @@ fn binomial_fraction_suppresses_the_fraction_rule() {
 
 #[test]
 fn ruleless_fraction_uses_math_stack_spacing() {
-    let font = MathFont::stix_two_math().unwrap();
+    let font = common::stix_two_math().unwrap();
     let constants = font
         .face()
         .tables()
@@ -211,7 +213,7 @@ fn ruleless_fraction_uses_math_stack_spacing() {
 
 #[test]
 fn public_fraction_spec_rejects_negative_explicit_rule_thickness() {
-    let font = MathFont::stix_two_math().unwrap();
+    let font = common::stix_two_math().unwrap();
     let mut spec = FractionSpec::ordinary(
         MathNode::Atom('a', texpose::AtomKind::Ord),
         MathNode::Atom('b', texpose::AtomKind::Ord),
@@ -250,7 +252,7 @@ fn infix_fraction_stays_at_group_level_across_declarations() {
 
 #[test]
 fn explicit_rule_thickness_controls_layout_and_zero_is_ruleless() {
-    let font = MathFont::stix_two_math().unwrap();
+    let font = common::stix_two_math().unwrap();
 
     let exact = layout(
         &parse(r"\genfrac{}{}{2pt}{}{a}{b}").unwrap(),

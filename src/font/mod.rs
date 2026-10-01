@@ -7,32 +7,21 @@ use ttf_parser::Face;
 use crate::dim::Dim;
 use crate::error::{Error, FontError};
 
-/// Embedded STIX Two Math Regular 2.13 (SIL OFL 1.1).
-///
-/// A `static` rather than a `const`, so that the font's bytes are placed in the binary once and every use refers
-/// to that one copy. A `const` is inlined at each use site, and a crate that reads these bytes as well as calling
-/// [`MathFont::stix_two_math`] carries the 839 KB font twice.
-pub static STIX_TWO_MATH_OTF: &[u8] =
-    include_bytes!("../../fonts/stix-two-math/STIXTwoMath-Regular.otf");
-
-/// SHA-256 (hex) of [`STIX_TWO_MATH_OTF`]. Locked by gold.
-pub const STIX_TWO_MATH_SHA256: &str =
-    "f2076b9f1676438439dd41e23676f5ab99056e83d6b8f8c27841591ef2ccfa72";
-
-/// Face name as shipped.
-pub const STIX_TWO_MATH_NAME: &str = "STIX Two Math";
-
 /// Horizontal glyph metrics in font units and em.
 ///
 /// # Examples
 ///
-/// ```
-/// use texpose::MathFont;
+/// ```no_run
+/// use texpose::{Error, MathFont};
 ///
-/// let font = MathFont::stix_two_math().unwrap();
-/// let g = font.glyph('x').unwrap();
+/// # fn font_bytes() -> &'static [u8] { unimplemented!() }
+/// # fn main() -> Result<(), Error> {
+/// let font = MathFont::from_bytes(font_bytes())?;
+/// let g = font.glyph('x')?;
 /// assert_eq!(g.ch, 'x');
 /// assert!(!g.advance.is_zero());
+/// # Ok(())
+/// # }
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GlyphMetrics {
@@ -60,11 +49,15 @@ struct ScriptAlternateEntry {
 ///
 /// # Examples
 ///
-/// ```
-/// use texpose::MathFont;
+/// ```no_run
+/// use texpose::{Error, MathFont};
 ///
-/// let font = MathFont::stix_two_math().unwrap();
-/// assert_eq!(font.units_per_em(), 1000);
+/// # fn font_bytes() -> &'static [u8] { unimplemented!() }
+/// # fn main() -> Result<(), Error> {
+/// let font = MathFont::from_bytes(font_bytes())?;
+/// assert!(font.units_per_em() > 0);
+/// # Ok(())
+/// # }
 /// ```
 pub struct MathFont {
     raw: &'static [u8],
@@ -76,24 +69,9 @@ pub struct MathFont {
 }
 
 impl MathFont {
-    /// Load the embedded STIX Two Math Regular face.
+    /// Parse OpenType bytes from a caller-provided static buffer.
     ///
-    /// # Errors
-    ///
-    /// [`crate::FontError::InvalidFace`] if the embedded bytes are not a usable OpenType face.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use texpose::MathFont;
-    /// assert!(MathFont::stix_two_math().is_ok());
-    /// ```
-    pub fn stix_two_math() -> Result<Self, Error> {
-        Self::from_bytes(STIX_TWO_MATH_OTF)
-    }
-
-    /// Parse OpenType bytes. Lifetime is `'static` for the embedded font only;
-    /// this constructor requires a static buffer so the face can be rebuilt.
+    /// The current font representation borrows that buffer for its full lifetime.
     pub fn from_bytes(raw: &'static [u8]) -> Result<Self, Error> {
         let face = Face::parse(raw, 0).map_err(|_| FontError::InvalidFace)?;
         let units_per_em = NonZeroU16::new(face.units_per_em()).ok_or(FontError::InvalidFace)?;
@@ -137,13 +115,17 @@ impl MathFont {
     ///
     /// # Examples
     ///
-    /// ```
-    /// use texpose::{ttf_parser, MathFont};
+    /// ```no_run
+    /// use texpose::{ttf_parser, Error, MathFont};
     ///
-    /// let font = MathFont::stix_two_math().expect("STIX Two Math");
-    /// let metrics = font.glyph('x').expect("x");
+    /// # fn font_bytes() -> &'static [u8] { unimplemented!() }
+    /// # fn main() -> Result<(), Error> {
+    /// let font = MathFont::from_bytes(font_bytes())?;
+    /// let metrics = font.glyph('x')?;
     /// let id = ttf_parser::GlyphId(metrics.glyph_id);
     /// assert!(font.face().glyph_bounding_box(id).is_some());
+    /// # Ok(())
+    /// # }
     /// ```
     #[must_use]
     pub fn face(&self) -> &Face<'static> {
@@ -367,7 +349,7 @@ impl MathFont {
         out
     }
 
-    /// SHA-256 hex of the raw face bytes.
+    /// SHA-256 hex of arbitrary font bytes.
     #[must_use]
     pub fn sha256_hex(bytes: &[u8]) -> String {
         let d = crate::hash::sha256(bytes);

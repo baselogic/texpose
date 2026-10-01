@@ -1,6 +1,8 @@
 //! Script and scriptscript glyphs carry the OpenType MATH style scale in layout.
 
-use texpose::{layout, parse, BoxContent, Dim, MathBox, MathFont, MathStyle};
+mod common;
+
+use texpose::{layout, parse, BoxContent, Dim, MathBox, MathStyle};
 
 fn glyphs(b: &MathBox, out: &mut Vec<(char, Dim)>) {
     match &b.content {
@@ -14,7 +16,7 @@ fn glyphs(b: &MathBox, out: &mut Vec<(char, Dim)>) {
 }
 
 fn scales(latex: &str) -> Vec<(char, Dim)> {
-    let font = MathFont::stix_two_math().expect("STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math");
     let bx = layout(&parse(latex).expect("parse"), &font, MathStyle::Text).expect("layout");
     let mut out = Vec::new();
     glyphs(&bx, &mut out);

@@ -37,7 +37,7 @@ const TEX_MIN_ALIGN_SEP_PT: i64 = 10;
 const TEX_JOT_PT: i64 = 3;
 const TEX_LINE_SKIP_PT: i64 = 1;
 
-/// Lay out `node` in `style` using STIX Two Math metrics.
+/// Lay out `node` in `style` using caller-provided OpenType MATH metrics.
 ///
 /// Every dimension on the returned [`MathBox`] is a [`Dim`](crate::Dim). Missing
 /// glyphs and unsupported constructs are errors — never a substitute glyph.
@@ -62,11 +62,12 @@ const TEX_LINE_SKIP_PT: i64 = 1;
 ///
 /// # Examples
 ///
-/// ```
+/// ```no_run
 /// use texpose::{layout, parse, MathFont, MathStyle};
+/// # fn font_bytes() -> &'static [u8] { unimplemented!() }
 ///
 /// let ast = parse(r"\frac{1}{2}").unwrap();
-/// let font = MathFont::stix_two_math().unwrap();
+/// let font = MathFont::from_bytes(font_bytes()).unwrap();
 /// let boxed = layout(&ast, &font, MathStyle::Text).unwrap();
 /// assert!(!boxed.width.is_zero());
 /// ```
@@ -130,11 +131,12 @@ pub fn layout_with_em_size_pt(
 ///
 /// # Examples
 ///
-/// ```
+/// ```no_run
 /// use texpose::{layout_with_numbering, parse, MathFont, MathStyle, NumberingState};
+/// # fn font_bytes() -> &'static [u8] { unimplemented!() }
 ///
 /// let ast = parse(r"\begin{equation}x\end{equation}").unwrap();
-/// let font = MathFont::stix_two_math().unwrap();
+/// let font = MathFont::from_bytes(font_bytes()).unwrap();
 /// let mut state = NumberingState::default();
 /// let boxed = layout_with_numbering(&ast, &font, MathStyle::Display, &mut state).unwrap();
 /// assert!(!boxed.width.is_zero());
@@ -196,11 +198,12 @@ pub fn layout_with_numbering_and_em_size_pt(
 ///
 /// # Examples
 ///
-/// ```
+/// ```no_run
 /// use texpose::{layout_with_max_depth, parse, MathFont, MathStyle};
+/// # fn font_bytes() -> &'static [u8] { unimplemented!() }
 ///
 /// let ast = parse(r"\frac{1}{2}").unwrap();
-/// let font = MathFont::stix_two_math().unwrap();
+/// let font = MathFont::from_bytes(font_bytes()).unwrap();
 /// assert!(layout_with_max_depth(&ast, &font, MathStyle::Text, 64).is_ok());
 /// assert!(layout_with_max_depth(&ast, &font, MathStyle::Text, 1).is_err());
 /// ```
@@ -2019,7 +2022,7 @@ impl Engine<'_> {
         })
     }
 
-    // STIX exposes wide hat/tilde variants from
+    // Some OpenType math fonts expose wide hat/tilde variants from
     // the combining U+0302/U+0303 constructions, not from the spacing
     // glyph used for the fixed accent. Keep the fixed glyph as the
     // smallest fallback and choose the widest font variant that fits.
@@ -2258,7 +2261,7 @@ impl Engine<'_> {
     /// Diacritic glyphs are drawn to sit on a base of `AccentBaseHeight`, so
     /// TeX's rule applies: lift only by how far the base rises above that
     /// height. Arrow and brace glyphs sit on the baseline and clear the base.
-    /// The branch is chosen by kind, not glyph advance: STIX spacing
+    /// The branch is chosen by kind, not glyph advance: font spacing
     /// diacritics (`ˆ`, `˙`, ...) have non-zero advance.
     fn accent_raise(
         &self,

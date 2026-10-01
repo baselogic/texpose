@@ -1,3 +1,5 @@
+mod common;
+
 use core::cmp::Ordering;
 
 use texpose::{layout, parse, BoxContent, Dim, MathBox, MathFont, MathNode, MathParams, MathStyle};
@@ -63,7 +65,7 @@ fn expected_gaps(rows: &[MathBox], baseline_skip: &Dim, line_skip: &Dim) -> Vec<
 
 #[test]
 fn substack_uses_scriptstyle_rows_math_stack_spacing_and_vcenter() {
-    let font = MathFont::stix_two_math().expect("STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math");
 
     let params = MathParams::from_font(&font).expect("MATH constants");
 
@@ -126,7 +128,7 @@ fn substack_uses_scriptstyle_rows_math_stack_spacing_and_vcenter() {
 
 #[test]
 fn display_sum_preserves_substack_vcenter_inside_lower_limit() {
-    let font = MathFont::stix_two_math().expect("STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math");
 
     let params = MathParams::from_font(&font).expect("MATH constants");
 

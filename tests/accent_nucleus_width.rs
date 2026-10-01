@@ -1,8 +1,10 @@
-use texpose::{layout, parse, styled_char, MathFont, MathStyle, TextStyle};
+mod common;
+
+use texpose::{layout, parse, styled_char, MathStyle, TextStyle};
 
 #[test]
 fn hat_tilde_accents_keep_the_direct_nucleus_italic_advance() {
-    let font = MathFont::stix_two_math().expect("embedded STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math fixture");
 
     let italic_j = font
         .glyph(styled_char('J', TextStyle::It))

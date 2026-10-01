@@ -1,3 +1,5 @@
+mod common;
+
 use texpose::{
     layout_with_em_size_pt, parse, Dim, Length, MathFont, MathNode, MathParams, MathStyle,
     SpaceKind,
@@ -39,7 +41,7 @@ fn parsed_rule_preserves_both_length_units() {
 
 #[test]
 fn physical_lengths_remain_constant_across_root_em_sizes() {
-    let font = MathFont::stix_two_math().expect("STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math");
     let one_bp_in_tex_pt = Dim::ratio(7227, 7200).unwrap();
 
     for points in [6, 10, 20, 40] {
@@ -56,7 +58,7 @@ fn physical_lengths_remain_constant_across_root_em_sizes() {
 
 #[test]
 fn em_and_mu_resolve_against_current_math_style() {
-    let font = MathFont::stix_two_math().expect("STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math");
     let params = MathParams::from_font(&font).expect("MATH constants");
 
     for points in [6, 10, 20, 40] {
@@ -74,7 +76,7 @@ fn em_and_mu_resolve_against_current_math_style() {
 
 #[test]
 fn parsed_rule_height_uses_the_same_physical_length_resolution() {
-    let font = MathFont::stix_two_math().expect("STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math");
 
     for points in [6, 10, 20, 40] {
         let root_em_size_pt = Dim::from_i64(points);
@@ -88,7 +90,7 @@ fn parsed_rule_height_uses_the_same_physical_length_resolution() {
 
 #[test]
 fn layout_boundary_rejects_nonpositive_root_em_sizes() {
-    let font = MathFont::stix_two_math().expect("STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math");
     let ast = parse(r"\hspace{1pt}").expect("physical length");
 
     assert!(layout_with_em_size_pt(&ast, &font, MathStyle::Text, &Dim::zero()).is_err());

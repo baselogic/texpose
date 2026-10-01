@@ -1,5 +1,7 @@
 //! Gold runner: `golds/symbols.toml` plus a catalog corpus.
 
+mod common;
+
 use texpose::{
     layout, parse, styled_char, symbol_atom_kind, symbols, AtomKind, BoxContent, Error, MathBox,
     MathFont, MathNode, MathStyle, SymbolKind, TextStyle,
@@ -139,7 +141,7 @@ fn is_bare_latex(latex: &str) -> bool {
 fn symbol_golds() {
     let recs = load_golds();
     assert!(!recs.is_empty(), "no symbol golds loaded");
-    let font = MathFont::stix_two_math().expect("STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math");
     for rec in recs {
         match rec.kind.as_str() {
             "glyph" => {
@@ -217,7 +219,7 @@ fn symbol_golds() {
 
 #[test]
 fn catalog_single_glyphs_layout() {
-    let font = MathFont::stix_two_math().expect("STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math");
     let mut failed = Vec::new();
     for e in symbols() {
         if !matches!(e.kind, SymbolKind::Symbol | SymbolKind::Operator) {
@@ -279,7 +281,7 @@ fn catalog_single_glyphs_layout() {
 
 #[test]
 fn font_style_letter_classes() {
-    let font = MathFont::stix_two_math().expect("STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math");
     let styles: &[(TextStyle, &str)] = &[
         (TextStyle::Rm, "mathrm"),
         (TextStyle::Bf, "mathbf"),

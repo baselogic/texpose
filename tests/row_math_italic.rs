@@ -1,3 +1,5 @@
+mod common;
+
 use texpose::{layout, parse, styled_char, Dim, MathFont, MathStyle, TextStyle};
 
 fn add(a: &Dim, b: &Dim) -> Dim {
@@ -22,7 +24,7 @@ fn variable_advance_with_italic(ch: char, font: &MathFont) -> Dim {
 
 #[test]
 fn rows_add_math_italic_correction_without_duplicating_scripted_nuclei() {
-    let font = MathFont::stix_two_math().expect("embedded STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math fixture");
 
     let expected_xyz = ['X', 'Y', 'Z']
         .into_iter()

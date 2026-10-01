@@ -1,7 +1,9 @@
 //! Gold runner: `golds/envs.toml` is the Milestone 7 environment contract.
 
+mod common;
+
 use texpose::{
-    layout, layout_with_numbering, parse, BoxContent, MathBox, MathFont, MathStyle, NumberingState,
+    layout, layout_with_numbering, parse, BoxContent, MathBox, MathStyle, NumberingState,
     ParseError,
 };
 
@@ -134,7 +136,7 @@ fn glyph_xs(b: &MathBox, x: texpose::Dim, ch: char, out: &mut Vec<texpose::Dim>)
 fn env_golds() {
     let recs = load_golds();
     assert!(!recs.is_empty(), "no env golds loaded");
-    let font = MathFont::stix_two_math().expect("STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math");
     for rec in recs {
         match rec.kind.as_str() {
             "ast" => {

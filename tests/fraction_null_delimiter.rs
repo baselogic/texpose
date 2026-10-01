@@ -1,10 +1,10 @@
-use texpose::{
-    layout, layout_with_em_size_pt, layout_with_max_depth, parse, Dim, MathFont, MathStyle,
-};
+mod common;
+
+use texpose::{layout, layout_with_em_size_pt, layout_with_max_depth, parse, Dim, MathStyle};
 
 #[test]
 fn fraction_null_delimiter_space_remains_physical_across_em_sizes() {
-    let font = MathFont::stix_two_math().expect("STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math");
     let ast = parse(r"\frac{1}{2}").expect("fraction");
 
     let ten_pt = layout_with_em_size_pt(&ast, &font, MathStyle::Text, &Dim::from_i64(10))
@@ -34,7 +34,7 @@ fn fraction_null_delimiter_space_remains_physical_across_em_sizes() {
 
 #[test]
 fn explicit_em_size_validation_and_max_depth_keep_compatible_defaults() {
-    let font = MathFont::stix_two_math().expect("STIX Two Math");
+    let font = common::stix_two_math().expect("STIX Two Math");
     let ast = parse(r"\frac{1}{2}").expect("fraction");
 
     let default = layout(&ast, &font, MathStyle::Text).expect("default layout");
