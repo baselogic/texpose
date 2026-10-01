@@ -3,6 +3,7 @@
 mod engine;
 mod metrics;
 mod numbering;
+mod semantic;
 mod space;
 mod style;
 

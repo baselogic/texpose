@@ -22,29 +22,6 @@ pub fn atom_space_mu(left: AtomKind, right: AtomKind, style: MathStyle) -> i64 {
     }
 }
 
-/// Convert a TeX Bin that cannot stay binary (start of list, or next to Rel/Close/…).
-#[must_use]
-pub fn convert_bin(prev: Option<AtomKind>, this: AtomKind, next: Option<AtomKind>) -> AtomKind {
-    if this != AtomKind::Bin {
-        return this;
-    }
-    let prev_bad = matches!(
-        prev,
-        None | Some(
-            AtomKind::Bin | AtomKind::Op | AtomKind::Rel | AtomKind::Open | AtomKind::Punct
-        )
-    );
-    let next_bad = matches!(
-        next,
-        None | Some(AtomKind::Rel | AtomKind::Close | AtomKind::Punct)
-    );
-    if prev_bad || next_bad {
-        AtomKind::Ord
-    } else {
-        AtomKind::Bin
-    }
-}
-
 /// Kern width for a Table 18 space at `style`.
 pub fn space_width(mu: i64, params: &MathParams, style: MathStyle) -> Result<Dim, NumericError> {
     if mu == 0 {
@@ -82,7 +59,7 @@ const TABLE: [[i8; 8]; 8] = [
 
 #[cfg(test)]
 mod tests {
-    use super::{atom_space_mu, convert_bin, AtomKind, MathStyle};
+    use super::{atom_space_mu, AtomKind, MathStyle};
 
     const KINDS: [AtomKind; 8] = [
         AtomKind::Ord,
@@ -139,18 +116,26 @@ mod tests {
     }
 
     #[test]
-    fn convert_bin_after_open() {
-        assert_eq!(
-            convert_bin(Some(AtomKind::Open), AtomKind::Bin, Some(AtomKind::Ord)),
-            AtomKind::Ord
-        );
-        assert_eq!(
-            convert_bin(Some(AtomKind::Ord), AtomKind::Bin, Some(AtomKind::Ord)),
-            AtomKind::Bin
-        );
-        assert_eq!(
-            convert_bin(None, AtomKind::Bin, Some(AtomKind::Ord)),
-            AtomKind::Ord
-        );
+    fn table_18_cramped_variants_match_their_script_level() {
+        for left in KINDS {
+            for right in KINDS {
+                assert_eq!(
+                    atom_space_mu(left, right, MathStyle::Display),
+                    atom_space_mu(left, right, MathStyle::DisplayCramped)
+                );
+                assert_eq!(
+                    atom_space_mu(left, right, MathStyle::Text),
+                    atom_space_mu(left, right, MathStyle::TextCramped)
+                );
+                assert_eq!(
+                    atom_space_mu(left, right, MathStyle::Script),
+                    atom_space_mu(left, right, MathStyle::ScriptCramped)
+                );
+                assert_eq!(
+                    atom_space_mu(left, right, MathStyle::ScriptScript),
+                    atom_space_mu(left, right, MathStyle::ScriptScriptCramped)
+                );
+            }
+        }
     }
 }

@@ -10,7 +10,8 @@ use crate::error::{Error, NumericError};
 use crate::font::MathFont;
 use crate::layout::metrics::MathParams;
 use crate::layout::numbering::NumberingState;
-use crate::layout::space::{atom_space_mu, convert_bin, space_width};
+use crate::layout::semantic::{noad_class, normalize_row, SemanticItem};
+use crate::layout::space::{atom_space_mu, space_width};
 use crate::layout::style::MathStyle;
 use crate::layout::{BoxContent, MathBox, RootEmSize};
 use crate::parser::DEFAULT_MAX_NESTING_DEPTH;
@@ -524,7 +525,7 @@ impl Engine<'_> {
                     }
                 }
                 Ok(Item {
-                    class: class_of(inner),
+                    class: noad_class(inner),
                     bx,
                 })
             }
@@ -580,7 +581,7 @@ impl Engine<'_> {
             MathNode::Color(c, body) | MathNode::TextColor(c, body) => {
                 let inner = self.layout(body, style)?;
                 Ok(Item {
-                    class: class_of(body),
+                    class: noad_class(body),
                     bx: color_wrap(*c, inner),
                 })
             }
@@ -725,42 +726,53 @@ impl Engine<'_> {
                 class: Some(AtomKind::Ord),
             });
         }
-        let mut laid = Vec::new();
-        for n in items {
-            laid.push(self.item(n, style)?);
-        }
-        let n = laid.len();
-        let mut classes: Vec<Option<AtomKind>> = Vec::with_capacity(n);
-        for i in 0..n {
-            let prev = if i == 0 { None } else { laid[i - 1].class };
-            let next = if i + 1 < n { laid[i + 1].class } else { None };
-            classes.push(laid[i].class.map(|c| convert_bin(prev, c, next)));
-        }
-        let mut out = Vec::new();
-        for i in 0..n {
-            if i > 0 {
-                if let (Some(l), Some(r)) = (classes[i - 1], classes[i]) {
-                    let mu = atom_space_mu(l, r, style);
-                    let w = space_width(mu, &self.params, style)?;
-                    if !w.is_zero() {
-                        out.push(MathBox::kern(w));
-                    }
-                }
-            }
-            out.push(laid[i].bx.clone());
 
-            if row_needs_math_italic_kern(&items[i]) && !laid[i].bx.italic.is_zero() {
-                out.push(MathBox::kern(laid[i].bx.italic.clone()));
-            }
-        }
-        let class = if n == 1 {
-            classes[0]
+        let sequence = normalize_row(items, style);
+        let row_class = if items.len() == 1 {
+            sequence.iter().find_map(|item| match item {
+                SemanticItem::Noad { class, .. } => Some(*class),
+                _ => None,
+            })
         } else {
             Some(AtomKind::Ord)
         };
+        let mut current_style = style;
+        let mut previous_noad = None;
+        let mut out = Vec::new();
+
+        for semantic in sequence {
+            match semantic {
+                SemanticItem::Style(next_style) => current_style = next_style,
+                SemanticItem::Glue(kind) => {
+                    out.push(MathBox::kern(self.space_dim(kind, current_style)?));
+                }
+                SemanticItem::Control(node) => {
+                    out.push(self.item(node, current_style)?.bx);
+                }
+                SemanticItem::Noad { node, class } => {
+                    if let Some(left) = previous_noad {
+                        let mu = atom_space_mu(left, class, current_style);
+                        let width = space_width(mu, &self.params, current_style)?;
+                        if !width.is_zero() {
+                            out.push(MathBox::kern(width));
+                        }
+                    }
+
+                    let laid = self.item(node, current_style)?;
+                    if row_needs_math_italic_kern(node) && !laid.bx.italic.is_zero() {
+                        out.push(laid.bx.clone());
+                        out.push(MathBox::kern(laid.bx.italic));
+                    } else {
+                        out.push(laid.bx);
+                    }
+                    previous_noad = Some(class);
+                }
+            }
+        }
+
         Ok(Item {
             bx: MathBox::hpack(out)?,
-            class,
+            class: row_class,
         })
     }
 
@@ -1785,7 +1797,7 @@ impl Engine<'_> {
             .depth
             .max_ref(&slash.depth.checked_sub(&raise)?.clamp_nonneg());
         Ok(Item {
-            class: class_of(base),
+            class: noad_class(base),
             bx: MathBox {
                 width: width.clone(),
                 height,
@@ -3295,46 +3307,6 @@ fn accent_candidates(kind: AccentKind) -> &'static [char] {
         | AccentKind::BCancel
         | AccentKind::XCancel
         | AccentKind::Boxed => &[],
-    }
-}
-
-fn class_of(n: &MathNode) -> Option<AtomKind> {
-    match n {
-        MathNode::Atom(_, k) => Some(*k),
-        MathNode::Symbol(s) => Some(symbol_class(s)),
-        MathNode::Operator(_, _)
-        | MathNode::Sum(_, _)
-        | MathNode::Product(_, _)
-        | MathNode::Integral(_, _, _)
-        | MathNode::Limit(_) => Some(AtomKind::Op),
-        MathNode::Fraction(_)
-        | MathNode::Radical(_, _)
-        | MathNode::Matrix(_, _, _)
-        | MathNode::Substack(_)
-        | MathNode::Delimited(_, _, _) => Some(AtomKind::Inner),
-        MathNode::SizedDelim(_, _, k) => Some(*k),
-        MathNode::Superscript(b, _)
-        | MathNode::Subscript(b, _)
-        | MathNode::SubSup(b, _, _)
-        | MathNode::Accent(b, _)
-        | MathNode::OverUnder(b, _, _)
-        | MathNode::CancelTo(_, b)
-        | MathNode::Tag { body: b, .. }
-        | MathNode::Intertext(b) => class_of(b),
-        MathNode::Text(_, _) | MathNode::Ref(_) => Some(AtomKind::Ord),
-        MathNode::Color(_, b)
-        | MathNode::TextColor(_, b)
-        | MathNode::ColorBox(_, b)
-        | MathNode::FColorBox(_, _, b)
-        | MathNode::Phantom(_, b) => class_of(b),
-        MathNode::Row(v) if v.len() == 1 => class_of(&v[0]),
-        MathNode::Row(_) => Some(AtomKind::Ord),
-        MathNode::Space(_)
-        | MathNode::Strut(_, _)
-        | MathNode::Rule(_, _)
-        | MathNode::Label(_)
-        | MathNode::NoNumber
-        | MathNode::Hline => None,
     }
 }
 
