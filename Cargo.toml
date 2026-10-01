@@ -25,7 +25,7 @@ include = [
 ]
 
 [dependencies]
-ttf-parser = "0.25"
+ttf-parser = { version = "0.25", default-features = false, features = ["std", "opentype-layout"] }
 
 [[bench]]
 name = "layout"

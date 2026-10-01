@@ -346,6 +346,14 @@ def gate_math(
             / "STIXTwoMath-Regular.otf"
         )
         require_file(fixture)
+        fixture_face_index = 0
+        source = fixture.parent / "SOURCE.md"
+        require_file(source)
+        source_text = source.read_text(encoding="utf-8")
+        if f"Face index: `{fixture_face_index}`" not in source_text:
+            fail("oracle fixture face index disagrees with SOURCE.md")
+        if fixture_face_index != 0:
+            fail("LuaLaTeX oracle currently requires a standalone face at index 0")
         font = work / fixture.name
         shutil.copy2(fixture, font)
         target = work / "target"

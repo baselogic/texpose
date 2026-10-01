@@ -19,3 +19,7 @@ The initial codebase derives from LaTeX-Rust by Jeffrey S Carr. Source provenanc
 TeXpose is distributed under MIT OR Apache-2.0.
 
 Verification fonts live under `tests/fixtures/fonts/` and are not embedded in the production crate. Each fixture records its upstream source, SHA-256, and font license in its own directory.
+
+## Font input contract
+
+The first stable core accepts caller-provided static OpenType OTF/TTF faces and TTC/OTC collections. Standalone faces use `MathFont::from_bytes`; collections must use `MathFont::from_bytes_at_index` with an explicit face index. Functional OpenType variable fonts are rejected with `FontError::VariableFontUnsupported`.

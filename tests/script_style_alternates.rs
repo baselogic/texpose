@@ -47,7 +47,8 @@ fn glyph_id(source: &str, style: MathStyle, font: &MathFont) -> u16 {
 #[test]
 fn script_styles_use_open_type_ssty_alternates() {
     let font = common::stix_two_math().expect("STIX Two Math");
-    let face = ttf_parser::Face::parse(font.bytes(), 0).expect("parse fixture font");
+    let face =
+        ttf_parser::Face::parse(font.bytes(), font.face_index()).expect("parse fixture font");
     let base = font.glyph('2').expect("digit 2").glyph_id;
     let script = ssty_alternate(&face, base, 1).expect("STIX script alternate for digit 2");
     let scriptscript =

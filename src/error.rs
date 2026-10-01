@@ -253,10 +253,14 @@ pub enum Error {
 }
 
 /// Font loader or metric lookup failure.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FontError {
-    /// Embedded or supplied bytes are not a usable OpenType face.
+    /// Supplied bytes are not a usable OpenType face.
     InvalidFace,
+    /// A font collection was supplied without selecting an explicit face index.
+    CollectionFaceIndexRequired,
+    /// The selected face contains functional OpenType variation axes.
+    VariableFontUnsupported,
     /// Character has no glyph in this face.
     MissingGlyph {
         /// Requested character.
@@ -338,6 +342,10 @@ impl fmt::Display for FontError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidFace => f.write_str("invalid OpenType face"),
+            Self::CollectionFaceIndexRequired => {
+                f.write_str("font collection requires an explicit face index")
+            }
+            Self::VariableFontUnsupported => f.write_str("variable fonts are unsupported"),
             Self::MissingGlyph { ch } => write!(f, "missing glyph for {ch:?}"),
         }
     }
@@ -346,6 +354,8 @@ impl fmt::Display for FontError {
 impl std::error::Error for NumericError {}
 
 impl std::error::Error for ParseError {}
+
+impl std::error::Error for FontError {}
 
 impl std::error::Error for Error {}
 

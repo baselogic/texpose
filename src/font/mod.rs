@@ -2,7 +2,7 @@
 
 use core::num::NonZeroU16;
 
-use ttf_parser::Face;
+use ttf_parser::{Face, RawFace, Tag};
 
 use crate::dim::Dim;
 use crate::error::{Error, FontError};
@@ -66,14 +66,34 @@ pub struct MathFont {
     ascender_fu: i16,
     descender_fu: i16,
     script_alternates: Vec<ScriptAlternateEntry>,
+    face_index: u32,
 }
 
 impl MathFont {
-    /// Parse OpenType bytes from a caller-provided static buffer.
+    /// Parse one standalone OpenType face from a caller-provided static buffer.
     ///
-    /// The current font representation borrows that buffer for its full lifetime.
-    pub fn from_bytes(raw: &'static [u8]) -> Result<Self, Error> {
-        let face = Face::parse(raw, 0).map_err(|_| FontError::InvalidFace)?;
+    /// Collections require [`Self::from_bytes_at_index`] so face selection is
+    /// explicit. The current font representation borrows the buffer for its full
+    /// lifetime. Variable fonts are rejected by the first stable core.
+    pub fn from_bytes(raw: &'static [u8]) -> Result<Self, FontError> {
+        if ttf_parser::fonts_in_collection(raw).is_some() {
+            return Err(FontError::CollectionFaceIndexRequired);
+        }
+        Self::from_bytes_at_index(raw, 0)
+    }
+
+    /// Parse an OpenType face at `face_index`.
+    ///
+    /// `face_index` is `0` for standalone OTF/TTF data and selects a face for
+    /// TTC/OTC collections. The selected face must be static; functional OpenType
+    /// variation axes return [`FontError::VariableFontUnsupported`].
+    pub fn from_bytes_at_index(raw: &'static [u8], face_index: u32) -> Result<Self, FontError> {
+        let raw_face = RawFace::parse(raw, face_index).map_err(|_| FontError::InvalidFace)?;
+        if raw_face_has_variable_axes(&raw_face)? {
+            return Err(FontError::VariableFontUnsupported);
+        }
+
+        let face = Face::parse(raw, face_index).map_err(|_| FontError::InvalidFace)?;
         let units_per_em = NonZeroU16::new(face.units_per_em()).ok_or(FontError::InvalidFace)?;
         let ascender_fu = face.ascender();
         let descender_fu = face.descender();
@@ -100,6 +120,7 @@ impl MathFont {
             ascender_fu,
             descender_fu,
             script_alternates,
+            face_index,
         })
     }
 
@@ -151,6 +172,15 @@ impl MathFont {
     #[must_use]
     pub fn bytes(&self) -> &'static [u8] {
         self.raw
+    }
+
+    /// Face index used to parse this font.
+    ///
+    /// Standalone OTF/TTF faces use index `0`; TTC/OTC collections require an
+    /// explicitly selected index.
+    #[must_use]
+    pub const fn face_index(&self) -> u32 {
+        self.face_index
     }
 
     /// `unitsPerEm` from the `head` table.
@@ -359,6 +389,43 @@ impl MathFont {
         }
         s
     }
+}
+
+fn raw_face_has_variable_axes(raw_face: &RawFace<'_>) -> Result<bool, FontError> {
+    let Some(fvar) = raw_face.table(Tag::from_bytes(b"fvar")) else {
+        return Ok(false);
+    };
+
+    // OpenType fvar 1.0 header through axisSize. A functional variable font
+    // has axisCount > 0; axisCount == 0 is explicitly treated as non-variable.
+    if fvar.len() < 16 {
+        return Err(FontError::InvalidFace);
+    }
+
+    let major = u16::from_be_bytes([fvar[0], fvar[1]]);
+    let axes_offset = usize::from(u16::from_be_bytes([fvar[4], fvar[5]]));
+    let reserved = u16::from_be_bytes([fvar[6], fvar[7]]);
+    let axis_count = usize::from(u16::from_be_bytes([fvar[8], fvar[9]]));
+    let axis_size = usize::from(u16::from_be_bytes([fvar[10], fvar[11]]));
+
+    if major != 1 || reserved != 2 || axes_offset < 16 || axis_size < 20 {
+        return Err(FontError::InvalidFace);
+    }
+    if axis_count == 0 {
+        return Ok(false);
+    }
+
+    let axes_len = axis_count
+        .checked_mul(axis_size)
+        .ok_or(FontError::InvalidFace)?;
+    let axes_end = axes_offset
+        .checked_add(axes_len)
+        .ok_or(FontError::InvalidFace)?;
+    if axes_end > fvar.len() {
+        return Err(FontError::InvalidFace);
+    }
+
+    Ok(true)
 }
 
 fn ssty_alternate_glyph_id(face: &Face<'_>, glyph_id: u16, script_level: u8) -> Option<u16> {

@@ -32,7 +32,8 @@ struct ScriptConstants {
 }
 
 fn script_constants(font: &MathFont) -> ScriptConstants {
-    let face = ttf_parser::Face::parse(font.bytes(), 0).expect("parse STIX fixture face");
+    let face =
+        ttf_parser::Face::parse(font.bytes(), font.face_index()).expect("parse STIX fixture face");
 
     let constants = face
         .tables()
