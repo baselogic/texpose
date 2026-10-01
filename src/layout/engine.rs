@@ -7,7 +7,7 @@ use crate::atoms::symbol_atom_kind;
 use crate::color::Color;
 use crate::dim::Dim;
 use crate::error::{Error, NumericError};
-use crate::font::MathFont;
+use crate::font::{MathFont, MathFontView};
 use crate::layout::metrics::MathParams;
 use crate::layout::numbering::NumberingState;
 use crate::layout::semantic::{
@@ -231,10 +231,13 @@ fn layout_impl(
     max_depth: usize,
     root_em_size: &RootEmSize,
 ) -> Result<MathBox, Error> {
-    let params = MathParams::from_font(font)?;
-    let script_placement = ScriptPlacementParams::from_font(font)?;
-    let substack = SubstackParams::from_font(font, &params)?;
-    let fraction_stack = FractionStackParams::from_font(font)?;
+    // Parse the selected OpenType face once and reuse it for the complete
+    // layout operation.
+    let font = font.operation_view();
+    let params = MathParams::from_view(&font)?;
+    let script_placement = ScriptPlacementParams::from_view(&font)?;
+    let substack = SubstackParams::from_view(&font, &params)?;
+    let fraction_stack = FractionStackParams::from_view(&font)?;
     let null_delimiter_space = resolve_length(
         &Length::TexPt(Dim::ratio(
             TEX_NULL_DELIMITER_SPACE_PT_NUM,
@@ -284,8 +287,8 @@ fn resolve_length(
     }
 }
 
-struct Engine<'a> {
-    font: &'a MathFont,
+struct Engine<'font, 'state> {
+    font: MathFontView<'font>,
     params: MathParams,
     script_placement: ScriptPlacementParams,
     substack: SubstackParams,
@@ -293,7 +296,7 @@ struct Engine<'a> {
     null_delimiter_space: Dim,
     delimiter_shortfall: Dim,
     root_em_size: RootEmSize,
-    numbers: &'a NumberingState,
+    numbers: &'state NumberingState,
     idx: Cell<usize>,
     /// Current nesting depth, bounded by `max_depth`.
     depth: Cell<usize>,
@@ -310,7 +313,7 @@ struct ScriptPlacementParams {
 }
 
 impl ScriptPlacementParams {
-    fn from_font(font: &MathFont) -> Result<Self, Error> {
+    fn from_view(font: &MathFontView<'_>) -> Result<Self, Error> {
         let math = font
             .face()
             .tables()
@@ -344,7 +347,7 @@ struct SubstackParams {
 }
 
 impl SubstackParams {
-    fn from_font(font: &MathFont, params: &MathParams) -> Result<Self, Error> {
+    fn from_view(font: &MathFontView<'_>, params: &MathParams) -> Result<Self, Error> {
         let math = font
             .face()
             .tables()
@@ -386,7 +389,7 @@ struct FractionStackParams {
 }
 
 impl FractionStackParams {
-    fn from_font(font: &MathFont) -> Result<Self, Error> {
+    fn from_view(font: &MathFontView<'_>) -> Result<Self, Error> {
         let math = font
             .face()
             .tables()
@@ -432,7 +435,7 @@ struct Item {
     class: Option<AtomKind>,
 }
 
-impl Engine<'_> {
+impl<'font, 'state> Engine<'font, 'state> {
     fn layout(&self, node: &MathNode, style: MathStyle) -> Result<MathBox, Error> {
         Ok(self.item(node, style)?.bx)
     }

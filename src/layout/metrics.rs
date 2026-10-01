@@ -2,7 +2,7 @@
 
 use crate::dim::Dim;
 use crate::error::{Error, NumericError};
-use crate::font::MathFont;
+use crate::font::{MathFont, MathFontView};
 use crate::layout::style::MathStyle;
 
 /// MATH-table parameters used by the layout engine.
@@ -109,6 +109,11 @@ impl MathParams {
     ///
     /// [`Error::Unsupported`] if the face has no MATH table or constants.
     pub fn from_font(font: &MathFont) -> Result<Self, Error> {
+        let font = font.operation_view();
+        Self::from_view(&font)
+    }
+
+    pub(crate) fn from_view(font: &MathFontView<'_>) -> Result<Self, Error> {
         let face = font.face();
         let math = face.tables().math.ok_or_else(|| Error::Unsupported {
             what: "OpenType MATH table".into(),

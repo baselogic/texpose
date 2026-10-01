@@ -21,14 +21,14 @@ mod hash;
 mod style_map;
 mod symbols;
 
-/// OpenType MATH metrics for caller-provided font data.
+/// OpenType MATH metrics for caller-owned shared font data.
 pub mod font;
 /// AST → TeX-faithful [`MathBox`](layout::MathBox).
 pub mod layout;
 /// LaTeX math → [`MathNode`](parser::MathNode) AST.
 pub mod parser;
 /// The OpenType parser this crate uses, re-exported so that consumers of
-/// [`MathFont::face`] name the same version.
+/// [`MathFont::face`] name the same parser version.
 pub use ttf_parser;
 
 pub use atoms::symbol_atom_kind;

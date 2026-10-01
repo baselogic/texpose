@@ -1,6 +1,7 @@
 //! OpenType math font metrics. Integer font units → [`Dim`](crate::Dim).
 
 use core::num::NonZeroU16;
+use std::sync::Arc;
 
 use ttf_parser::{Face, RawFace, Tag};
 
@@ -39,100 +40,107 @@ pub struct GlyphMetrics {
     pub depth: Dim,
 }
 
-#[derive(Clone, Copy)]
-struct ScriptAlternateEntry {
-    glyph_id: u16,
-    alternates: [Option<u16>; 2],
-}
-
-/// Loaded math face.
+/// Loaded math font backed by shared caller-owned bytes.
+///
+/// `MathFont` owns no self-referential parser state. Clones share the same
+/// immutable byte allocation, and each layout operation creates one temporary
+/// parsed OpenType face from those bytes.
 ///
 /// # Examples
 ///
 /// ```no_run
+/// use std::sync::Arc;
 /// use texpose::{Error, MathFont};
 ///
 /// # fn font_bytes() -> &'static [u8] { unimplemented!() }
 /// # fn main() -> Result<(), Error> {
-/// let font = MathFont::from_bytes(font_bytes())?;
+/// let raw: Arc<[u8]> = Arc::from(font_bytes());
+/// let font = MathFont::from_shared_bytes(raw, 0)?;
 /// assert!(font.units_per_em() > 0);
 /// # Ok(())
 /// # }
 /// ```
+#[derive(Clone)]
 pub struct MathFont {
-    raw: &'static [u8],
-    face: Face<'static>,
-    units_per_em: NonZeroU16,
-    ascender_fu: i16,
-    descender_fu: i16,
-    script_alternates: Vec<ScriptAlternateEntry>,
+    inner: Arc<MathFontInner>,
+}
+
+struct MathFontInner {
+    raw: Arc<[u8]>,
     face_index: u32,
 }
 
+pub(crate) struct MathFontView<'a> {
+    face: Face<'a>,
+}
+
 impl MathFont {
-    /// Parse one standalone OpenType face from a caller-provided static buffer.
+    /// Parse one standalone OpenType face from a borrowed byte slice.
     ///
-    /// Collections require [`Self::from_bytes_at_index`] so face selection is
-    /// explicit. The current font representation borrows the buffer for its full
-    /// lifetime. Variable fonts are rejected by the first stable core.
-    pub fn from_bytes(raw: &'static [u8]) -> Result<Self, FontError> {
+    /// This compatibility constructor copies the supplied slice into shared
+    /// storage. Collections require [`Self::from_bytes_at_index`] so face
+    /// selection is explicit. Variable fonts are rejected by the first stable
+    /// core.
+    pub fn from_bytes(raw: &[u8]) -> Result<Self, FontError> {
         if ttf_parser::fonts_in_collection(raw).is_some() {
             return Err(FontError::CollectionFaceIndexRequired);
         }
-        Self::from_bytes_at_index(raw, 0)
+        Self::from_shared_bytes(Arc::from(raw), 0)
     }
 
-    /// Parse an OpenType face at `face_index`.
+    /// Parse an OpenType face at `face_index` from a borrowed byte slice.
     ///
+    /// This compatibility constructor copies the supplied slice into shared
+    /// storage. `face_index` is `0` for standalone OTF/TTF data and selects a
+    /// face for TTC/OTC collections.
+    pub fn from_bytes_at_index(raw: &[u8], face_index: u32) -> Result<Self, FontError> {
+        Self::from_shared_bytes(Arc::from(raw), face_index)
+    }
+
+    /// Parse an OpenType face from shared caller-owned bytes.
+    ///
+    /// The byte allocation is retained by reference counting without copying.
     /// `face_index` is `0` for standalone OTF/TTF data and selects a face for
-    /// TTC/OTC collections. The selected face must be static; functional OpenType
-    /// variation axes return [`FontError::VariableFontUnsupported`].
-    pub fn from_bytes_at_index(raw: &'static [u8], face_index: u32) -> Result<Self, FontError> {
-        let raw_face = RawFace::parse(raw, face_index).map_err(|_| FontError::InvalidFace)?;
-        if raw_face_has_variable_axes(&raw_face)? {
-            return Err(FontError::VariableFontUnsupported);
-        }
-
-        let face = Face::parse(raw, face_index).map_err(|_| FontError::InvalidFace)?;
-        let units_per_em = NonZeroU16::new(face.units_per_em()).ok_or(FontError::InvalidFace)?;
-        let ascender_fu = face.ascender();
-        let descender_fu = face.descender();
-
-        let mut script_alternates = Vec::new();
-        for glyph_id in 0..face.number_of_glyphs() {
-            let alternates = [
-                ssty_alternate_glyph_id(&face, glyph_id, 1),
-                ssty_alternate_glyph_id(&face, glyph_id, 2),
-            ];
-
-            if alternates.iter().any(Option::is_some) {
-                script_alternates.push(ScriptAlternateEntry {
-                    glyph_id,
-                    alternates,
-                });
+    /// TTC/OTC collections. The selected face must be static; functional
+    /// OpenType variation axes return [`FontError::VariableFontUnsupported`].
+    pub fn from_shared_bytes(raw: Arc<[u8]>, face_index: u32) -> Result<Self, FontError> {
+        {
+            let raw_face =
+                RawFace::parse(raw.as_ref(), face_index).map_err(|_| FontError::InvalidFace)?;
+            if raw_face_has_variable_axes(&raw_face)? {
+                return Err(FontError::VariableFontUnsupported);
             }
         }
 
+        {
+            let face = Face::parse(raw.as_ref(), face_index).map_err(|_| FontError::InvalidFace)?;
+            NonZeroU16::new(face.units_per_em()).ok_or(FontError::InvalidFace)?;
+        }
+
         Ok(Self {
-            raw,
-            face,
-            units_per_em,
-            ascender_fu,
-            descender_fu,
-            script_alternates,
-            face_index,
+            inner: Arc::new(MathFontInner { raw, face_index }),
         })
     }
 
-    /// The parsed OpenType face.
+    fn parse_face(&self) -> Face<'_> {
+        Face::parse(self.bytes(), self.face_index())
+            .expect("MathFont bytes and face index were validated at construction")
+    }
+
+    pub(crate) fn operation_view(&self) -> MathFontView<'_> {
+        MathFontView {
+            face: self.parse_face(),
+        }
+    }
+
+    /// Parse and return an OpenType face view over the retained bytes.
     ///
-    /// A native consumer may need glyph outlines and bounding boxes, which this
-    /// crate does not otherwise expose. Reaching the face here
-    /// rather than re-parsing [`Self::bytes`] guarantees that the glyph ids in
-    /// [`BoxContent::Glyph`](crate::BoxContent::Glyph) are resolved against the
-    /// same face, parsed by the same version of `ttf-parser`, that produced
-    /// them. The crate re-exports [`ttf_parser`] so that a
-    /// consumer can name this type without pinning the version itself.
+    /// Native consumers may need glyph outlines and bounding boxes that this
+    /// crate does not otherwise expose. The returned view borrows `self`; no
+    /// OpenType face is stored self-referentially inside [`MathFont`].
+    ///
+    /// The crate re-exports [`ttf_parser`] so consumers can name the exact parser
+    /// version used by TeXpose.
     ///
     /// # Examples
     ///
@@ -149,29 +157,20 @@ impl MathFont {
     /// # }
     /// ```
     #[must_use]
-    pub fn face(&self) -> &Face<'static> {
-        &self.face
+    pub fn face(&self) -> Face<'_> {
+        self.parse_face()
     }
 
-    pub(crate) fn script_alternate_glyph_id(&self, glyph_id: u16, script_level: u8) -> Option<u16> {
-        let alternate_index = match script_level {
-            1 => 0,
-            2 => 1,
-            _ => return None,
-        };
-
-        let index = self
-            .script_alternates
-            .binary_search_by_key(&glyph_id, |entry| entry.glyph_id)
-            .ok()?;
-
-        self.script_alternates[index].alternates[alternate_index]
-    }
-
-    /// OpenType bytes this face was parsed from.
+    /// OpenType bytes retained by this font.
     #[must_use]
-    pub fn bytes(&self) -> &'static [u8] {
-        self.raw
+    pub fn bytes(&self) -> &[u8] {
+        self.inner.raw.as_ref()
+    }
+
+    /// Clone the shared OpenType byte allocation.
+    #[must_use]
+    pub fn shared_bytes(&self) -> Arc<[u8]> {
+        Arc::clone(&self.inner.raw)
     }
 
     /// Face index used to parse this font.
@@ -179,83 +178,122 @@ impl MathFont {
     /// Standalone OTF/TTF faces use index `0`; TTC/OTC collections require an
     /// explicitly selected index.
     #[must_use]
-    pub const fn face_index(&self) -> u32 {
-        self.face_index
+    pub fn face_index(&self) -> u32 {
+        self.inner.face_index
     }
 
     /// `unitsPerEm` from the `head` table.
     #[must_use]
     pub fn units_per_em(&self) -> u16 {
-        self.units_per_em.get()
-    }
-
-    pub(crate) fn units_per_em_nonzero(&self) -> NonZeroU16 {
-        self.units_per_em
+        self.face().units_per_em()
     }
 
     /// `hhea` ascender in font units.
     #[must_use]
     pub fn ascender_fu(&self) -> i16 {
-        self.ascender_fu
+        self.face().ascender()
     }
 
     /// `hhea` descender in font units (typically negative).
     #[must_use]
     pub fn descender_fu(&self) -> i16 {
-        self.descender_fu
+        self.face().descender()
     }
 
     /// Ascender in em.
     #[must_use]
     pub fn ascender(&self) -> Dim {
-        Dim::from_font_units_nonzero(i64::from(self.ascender_fu), self.units_per_em)
+        let font = self.operation_view();
+        Dim::from_font_units_nonzero(i64::from(font.face.ascender()), font.units_per_em_nonzero())
     }
 
     /// Depth below baseline from `hhea` descender, in em (non-negative).
     #[must_use]
     pub fn descender(&self) -> Dim {
-        let d = i64::from(self.descender_fu);
-        Dim::from_font_units_nonzero(-d, self.units_per_em)
+        let font = self.operation_view();
+        let d = i64::from(font.face.descender());
+        Dim::from_font_units_nonzero(-d, font.units_per_em_nonzero())
     }
 
     /// Metrics for `ch`, or [`FontError::MissingGlyph`].
     pub fn glyph(&self, ch: char) -> Result<GlyphMetrics, Error> {
-        let face = self.face();
-        let gid = face.glyph_index(ch).ok_or(FontError::MissingGlyph { ch })?;
-        let advance_fu = face
-            .glyph_hor_advance(gid)
-            .ok_or(FontError::MissingGlyph { ch })?;
-        let mut height_fu = 0i64;
-        let mut depth_fu = 0i64;
-        if let Some(bbox) = face.glyph_bounding_box(gid) {
-            height_fu = i64::from(bbox.y_max).max(0);
-            depth_fu = i64::from(-bbox.y_min).max(0);
-        }
-        let upem = self.units_per_em;
-        Ok(GlyphMetrics {
-            ch,
-            glyph_id: gid.0,
-            advance_fu,
-            advance: Dim::from_font_units_nonzero(i64::from(advance_fu), upem),
-            height: Dim::from_font_units_nonzero(height_fu, upem),
-            depth: Dim::from_font_units_nonzero(depth_fu, upem),
-        })
+        self.operation_view().glyph(ch)
     }
 
     /// Metrics for OpenType glyph id `gid`, tagged with `ch` for the box payload.
     pub fn glyph_id(&self, ch: char, gid: u16) -> Result<GlyphMetrics, Error> {
-        let face = self.face();
+        self.operation_view().glyph_id(ch, gid)
+    }
+
+    /// MATH italic correction for `glyph_id`, or zero.
+    pub fn italic_correction(&self, glyph_id: u16) -> Dim {
+        self.operation_view().italic_correction(glyph_id)
+    }
+
+    /// MATH top-accent attachment (em from glyph left), if present.
+    pub fn top_accent_attachment(&self, glyph_id: u16) -> Option<Dim> {
+        self.operation_view().top_accent_attachment(glyph_id)
+    }
+
+    /// Horizontal glyph-assembly parts: `(gid, start_connector, end_connector, advance, extender)`.
+    /// Lengths are font units.
+    pub fn horizontal_assembly_parts(&self, glyph_id: u16) -> Vec<(u16, u16, u16, u16, bool)> {
+        self.operation_view().horizontal_assembly_parts(glyph_id)
+    }
+
+    /// Horizontal MATH variants of `glyph_id`, including the base glyph first.
+    pub fn horizontal_variants(&self, glyph_id: u16) -> Vec<u16> {
+        self.operation_view().horizontal_variants(glyph_id)
+    }
+
+    /// Vertical MATH variants of `glyph_id`, including the base glyph first.
+    pub fn vertical_variants(&self, glyph_id: u16) -> Vec<u16> {
+        self.operation_view().vertical_variants(glyph_id)
+    }
+
+    /// SHA-256 hex of arbitrary font bytes.
+    #[must_use]
+    pub fn sha256_hex(bytes: &[u8]) -> String {
+        let d = crate::hash::sha256(bytes);
+        let mut s = String::with_capacity(64);
+        for b in d {
+            s.push_str(&hex_byte(b));
+        }
+        s
+    }
+}
+
+impl<'a> MathFontView<'a> {
+    pub(crate) fn face(&self) -> &Face<'a> {
+        &self.face
+    }
+
+    pub(crate) fn units_per_em_nonzero(&self) -> NonZeroU16 {
+        NonZeroU16::new(self.face.units_per_em())
+            .expect("MathFont unitsPerEm was validated at construction")
+    }
+
+    pub(crate) fn glyph(&self, ch: char) -> Result<GlyphMetrics, Error> {
+        let gid = self
+            .face
+            .glyph_index(ch)
+            .ok_or(FontError::MissingGlyph { ch })?;
+        self.glyph_id(ch, gid.0)
+    }
+
+    pub(crate) fn glyph_id(&self, ch: char, gid: u16) -> Result<GlyphMetrics, Error> {
         let gid = ttf_parser::GlyphId(gid);
-        let advance_fu = face
+        let advance_fu = self
+            .face
             .glyph_hor_advance(gid)
             .ok_or(FontError::MissingGlyph { ch })?;
         let mut height_fu = 0i64;
         let mut depth_fu = 0i64;
-        if let Some(bbox) = face.glyph_bounding_box(gid) {
+        if let Some(bbox) = self.face.glyph_bounding_box(gid) {
             height_fu = i64::from(bbox.y_max).max(0);
             depth_fu = i64::from(-bbox.y_min).max(0);
         }
-        let upem = self.units_per_em;
+        let upem = self.units_per_em_nonzero();
         Ok(GlyphMetrics {
             ch,
             glyph_id: gid.0,
@@ -266,10 +304,8 @@ impl MathFont {
         })
     }
 
-    /// MATH italic correction for `glyph_id`, or zero.
-    pub fn italic_correction(&self, glyph_id: u16) -> Dim {
-        let face = self.face();
-        let Some(math) = face.tables().math else {
+    pub(crate) fn italic_correction(&self, glyph_id: u16) -> Dim {
+        let Some(math) = self.face.tables().math else {
             return Dim::zero();
         };
         let Some(info) = math.glyph_info else {
@@ -279,30 +315,30 @@ impl MathFont {
             return Dim::zero();
         };
         match table.get(ttf_parser::GlyphId(glyph_id)) {
-            Some(v) => Dim::from_font_units_nonzero(i64::from(v.value), self.units_per_em),
+            Some(v) => {
+                Dim::from_font_units_nonzero(i64::from(v.value), self.units_per_em_nonzero())
+            }
             None => Dim::zero(),
         }
     }
 
-    /// MATH top-accent attachment (em from glyph left), if present.
-    pub fn top_accent_attachment(&self, glyph_id: u16) -> Option<Dim> {
-        let face = self.face();
-        let math = face.tables().math?;
+    pub(crate) fn top_accent_attachment(&self, glyph_id: u16) -> Option<Dim> {
+        let math = self.face.tables().math?;
         let info = math.glyph_info?;
         let table = info.top_accent_attachments?;
         let v = table.get(ttf_parser::GlyphId(glyph_id))?;
         Some(Dim::from_font_units_nonzero(
             i64::from(v.value),
-            self.units_per_em,
+            self.units_per_em_nonzero(),
         ))
     }
 
-    /// Horizontal glyph-assembly parts: `(gid, start_connector, end_connector, advance, extender)`.
-    /// Lengths are font units.
-    pub fn horizontal_assembly_parts(&self, glyph_id: u16) -> Vec<(u16, u16, u16, u16, bool)> {
+    pub(crate) fn horizontal_assembly_parts(
+        &self,
+        glyph_id: u16,
+    ) -> Vec<(u16, u16, u16, u16, bool)> {
         let mut out = Vec::new();
-        let face = self.face();
-        let Some(math) = face.tables().math else {
+        let Some(math) = self.face.tables().math else {
             return out;
         };
         let Some(variants) = math.variants else {
@@ -331,11 +367,9 @@ impl MathFont {
         out
     }
 
-    /// Horizontal MATH variants of `glyph_id`, including the base glyph first.
-    pub fn horizontal_variants(&self, glyph_id: u16) -> Vec<u16> {
+    pub(crate) fn horizontal_variants(&self, glyph_id: u16) -> Vec<u16> {
         let mut out = vec![glyph_id];
-        let face = self.face();
-        let Some(math) = face.tables().math else {
+        let Some(math) = self.face.tables().math else {
             return out;
         };
         let Some(variants) = math.variants else {
@@ -355,11 +389,9 @@ impl MathFont {
         out
     }
 
-    /// Vertical MATH variants of `glyph_id`, including the base glyph first.
-    pub fn vertical_variants(&self, glyph_id: u16) -> Vec<u16> {
+    pub(crate) fn vertical_variants(&self, glyph_id: u16) -> Vec<u16> {
         let mut out = vec![glyph_id];
-        let face = self.face();
-        let Some(math) = face.tables().math else {
+        let Some(math) = self.face.tables().math else {
             return out;
         };
         let Some(variants) = math.variants else {
@@ -379,15 +411,8 @@ impl MathFont {
         out
     }
 
-    /// SHA-256 hex of arbitrary font bytes.
-    #[must_use]
-    pub fn sha256_hex(bytes: &[u8]) -> String {
-        let d = crate::hash::sha256(bytes);
-        let mut s = String::with_capacity(64);
-        for b in d {
-            s.push_str(&hex_byte(b));
-        }
-        s
+    pub(crate) fn script_alternate_glyph_id(&self, glyph_id: u16, script_level: u8) -> Option<u16> {
+        ssty_alternate_glyph_id(&self.face, glyph_id, script_level)
     }
 }
 
