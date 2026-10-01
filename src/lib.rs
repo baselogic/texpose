@@ -49,10 +49,10 @@ pub use layout::{
 pub use parser::{
     format_tokens, parse, parse_with_colors, parse_with_options, preprocess, tokenize,
     tokenize_spanned, AccentKind, AtomKind, ColSpec, DelimSize, Delimiter, EnvRow, EqNumber,
-    FractionAlignment, FractionRule, FractionSpec, FractionStyle, IntegralKind, Length, MathNode,
-    MatrixStyle, ParseOptions, PhantomKind, SpaceKind, SpannedToken, TextStyle, Token,
-    DEFAULT_MAX_AST_NODES, DEFAULT_MAX_ENVIRONMENT_CELLS, DEFAULT_MAX_ENVIRONMENT_ROWS,
-    DEFAULT_MAX_NESTING_DEPTH, DEFAULT_MAX_TOKENS,
+    FractionAlignment, FractionRule, FractionSpec, FractionStyle, IntegralKind, Length, LimitMode,
+    MathNode, MathStyleDeclaration, MatrixStyle, ParseOptions, PhantomKind, SpaceKind,
+    SpannedToken, TextStyle, Token, DEFAULT_MAX_AST_NODES, DEFAULT_MAX_ENVIRONMENT_CELLS,
+    DEFAULT_MAX_ENVIRONMENT_ROWS, DEFAULT_MAX_NESTING_DEPTH, DEFAULT_MAX_TOKENS,
 };
 pub use style_map::styled_char;
 pub use symbols::{category_count, glyph_char, lookup, symbols, SymbolEntry, SymbolKind};

@@ -447,6 +447,48 @@ impl IntegralKind {
     }
 }
 
+/// Explicit TeX math-style declaration retained in the syntax tree.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MathStyleDeclaration {
+    /// `\displaystyle`
+    Display,
+    /// `\textstyle`
+    Text,
+    /// `\scriptstyle`
+    Script,
+    /// `\scriptscriptstyle`
+    ScriptScript,
+}
+
+impl MathStyleDeclaration {
+    fn gold(self) -> &'static str {
+        match self {
+            Self::Display => "display",
+            Self::Text => "text",
+            Self::Script => "script",
+            Self::ScriptScript => "scriptscript",
+        }
+    }
+}
+
+/// Explicit TeX operator-limit control retained until semantic normalization.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LimitMode {
+    /// `\limits` forces limits above and below the operator.
+    Limits,
+    /// `\nolimits` forces side scripts.
+    NoLimits,
+}
+
+impl LimitMode {
+    fn gold(self) -> &'static str {
+        match self {
+            Self::Limits => "limits",
+            Self::NoLimits => "nolimits",
+        }
+    }
+}
+
 /// `\phantom` / `\vphantom` / `\hphantom`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PhantomKind {
@@ -687,6 +729,10 @@ pub enum MathNode {
     Subscript(Box<MathNode>, Box<MathNode>),
     /// `x_{}^{}`
     SubSup(Box<MathNode>, Box<MathNode>, Box<MathNode>),
+    /// Explicit `\displaystyle`, `\textstyle`, `\scriptstyle`, or `\scriptscriptstyle`.
+    Style(MathStyleDeclaration),
+    /// Explicit `\limits` / `\nolimits` applied to an operator nucleus.
+    Limits(Box<MathNode>, LimitMode),
     /// `\left ... \right`
     Delimited(Delimiter, Box<MathNode>, Delimiter),
     /// `\big` / `\Big` / `\bigg` / `\Bigg` (and `l`/`r`/`m` forms).
@@ -732,7 +778,8 @@ pub enum MathNode {
     Text(String, TextStyle),
     /// Explicit math skip.
     Space(SpaceKind),
-    /// Named operator (`\sin`). The flag is `\limits` vs `\nolimits`.
+    /// Named operator (`\sin`). The flag selects the operator's default display-limits policy.
+    /// Explicit `\limits` / `\nolimits` are retained separately by [`Self::Limits`].
     Operator(String, bool),
     /// Named glyph (`\alpha`, `\times`). The string is the control-sequence name.
     Symbol(String),
@@ -780,6 +827,8 @@ impl MathNode {
             Self::Superscript(b, e) => format!("(sup {} {})", b.gold(), e.gold()),
             Self::Subscript(b, s) => format!("(sub {} {})", b.gold(), s.gold()),
             Self::SubSup(b, s, e) => format!("(subsup {} {} {})", b.gold(), s.gold(), e.gold()),
+            Self::Style(style) => format!("(style {})", style.gold()),
+            Self::Limits(node, mode) => format!("({} {})", mode.gold(), node.gold()),
             Self::Delimited(l, b, r) => {
                 format!("(delim {} {} {})", l.gold(), b.gold(), r.gold())
             }

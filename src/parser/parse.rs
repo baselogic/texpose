@@ -5,8 +5,8 @@
 
 use super::ast::{
     AccentKind, AtomKind, ColSpec, DelimSize, Delimiter, EnvRow, EqNumber, FractionAlignment,
-    FractionRule, FractionSpec, FractionStyle, IntegralKind, Length, MathNode, MatrixStyle,
-    PhantomKind, SpaceKind, TextStyle,
+    FractionRule, FractionSpec, FractionStyle, IntegralKind, Length, LimitMode, MathNode,
+    MathStyleDeclaration, MatrixStyle, PhantomKind, SpaceKind, TextStyle,
 };
 use super::preproc::preprocess;
 use super::token::{tokenize_spanned_with_limit, SpannedToken, Token};
@@ -605,24 +605,31 @@ impl Parser {
 
     fn parse_atom(&mut self) -> Result<MathNode, ParseError> {
         let mut nucleus = self.parse_nucleus()?;
-        let mut limits = None;
+        let mut limit_mode = None;
         loop {
             match self.peek_ws() {
                 Some(Token::Command(n)) if n == "limits" => {
+                    let span = self.current_span();
                     self.bump();
-                    limits = Some(true);
+                    limit_mode = Some((LimitMode::Limits, span));
                 }
                 Some(Token::Command(n)) if n == "nolimits" => {
+                    let span = self.current_span();
                     self.bump();
-                    limits = Some(false);
+                    limit_mode = Some((LimitMode::NoLimits, span));
                 }
                 _ => break,
             }
         }
-        if let Some(flag) = limits {
-            if let MathNode::Operator(name, _) = nucleus {
-                nucleus = MathNode::Operator(name, flag);
+        if let Some((mode, span)) = limit_mode {
+            if !accepts_limit_control(&nucleus) {
+                return Err(self.malformed_at(
+                    ParseErrorKind::MalformedArgument,
+                    span,
+                    "\\limits/\\nolimits requires an operator nucleus",
+                ));
             }
+            nucleus = MathNode::Limits(Box::new(nucleus), mode);
         }
         self.bind_scripts(nucleus)
     }
@@ -1016,8 +1023,15 @@ impl Parser {
                 ))))
             }
             "substack" => self.parse_substack(),
-            "displaystyle" | "textstyle" | "scriptstyle" | "scriptscriptstyle" | "limits"
-            | "nolimits" => self.parse_nucleus(),
+            "displaystyle" => Ok(MathNode::Style(MathStyleDeclaration::Display)),
+            "textstyle" => Ok(MathNode::Style(MathStyleDeclaration::Text)),
+            "scriptstyle" => Ok(MathNode::Style(MathStyleDeclaration::Script)),
+            "scriptscriptstyle" => Ok(MathNode::Style(MathStyleDeclaration::ScriptScript)),
+            "limits" | "nolimits" => Err(self.malformed_at(
+                ParseErrorKind::MalformedArgument,
+                command_span,
+                "limit control without a preceding operator",
+            )),
             "{" | "}" => {
                 let c = name.chars().next().unwrap_or('{');
                 Ok(MathNode::Atom(
@@ -1705,6 +1719,7 @@ fn enforce_ast_node_limit(
             | MathNode::Hline
             | MathNode::Text(_, _)
             | MathNode::Space(_)
+            | MathNode::Style(_)
             | MathNode::Operator(_, _)
             | MathNode::Symbol(_)
             | MathNode::Strut(_, _)
@@ -1724,6 +1739,9 @@ fn enforce_ast_node_limit(
                 if let Some(index) = index {
                     push_ast_child(&mut stack, index.as_ref(), count, max_nodes, span)?;
                 }
+            }
+            MathNode::Limits(body, _) => {
+                push_ast_child(&mut stack, body.as_ref(), count, max_nodes, span)?;
             }
             MathNode::Superscript(base, script) | MathNode::Subscript(base, script) => {
                 push_ast_child(&mut stack, script.as_ref(), count, max_nodes, span)?;
@@ -1921,6 +1939,17 @@ fn is_empty_node(n: &MathNode) -> bool {
     }
 }
 
+fn accepts_limit_control(node: &MathNode) -> bool {
+    matches!(
+        node,
+        MathNode::Operator(_, _)
+            | MathNode::Sum(_, _)
+            | MathNode::Product(_, _)
+            | MathNode::Integral(_, _, _)
+            | MathNode::Limit(_)
+    )
+}
+
 fn apply_scripts(nucleus: MathNode, sub: Option<MathNode>, sup: Option<MathNode>) -> MathNode {
     match nucleus {
         MathNode::Sum(None, None) => MathNode::Sum(sub.map(Box::new), sup.map(Box::new)),
@@ -2006,6 +2035,9 @@ fn apply_text_style(node: MathNode, style: TextStyle) -> MathNode {
             index.map(|i| Box::new(apply_text_style(*i, style))),
             Box::new(apply_text_style(*body, style)),
         ),
+        MathNode::Limits(body, mode) => {
+            MathNode::Limits(Box::new(apply_text_style(*body, style)), mode)
+        }
         MathNode::Accent(body, kind) => {
             MathNode::Accent(Box::new(apply_text_style(*body, style)), kind)
         }
@@ -2201,5 +2233,27 @@ mod tests {
         let err = parse(r"\hspace{170141183460469231731687303715884105728em}")
             .expect_err("2^127 em must exceed the Dim contract");
         assert_eq!(err.kind(), ParseErrorKind::MalformedDimension);
+    }
+
+    #[test]
+    fn style_declarations_and_limit_controls_survive_parsing() {
+        assert_eq!(
+            parse(r"\scriptstyle x").unwrap().gold(),
+            r#"(row (style script) (atom Ord "x"))"#
+        );
+        assert_eq!(
+            parse(r"\sum\limits_{i}^{n}").unwrap().gold(),
+            r#"(subsup (limits (sum _ _)) (atom Ord "i") (atom Ord "n"))"#
+        );
+        assert_eq!(
+            parse(r"\int\nolimits_0^1").unwrap().gold(),
+            r#"(subsup (nolimits (int _ _)) (atom Ord "0") (atom Ord "1"))"#
+        );
+    }
+
+    #[test]
+    fn limit_control_requires_an_operator_nucleus() {
+        let err = parse(r"x\limits_1").expect_err("limits on an ordinary atom must fail");
+        assert_eq!(err.kind(), ParseErrorKind::MalformedArgument);
     }
 }

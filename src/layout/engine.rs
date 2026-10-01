@@ -10,7 +10,10 @@ use crate::error::{Error, NumericError};
 use crate::font::MathFont;
 use crate::layout::metrics::MathParams;
 use crate::layout::numbering::NumberingState;
-use crate::layout::semantic::{noad_class, normalize_row, SemanticItem};
+use crate::layout::semantic::{
+    noad_class, normalize_row, operator_semantics, script_semantics, script_styles, LimitPlacement,
+    OperatorNucleus, OperatorSemantics, ScriptSemantics, SemanticItem,
+};
 use crate::layout::space::{atom_space_mu, space_width};
 use crate::layout::style::MathStyle;
 use crate::layout::{BoxContent, MathBox, RootEmSize};
@@ -450,6 +453,13 @@ impl Engine<'_> {
     }
 
     fn item_inner(&self, node: &MathNode, style: MathStyle) -> Result<Item, Error> {
+        if let Some(operator) = operator_semantics(node, style) {
+            return self.operator_noad(operator);
+        }
+        if let Some(scripts) = script_semantics(node, style) {
+            return self.scripts(scripts);
+        }
+
         match node {
             MathNode::Atom(c, k) => {
                 let bx = self.glyph(math_italic(math_char(*c)), style)?;
@@ -469,9 +479,23 @@ impl Engine<'_> {
             MathNode::Row(items) => self.row(items, style),
             MathNode::Fraction(spec) => self.generalized_fraction(spec, style),
             MathNode::Radical(deg, rad) => self.radical(deg.as_deref(), rad, style),
-            MathNode::Superscript(base, exp) => self.scripts(base, None, Some(exp), style),
-            MathNode::Subscript(base, sub) => self.scripts(base, Some(sub), None, style),
-            MathNode::SubSup(base, sub, exp) => self.scripts(base, Some(sub), Some(exp), style),
+            MathNode::Superscript(_, _)
+            | MathNode::Subscript(_, _)
+            | MathNode::SubSup(_, _, _)
+            | MathNode::Operator(_, _)
+            | MathNode::Sum(_, _)
+            | MathNode::Product(_, _)
+            | MathNode::Integral(_, _, _)
+            | MathNode::Limit(_) => {
+                unreachable!("script/operator noads are normalized before geometry")
+            }
+            MathNode::Limits(_, _) => Err(Error::Malformed {
+                what: "limit control does not wrap an operator nucleus".into(),
+            }),
+            MathNode::Style(_) => Ok(Item {
+                bx: MathBox::empty(),
+                class: None,
+            }),
             MathNode::Delimited(open, body, close) => self.delimited(open, body, close, style),
             MathNode::SizedDelim(d, size, k) => {
                 let needed = self.explicit_delim_span(*size, style)?;
@@ -530,36 +554,25 @@ impl Engine<'_> {
                 })
             }
             MathNode::Text(s, ts) => self.text_run(s, *ts, style),
-            MathNode::Operator(name, limits) => self.operator(name, *limits, style),
-            MathNode::Sum(lo, hi) => self.large_op('∑', lo.as_deref(), hi.as_deref(), style, true),
-            MathNode::Product(lo, hi) => {
-                self.large_op('∏', lo.as_deref(), hi.as_deref(), style, true)
-            }
-            MathNode::Integral(k, lo, hi) => {
-                self.integral_op(*k, lo.as_deref(), hi.as_deref(), style)
-            }
-            MathNode::Limit(sub) => {
-                let op = self.text_run("lim", TextStyle::Rm, style)?;
-                if let Some(s) = sub {
-                    self.attach_limits(op.bx, None, Some(s), style, true)
-                } else {
-                    Ok(Item {
-                        bx: op.bx,
-                        class: Some(AtomKind::Op),
-                    })
-                }
-            }
             MathNode::OverUnder(base, over, under) => {
+                let (under_style, over_style) = script_styles(style);
                 let mut b = self.layout(base, style)?;
                 let mut needed = b.width.clone();
                 if let Some(o) = over {
-                    needed = needed.max_ref(&self.layout(o, style.into_script())?.width);
+                    needed = needed.max_ref(&self.layout(o, over_style)?.width);
                 }
                 if let Some(u) = under {
-                    needed = needed.max_ref(&self.layout(u, style.into_script())?.width);
+                    needed = needed.max_ref(&self.layout(u, under_style)?.width);
                 }
                 b = self.stretch_h(b, &needed, style)?;
-                self.attach_limits(b, over.as_deref(), under.as_deref(), style, true)
+                self.attach_limits(
+                    b,
+                    over.as_deref(),
+                    under.as_deref(),
+                    style,
+                    (under_style, over_style),
+                    true,
+                )
             }
             MathNode::Accent(base, kind) => self.accent(base, *kind, style),
             MathNode::CancelTo(value, expr) => self.cancelto(value, expr, style),
@@ -707,16 +720,57 @@ impl Engine<'_> {
         })
     }
 
-    fn operator(&self, name: &str, limits: bool, style: MathStyle) -> Result<Item, Error> {
-        if let Some(ch) = single_glyph(name) {
-            if !ch.is_ascii_alphabetic() {
-                return self.large_op(ch, None, None, style, limits);
+    fn operator_noad(&self, semantics: OperatorSemantics<'_>) -> Result<Item, Error> {
+        let OperatorSemantics {
+            nucleus,
+            lower,
+            upper,
+            style,
+            lower_style,
+            upper_style,
+            placement,
+        } = semantics;
+
+        match nucleus {
+            OperatorNucleus::Integral(kind) => self.integral_op(
+                kind,
+                lower,
+                upper,
+                style,
+                (lower_style, upper_style),
+                placement,
+            ),
+            OperatorNucleus::Named(name) => {
+                if let Some(ch) = single_glyph(name) {
+                    if !ch.is_ascii_alphabetic() {
+                        return self.large_op(
+                            ch,
+                            lower,
+                            upper,
+                            style,
+                            (lower_style, upper_style),
+                            placement,
+                        );
+                    }
+                }
+
+                let op = self.text_run(name, TextStyle::Rm, style)?.bx;
+                if lower.is_none() && upper.is_none() {
+                    return Ok(Item {
+                        bx: op,
+                        class: Some(AtomKind::Op),
+                    });
+                }
+                self.attach_limits(
+                    op,
+                    upper,
+                    lower,
+                    style,
+                    (lower_style, upper_style),
+                    placement == LimitPlacement::Limits,
+                )
             }
         }
-        self.text_run(name, TextStyle::Rm, style).map(|mut it| {
-            it.class = Some(AtomKind::Op);
-            it
-        })
     }
 
     fn row(&self, items: &[MathNode], style: MathStyle) -> Result<Item, Error> {
@@ -728,11 +782,13 @@ impl Engine<'_> {
         }
 
         let sequence = normalize_row(items, style);
-        let row_class = if items.len() == 1 {
-            sequence.iter().find_map(|item| match item {
-                SemanticItem::Noad { class, .. } => Some(*class),
-                _ => None,
-            })
+        let mut noad_classes = sequence.iter().filter_map(|item| match item {
+            SemanticItem::Noad { class, .. } => Some(*class),
+            _ => None,
+        });
+        let first_class = noad_classes.next();
+        let row_class = if first_class.is_some() && noad_classes.next().is_none() {
+            first_class
         } else {
             Some(AtomKind::Ord)
         };
@@ -1104,15 +1160,16 @@ impl Engine<'_> {
         })
     }
 
-    fn scripts(
-        &self,
-        base: &MathNode,
-        sub: Option<&MathNode>,
-        sup: Option<&MathNode>,
-        style: MathStyle,
-    ) -> Result<Item, Error> {
-        let base_it = self.item(base, style)?;
-        self.attach_scripts_to_box(base_it.bx, base_it.class, sub, sup, style)
+    fn scripts(&self, semantics: ScriptSemantics<'_>) -> Result<Item, Error> {
+        let base_it = self.item(semantics.base, semantics.style)?;
+        self.attach_scripts_to_box(
+            base_it.bx,
+            base_it.class,
+            semantics.sub,
+            semantics.sup,
+            semantics.style,
+            (semantics.sub_style, semantics.sup_style),
+        )
     }
 
     fn attach_scripts_to_box(
@@ -1122,12 +1179,13 @@ impl Engine<'_> {
         sub: Option<&MathNode>,
         sup: Option<&MathNode>,
         style: MathStyle,
+        script_styles: (MathStyle, MathStyle),
     ) -> Result<Item, Error> {
+        let (sub_style, sup_style) = script_styles;
         if sub.is_none() && sup.is_none() {
             return Ok(Item { bx: base, class });
         }
         let s = self.params.scale(style);
-        let ss = style.into_script();
         let simple_character_nucleus = matches!(&base.content, BoxContent::Glyph { .. });
         let after = self.params.space_after_script.checked_mul(&s)?;
         let mut sup_shift = Dim::zero();
@@ -1138,13 +1196,13 @@ impl Engine<'_> {
             } else {
                 self.params.superscript_shift_up.checked_mul(&s)?
             };
-            Some(self.layout(e, ss.cramp())?)
+            Some(self.layout(e, sup_style)?)
         } else {
             None
         };
         let sub_laid = if let Some(u) = sub {
             sub_shift = self.params.subscript_shift_down.checked_mul(&s)?;
-            Some(self.layout(u, ss)?)
+            Some(self.layout(u, sub_style)?)
         } else {
             None
         };
@@ -1442,11 +1500,13 @@ impl Engine<'_> {
     fn large_op(
         &self,
         ch: char,
-        lo: Option<&MathNode>,
-        hi: Option<&MathNode>,
+        lower: Option<&MathNode>,
+        upper: Option<&MathNode>,
         style: MathStyle,
-        limits_in_display: bool,
+        script_styles: (MathStyle, MathStyle),
+        placement: LimitPlacement,
     ) -> Result<Item, Error> {
+        let (lower_style, upper_style) = script_styles;
         let min_h = if style.is_display() {
             self.params
                 .display_operator_min_height
@@ -1455,13 +1515,12 @@ impl Engine<'_> {
             Dim::zero()
         };
         let mut op = self.sized_glyph(ch, &min_h, style)?;
-        let use_limits = limits_in_display && style.is_display();
-        if !use_limits {
-            return self.attach_limits(op, hi, lo, style, false);
+        if placement == LimitPlacement::Side {
+            return self.attach_limits(op, upper, lower, style, (lower_style, upper_style), false);
         }
 
-        // Displayed large operators with limits are
-        // boxed on the OpenType MATH axis before their limits are positioned.
+        // Operators with above/below limits are boxed on the OpenType MATH
+        // axis before the already-normalized limit fields are positioned.
         let axis = self
             .params
             .axis_height
@@ -1471,16 +1530,19 @@ impl Engine<'_> {
             .checked_sub(&op.depth)?
             .checked_div(&Dim::from_i64(2))?;
         op.shift = axis.checked_sub(&center)?;
-        self.attach_large_op_limits(op, hi, lo, style)
+        self.attach_large_op_limits(op, upper, lower, style, upper_style, lower_style)
     }
 
     fn integral_op(
         &self,
         kind: IntegralKind,
-        lo: Option<&MathNode>,
-        hi: Option<&MathNode>,
+        lower: Option<&MathNode>,
+        upper: Option<&MathNode>,
         style: MathStyle,
+        script_styles: (MathStyle, MathStyle),
+        placement: LimitPlacement,
     ) -> Result<Item, Error> {
+        let (lower_style, upper_style) = script_styles;
         let ch = match kind {
             IntegralKind::Int => '∫',
             IntegralKind::Iint => '∬',
@@ -1495,13 +1557,26 @@ impl Engine<'_> {
         } else {
             Dim::zero()
         };
-        let op = self.sized_glyph(ch, &min_h, style)?;
+        let mut op = self.sized_glyph(ch, &min_h, style)?;
 
-        if !style.is_display() || (lo.is_none() && hi.is_none()) {
-            return self.attach_limits(op, hi, lo, style, false);
+        if placement == LimitPlacement::Limits {
+            let axis = self
+                .params
+                .axis_height
+                .checked_mul(&self.params.scale(style))?;
+            let center = op
+                .height
+                .checked_sub(&op.depth)?
+                .checked_div(&Dim::from_i64(2))?;
+            op.shift = axis.checked_sub(&center)?;
+            return self.attach_large_op_limits(op, upper, lower, style, upper_style, lower_style);
         }
 
-        self.attach_integral_scripts(op, lo, hi, style)
+        if !style.is_display() || (lower.is_none() && upper.is_none()) {
+            return self.attach_limits(op, upper, lower, style, (lower_style, upper_style), false);
+        }
+
+        self.attach_integral_scripts(op, lower, upper, style, lower_style, upper_style)
     }
 
     fn attach_integral_scripts(
@@ -1510,24 +1585,24 @@ impl Engine<'_> {
         sub: Option<&MathNode>,
         sup: Option<&MathNode>,
         style: MathStyle,
+        sub_style: MathStyle,
+        sup_style: MathStyle,
     ) -> Result<Item, Error> {
         let scale = self.params.scale(style);
-        let script_style = style.into_script();
 
         let sup_laid = match sup {
-            Some(node) => Some(self.layout(node, script_style.cramp())?),
+            Some(node) => Some(self.layout(node, sup_style)?),
             None => None,
         };
         let sub_laid = match sub {
-            Some(node) => Some(self.layout(node, script_style)?),
+            Some(node) => Some(self.layout(node, sub_style)?),
             None => None,
         };
 
-        // Display integrals are enlarged
-        // no-limits operators. Center the nucleus on the MATH axis,
-        // then use the OpenType baseline-drop constants for side scripts.
-        // Italic correction offsets only the superscript branch and is
-        // removed from the common operator width.
+        // Display integrals are enlarged no-limits operators. Center the
+        // nucleus on the MATH axis, then use the OpenType baseline-drop
+        // constants for side scripts. Italic correction offsets only the
+        // superscript branch and is removed from the common operator width.
         let axis = self.params.axis_height.checked_mul(&scale)?;
         let center = op
             .height
@@ -1647,6 +1722,8 @@ impl Engine<'_> {
         over: Option<&MathNode>,
         under: Option<&MathNode>,
         style: MathStyle,
+        over_style: MathStyle,
+        under_style: MathStyle,
     ) -> Result<Item, Error> {
         let s = self.params.scale(style);
         let op_shift = op.shift.clone();
@@ -1654,11 +1731,11 @@ impl Engine<'_> {
         let op_d = op.depth.checked_sub(&op_shift)?.clamp_nonneg();
 
         let over_b = match over {
-            Some(o) => Some(self.layout(o, style.into_script())?),
+            Some(o) => Some(self.layout(o, over_style)?),
             None => None,
         };
         let under_b = match under {
-            Some(u) => Some(self.layout(u, style.into_script())?),
+            Some(u) => Some(self.layout(u, under_style)?),
             None => None,
         };
 
@@ -1720,20 +1797,29 @@ impl Engine<'_> {
         over: Option<&MathNode>,
         under: Option<&MathNode>,
         style: MathStyle,
+        script_styles: (MathStyle, MathStyle),
         as_limits: bool,
     ) -> Result<Item, Error> {
+        let (under_style, over_style) = script_styles;
         if !as_limits {
-            return self.attach_scripts_to_box(op, Some(AtomKind::Op), under, over, style);
+            return self.attach_scripts_to_box(
+                op,
+                Some(AtomKind::Op),
+                under,
+                over,
+                style,
+                (under_style, over_style),
+            );
         }
         let s = self.params.scale(style);
         let op_h = op.height.clone();
         let op_d = op.depth.clone();
         let over_b = match over {
-            Some(o) => Some(self.layout(o, style.into_script())?),
+            Some(o) => Some(self.layout(o, over_style)?),
             None => None,
         };
         let under_b = match under {
-            Some(u) => Some(self.layout(u, style.into_script())?),
+            Some(u) => Some(self.layout(u, under_style)?),
             None => None,
         };
         let mut width = op.width.clone();

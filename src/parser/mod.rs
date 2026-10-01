@@ -10,8 +10,8 @@ mod token;
 
 pub use ast::{
     AccentKind, AtomKind, ColSpec, DelimSize, Delimiter, EnvRow, EqNumber, FractionAlignment,
-    FractionRule, FractionSpec, FractionStyle, IntegralKind, Length, MathNode, MatrixStyle,
-    PhantomKind, SpaceKind, TextStyle,
+    FractionRule, FractionSpec, FractionStyle, IntegralKind, Length, LimitMode, MathNode,
+    MathStyleDeclaration, MatrixStyle, PhantomKind, SpaceKind, TextStyle,
 };
 pub use parse::{
     parse, parse_with_colors, parse_with_options, ParseOptions, DEFAULT_MAX_AST_NODES,

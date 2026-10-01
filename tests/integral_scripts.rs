@@ -197,7 +197,7 @@ fn display_integral_offsets_only_superscript_by_math_italic_correction() {
 
     assert!(matches!(&upper_kern.content, BoxContent::Kern(_)));
 
-    let lower_body = layout_source("0", MathStyle::Script, &font);
+    let lower_body = layout_source("0", MathStyle::ScriptCramped, &font);
 
     assert!(
         lower.width.eq_dim(&lower_body.width,),

@@ -182,6 +182,7 @@ fn collect_node(node: &MathNode, st: &mut NumberingState) {
             collect_node(r, st);
         }
         MathNode::Delimited(_, b, _)
+        | MathNode::Limits(b, _)
         | MathNode::Accent(b, _)
         | MathNode::Color(_, b)
         | MathNode::TextColor(_, b)
@@ -216,6 +217,7 @@ fn collect_node(node: &MathNode, st: &mut NumberingState) {
         | MathNode::SizedDelim(_, _, _)
         | MathNode::Text(_, _)
         | MathNode::Space(_)
+        | MathNode::Style(_)
         | MathNode::Operator(_, _)
         | MathNode::Symbol(_)
         | MathNode::Strut(_, _)

@@ -76,9 +76,9 @@ fn paired_scripts_obey_open_type_vertical_constraints() {
 
     let scale = params.scale(MathStyle::Text);
 
-    let upper = layout_source("3", MathStyle::ScriptCramped, &font);
+    let upper = layout_source("3", MathStyle::Script, &font);
 
-    let lower = layout_source("2", MathStyle::Script, &font);
+    let lower = layout_source("2", MathStyle::ScriptCramped, &font);
 
     let mut expected_upper = mul(&params.superscript_shift_up, &scale);
 
@@ -150,4 +150,16 @@ fn paired_scripts_obey_open_type_vertical_constraints() {
         actual_lower.to_dec_string(),
         expected_lower_shift.to_dec_string()
     );
+}
+
+#[test]
+fn explicit_style_declaration_drives_following_script_semantics() {
+    let font = MathFont::stix_two_math().expect("embedded STIX Two Math");
+
+    let declared = layout_source(r"\scriptstyle x_2^3", MathStyle::Text, &font);
+    let direct = layout_source("x_2^3", MathStyle::Script, &font);
+
+    assert!(declared.width.eq_dim(&direct.width));
+    assert!(declared.height.eq_dim(&direct.height));
+    assert!(declared.depth.eq_dim(&direct.depth));
 }

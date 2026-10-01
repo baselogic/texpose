@@ -41,13 +41,13 @@ Primary references used by this contract map:
 - **Primary contract test:** `tests/fraction_semantics.rs::plain_tex_font_switches_and_mbox_are_parsed_without_preprocessing` and `tests/symbol_golds.rs::font_style_letter_classes`.
 - **Governing authority:** TeX/LaTeX math alphabet semantics plus explicit TeXpose supported-subset policy.
 
-## Scripts
+## Scripts and math-style declarations
 
-- **Accepted syntax:** postfix `_`, `^`, and prime `'`; a nucleus may carry one subscript and one superscript, with consecutive primes combined into the superscript path.
-- **Semantic representation:** `MathNode::Subscript`, `MathNode::Superscript`, or `MathNode::SubSup`; large operators and integrals retain their lower/upper limits in their dedicated nodes.
+- **Accepted syntax:** postfix `_`, `^`, prime `'`, `\displaystyle`, `\textstyle`, `\scriptstyle`, and `\scriptscriptstyle`; a nucleus may carry one subscript and one superscript, with consecutive primes combined into the superscript path. Style declarations affect following noads in their current math list and remain scoped by grouping.
+- **Semantic representation:** `MathNode::Subscript`, `MathNode::Superscript`, or `MathNode::SubSup` records source attachment; `MathNode::Style(MathStyleDeclaration)` retains explicit style declarations. The semantic layout pass resolves the current style and TeX subscript/superscript child styles before geometry. Large operators and integrals retain source lower/upper fields in their dedicated nodes.
 - **Malformed-input behavior:** duplicate subscript or duplicate non-prime superscript returns `MalformedArgument`; nesting is subject to the configured depth and AST budgets.
 - **Unsupported forms:** arbitrary TeX script-category manipulation and unsupported macro expansion are outside the parser.
-- **Primary contract test:** `tests/script_placement.rs::paired_scripts_obey_open_type_vertical_constraints`, `tests/script_scale.rs::layout_records_script_and_scriptscript_scale`, and parser golds.
+- **Primary contract test:** `tests/script_placement.rs::paired_scripts_obey_open_type_vertical_constraints`, `tests/script_placement.rs::explicit_style_declaration_drives_following_script_semantics`, `tests/script_scale.rs::layout_records_script_and_scriptscript_scale`, and parser golds.
 - **Governing authority:** TeX82 script and math-style rules; OpenType MATH supplies font-specific placement constants.
 
 ## Fractions
@@ -89,8 +89,8 @@ Primary references used by this contract map:
 ## Operators
 
 - **Accepted syntax:** `\sum`, `\prod`, `\lim`, the parser's named operator set (`\sin`, `\cos`, `\log`, `\det`, etc.), `\operatorname{...}`, large-operator catalog commands, `\limits`, `\nolimits`, `\overset`, `\underset`, `\stackrel`, `\xrightarrow`, and `\xleftarrow`.
-- **Semantic representation:** `MathNode::Sum`, `Product`, `Limit`, `Operator`, or `OverUnder`; script binding records lower/upper limits where the construct owns them.
-- **Malformed-input behavior:** missing over/under/name arguments or malformed optional x-arrow arguments return `MalformedArgument`.
+- **Semantic representation:** `MathNode::Sum`, `Product`, `Limit`, `Operator`, or `OverUnder`; explicit `\limits`/`\nolimits` is retained as `MathNode::Limits(..., LimitMode)`. The semantic layout pass resolves default vs explicit placement and script styles before geometry.
+- **Malformed-input behavior:** missing over/under/name arguments, malformed optional x-arrow arguments, or `\limits`/`\nolimits` after a non-operator nucleus return `MalformedArgument`.
 - **Unsupported forms:** arbitrary operator declarations and macro-defined operators are outside the parser.
 - **Primary contract test:** `tests/large_operator_limits.rs`, `tests/amsmath_substack.rs`, and operator records in `tests/parse_golds.rs`.
 - **Governing authority:** TeX82 large-operator/limits semantics and LaTeX/amsmath operator commands; OpenType MATH supplies large-operator metrics.
@@ -98,7 +98,7 @@ Primary references used by this contract map:
 ## Integrals
 
 - **Accepted syntax:** `\int`, `\iint`, `\iiint`, `\oint`, `\oiint` with `_`/`^` scripts and `\limits`/`\nolimits` handling as supported by the layout engine.
-- **Semantic representation:** `MathNode::Integral(IntegralKind, lower, upper)`.
+- **Semantic representation:** `MathNode::Integral(IntegralKind, lower, upper)` plus an optional `MathNode::Limits(..., LimitMode)` wrapper for an explicit placement override; the semantic layout pass resolves effective placement and script styles.
 - **Malformed-input behavior:** malformed scripts return `MalformedArgument`; resource budgets apply to nested script expressions.
 - **Unsupported forms:** integral families outside `IntegralKind` are not synthesized from command names.
 - **Primary contract test:** `tests/integral_scripts.rs`.

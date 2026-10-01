@@ -1,8 +1,11 @@
-//! TeX-style semantic math sequence used between syntax and geometry.
+//! TeX-style semantic math normalization between syntax and geometry.
 
 use crate::atoms::symbol_atom_kind;
 use crate::layout::style::MathStyle;
-use crate::parser::{AccentKind, AtomKind, MathNode, MatrixStyle, SpaceKind};
+use crate::parser::{
+    AccentKind, AtomKind, IntegralKind, LimitMode, MathNode, MathStyleDeclaration, MatrixStyle,
+    SpaceKind,
+};
 
 /// One item in the normalized semantic math sequence.
 ///
@@ -20,13 +23,57 @@ pub(super) enum SemanticItem<'a> {
     Control(&'a MathNode),
 }
 
+/// Resolved placement of operator scripts.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum LimitPlacement {
+    /// Scripts are attached to the side of the operator nucleus.
+    Side,
+    /// Upper/lower material is placed above/below the operator nucleus.
+    Limits,
+}
+
+/// Script fields after TeX style normalization.
+#[derive(Clone, Copy, Debug)]
+pub(super) struct ScriptSemantics<'a> {
+    pub(super) base: &'a MathNode,
+    pub(super) sub: Option<&'a MathNode>,
+    pub(super) sup: Option<&'a MathNode>,
+    pub(super) style: MathStyle,
+    pub(super) sub_style: MathStyle,
+    pub(super) sup_style: MathStyle,
+}
+
+/// Geometry-level operator nucleus after source variants have been unified.
+#[derive(Clone, Copy, Debug)]
+pub(super) enum OperatorNucleus<'a> {
+    Named(&'a str),
+    Integral(IntegralKind),
+}
+
+/// Operator semantics after script styles and limit policy have been resolved.
+#[derive(Clone, Copy, Debug)]
+pub(super) struct OperatorSemantics<'a> {
+    pub(super) nucleus: OperatorNucleus<'a>,
+    pub(super) lower: Option<&'a MathNode>,
+    pub(super) upper: Option<&'a MathNode>,
+    pub(super) style: MathStyle,
+    pub(super) lower_style: MathStyle,
+    pub(super) upper_style: MathStyle,
+    pub(super) placement: LimitPlacement,
+}
+
 /// Build and binary-normalize the semantic sequence for one syntax row.
 pub(super) fn normalize_row<'a>(items: &'a [MathNode], style: MathStyle) -> Vec<SemanticItem<'a>> {
     let mut out = Vec::with_capacity(items.len() + 1);
-    out.push(SemanticItem::Style(style));
+    let mut current_style = style;
+    out.push(SemanticItem::Style(current_style));
 
     for node in items {
         match node {
+            MathNode::Style(declaration) => {
+                current_style = declared_style(*declaration);
+                out.push(SemanticItem::Style(current_style));
+            }
             MathNode::Space(kind) => out.push(SemanticItem::Glue(kind)),
             _ => match noad_class(node) {
                 Some(class) => out.push(SemanticItem::Noad { node, class }),
@@ -37,6 +84,59 @@ pub(super) fn normalize_row<'a>(items: &'a [MathNode], style: MathStyle) -> Vec<
 
     reclassify_bins(&mut out);
     out
+}
+
+/// Normalize a non-operator scripted noad.
+pub(super) fn script_semantics(node: &MathNode, style: MathStyle) -> Option<ScriptSemantics<'_>> {
+    let (base, sub, sup) = peel_scripts(node);
+    if sub.is_none() && sup.is_none() {
+        return None;
+    }
+    if operator_semantics(node, style).is_some() {
+        return None;
+    }
+    let (sub_style, sup_style) = script_styles(style);
+    Some(ScriptSemantics {
+        base,
+        sub,
+        sup,
+        style,
+        sub_style,
+        sup_style,
+    })
+}
+
+/// Normalize operator kind, scripts, script styles, and effective limit placement.
+pub(super) fn operator_semantics(
+    node: &MathNode,
+    style: MathStyle,
+) -> Option<OperatorSemantics<'_>> {
+    let (script_base, outer_lower, outer_upper) = peel_scripts(node);
+    let (core, explicit_mode) = match script_base {
+        MathNode::Limits(core, mode) => (core.as_ref(), Some(*mode)),
+        other => (other, None),
+    };
+
+    let (nucleus, inner_lower, inner_upper, limits_in_display) = operator_core(core)?;
+    let lower = outer_lower.or(inner_lower);
+    let upper = outer_upper.or(inner_upper);
+    let (lower_style, upper_style) = script_styles(style);
+    let placement = match explicit_mode {
+        Some(LimitMode::Limits) => LimitPlacement::Limits,
+        Some(LimitMode::NoLimits) => LimitPlacement::Side,
+        None if limits_in_display && style.is_display() => LimitPlacement::Limits,
+        None => LimitPlacement::Side,
+    };
+
+    Some(OperatorSemantics {
+        nucleus,
+        lower,
+        upper,
+        style,
+        lower_style,
+        upper_style,
+        placement,
+    })
 }
 
 /// Class a syntax node as a TeX math noad without constructing geometry.
@@ -51,6 +151,7 @@ pub(super) fn noad_class(node: &MathNode) -> Option<AtomKind> {
         | MathNode::Product(_, _)
         | MathNode::Integral(_, _, _)
         | MathNode::Limit(_) => Some(AtomKind::Op),
+        MathNode::Limits(body, _) => noad_class(body),
         MathNode::Fraction(_) | MathNode::Radical(_, _) => Some(AtomKind::Ord),
         MathNode::Matrix(matrix_style, _, _) => Some(match matrix_style {
             MatrixStyle::Matrix | MatrixStyle::Array | MatrixStyle::Aligned => AtomKind::Ord,
@@ -75,7 +176,72 @@ pub(super) fn noad_class(node: &MathNode) -> Option<AtomKind> {
         }
         MathNode::Row(nodes) if nodes.len() == 1 => noad_class(&nodes[0]),
         MathNode::Row(_) | MathNode::Strut(_, _) | MathNode::Rule(_, _) => Some(AtomKind::Ord),
-        MathNode::Space(_) | MathNode::Label(_) | MathNode::NoNumber | MathNode::Hline => None,
+        MathNode::Style(_)
+        | MathNode::Space(_)
+        | MathNode::Label(_)
+        | MathNode::NoNumber
+        | MathNode::Hline => None,
+    }
+}
+
+fn declared_style(declaration: MathStyleDeclaration) -> MathStyle {
+    match declaration {
+        MathStyleDeclaration::Display => MathStyle::Display,
+        MathStyleDeclaration::Text => MathStyle::Text,
+        MathStyleDeclaration::Script => MathStyle::Script,
+        MathStyleDeclaration::ScriptScript => MathStyle::ScriptScript,
+    }
+}
+
+pub(super) fn script_styles(style: MathStyle) -> (MathStyle, MathStyle) {
+    let sup_style = style.into_script();
+    let sub_style = sup_style.cramp();
+    (sub_style, sup_style)
+}
+
+fn peel_scripts(node: &MathNode) -> (&MathNode, Option<&MathNode>, Option<&MathNode>) {
+    match node {
+        MathNode::Superscript(base, sup) => (base, None, Some(sup)),
+        MathNode::Subscript(base, sub) => (base, Some(sub), None),
+        MathNode::SubSup(base, sub, sup) => (base, Some(sub), Some(sup)),
+        other => (other, None, None),
+    }
+}
+
+fn operator_core(
+    node: &MathNode,
+) -> Option<(
+    OperatorNucleus<'_>,
+    Option<&MathNode>,
+    Option<&MathNode>,
+    bool,
+)> {
+    match node {
+        MathNode::Operator(name, limits_in_display) => {
+            Some((OperatorNucleus::Named(name), None, None, *limits_in_display))
+        }
+        MathNode::Sum(lower, upper) => Some((
+            OperatorNucleus::Named("sum"),
+            lower.as_deref(),
+            upper.as_deref(),
+            true,
+        )),
+        MathNode::Product(lower, upper) => Some((
+            OperatorNucleus::Named("prod"),
+            lower.as_deref(),
+            upper.as_deref(),
+            true,
+        )),
+        MathNode::Integral(kind, lower, upper) => Some((
+            OperatorNucleus::Integral(*kind),
+            lower.as_deref(),
+            upper.as_deref(),
+            false,
+        )),
+        MathNode::Limit(lower) => {
+            Some((OperatorNucleus::Named("lim"), lower.as_deref(), None, true))
+        }
+        _ => None,
     }
 }
 
@@ -133,7 +299,9 @@ fn convert_bin(prev: Option<AtomKind>, current: AtomKind, next: Option<AtomKind>
 
 #[cfg(test)]
 mod tests {
-    use super::{normalize_row, SemanticItem};
+    use super::{
+        normalize_row, operator_semantics, script_semantics, LimitPlacement, SemanticItem,
+    };
     use crate::layout::MathStyle;
     use crate::parser::{parse, AtomKind, MathNode};
 
@@ -270,5 +438,92 @@ mod tests {
         ));
         assert!(matches!(sequence[2], SemanticItem::Glue(_)));
         assert!(matches!(sequence[3], SemanticItem::Control(_)));
+    }
+
+    #[test]
+    fn explicit_style_declarations_update_the_semantic_row_state() {
+        let ast = parse(r"a\scriptstyle b\displaystyle c").unwrap();
+        let MathNode::Row(items) = ast else {
+            panic!("style declarations must remain in the row");
+        };
+        let styles = normalize_row(&items, MathStyle::Text)
+            .into_iter()
+            .filter_map(|item| match item {
+                SemanticItem::Style(style) => Some(style),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            styles,
+            vec![MathStyle::Text, MathStyle::Script, MathStyle::Display]
+        );
+    }
+
+    #[test]
+    fn script_semantics_use_tex_sup_and_sub_styles() {
+        let ast = parse("x_2^3").unwrap();
+        let semantics = script_semantics(&ast, MathStyle::Text).expect("scripted ordinary noad");
+        assert_eq!(semantics.style, MathStyle::Text);
+        assert_eq!(semantics.sup_style, MathStyle::Script);
+        assert_eq!(semantics.sub_style, MathStyle::ScriptCramped);
+
+        let cramped =
+            script_semantics(&ast, MathStyle::TextCramped).expect("scripted cramped ordinary noad");
+        assert_eq!(cramped.sup_style, MathStyle::ScriptCramped);
+        assert_eq!(cramped.sub_style, MathStyle::ScriptCramped);
+
+        let nested =
+            script_semantics(&ast, MathStyle::Script).expect("scripted scriptstyle ordinary noad");
+        assert_eq!(nested.sup_style, MathStyle::ScriptScript);
+        assert_eq!(nested.sub_style, MathStyle::ScriptScriptCramped);
+    }
+
+    #[test]
+    fn operator_semantics_resolve_default_and_explicit_limit_policy() {
+        let display_sum = parse(r"\sum_1^n").unwrap();
+        assert_eq!(
+            operator_semantics(&display_sum, MathStyle::Display)
+                .expect("sum semantics")
+                .placement,
+            LimitPlacement::Limits
+        );
+        assert_eq!(
+            operator_semantics(&display_sum, MathStyle::Text)
+                .expect("inline sum semantics")
+                .placement,
+            LimitPlacement::Side
+        );
+
+        let forced_sum = parse(r"\sum\limits_1^n").unwrap();
+        assert_eq!(
+            operator_semantics(&forced_sum, MathStyle::Text)
+                .expect("forced sum semantics")
+                .placement,
+            LimitPlacement::Limits
+        );
+
+        let side_sum = parse(r"\sum\nolimits_1^n").unwrap();
+        assert_eq!(
+            operator_semantics(&side_sum, MathStyle::Display)
+                .expect("nolimits sum semantics")
+                .placement,
+            LimitPlacement::Side
+        );
+
+        let default_integral = parse(r"\int_0^1").unwrap();
+        assert_eq!(
+            operator_semantics(&default_integral, MathStyle::Display)
+                .expect("integral semantics")
+                .placement,
+            LimitPlacement::Side
+        );
+
+        let forced_integral = parse(r"\int\limits_0^1").unwrap();
+        assert_eq!(
+            operator_semantics(&forced_integral, MathStyle::Text)
+                .expect("forced integral semantics")
+                .placement,
+            LimitPlacement::Limits
+        );
     }
 }

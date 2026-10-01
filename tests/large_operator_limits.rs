@@ -82,3 +82,52 @@ fn display_large_operator_uses_math_axis_and_independent_limit_constraints() {
     assert!(tree.height.eq_dim(&expected_height));
     assert!(tree.depth.eq_dim(&expected_depth));
 }
+
+fn is_limit_overlap(tree: &MathBox) -> bool {
+    matches!(&tree.content, BoxContent::Overlap(_))
+}
+
+#[test]
+fn explicit_limit_controls_override_operator_defaults() {
+    let font = MathFont::stix_two_math().expect("STIX Two Math");
+
+    let forced_sum = layout(
+        &parse(r"\sum\limits_1^n").expect("forced sum limits"),
+        &font,
+        MathStyle::Text,
+    )
+    .expect("forced sum layout");
+    assert!(is_limit_overlap(&forced_sum));
+
+    let side_sum = layout(
+        &parse(r"\sum\nolimits_1^n").expect("sum nolimits"),
+        &font,
+        MathStyle::Display,
+    )
+    .expect("sum nolimits layout");
+    assert!(matches!(&side_sum.content, BoxContent::HList(_)));
+
+    let forced_integral = layout(
+        &parse(r"\int\limits_0^1").expect("forced integral limits"),
+        &font,
+        MathStyle::Text,
+    )
+    .expect("forced integral layout");
+    assert!(is_limit_overlap(&forced_integral));
+
+    let default_integral = layout(
+        &parse(r"\int_0^1").expect("default integral limits"),
+        &font,
+        MathStyle::Display,
+    )
+    .expect("default integral layout");
+    assert!(matches!(&default_integral.content, BoxContent::HList(_)));
+
+    let named = layout(
+        &parse(r"\operatorname{lim}\limits_x").expect("named operator limits"),
+        &font,
+        MathStyle::Text,
+    )
+    .expect("named operator limits layout");
+    assert!(is_limit_overlap(&named));
+}
