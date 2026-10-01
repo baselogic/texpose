@@ -2,9 +2,9 @@
 
 use core::fmt;
 use core::iter::Peekable;
-use core::str::Chars;
+use core::str::CharIndices;
 
-use crate::error::ParseError;
+use crate::error::{ParseError, ParseResource, SourceSpan};
 
 /// A single TeX-style math token.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -29,6 +29,15 @@ pub enum Token {
     DisplayShift,
     /// A space character (kept for `\text`; skipped in math lists).
     Space,
+}
+
+/// A token paired with its byte range in the original source.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SpannedToken {
+    /// Token kind/value.
+    pub token: Token,
+    /// Half-open byte range in the original source.
+    pub span: SourceSpan,
 }
 
 impl fmt::Display for Token {
@@ -70,87 +79,151 @@ pub fn format_tokens(tokens: &[Token]) -> String {
     out
 }
 
-/// Tokenize a LaTeX math string. Whitespace and `%` line comments are skipped.
+/// Tokenize a LaTeX math string.
 ///
-/// Supported delimiters are tokenized, not interpreted:
-/// `$...$`, `$$...$$`, `\[...\]`, `\(...\)`.
-///
-/// # Arguments
-///
-/// * `input` — math source.
-///
-/// # Returns
-///
-/// The token list in source order.
+/// This compatibility view returns token values without source spans. Use
+/// [`tokenize_spanned`] when diagnostics or source mapping require byte ranges.
+/// ASCII spaces are retained as [`Token::Space`]; tabs/newlines and `%` line
+/// comments are skipped, matching the existing TeXpose math-token contract.
 ///
 /// # Errors
 ///
-/// [`ParseError::TrailingBackslash`] if `input` ends with a stray `\`.
-///
-/// # Examples
-///
-/// ```
-/// use texpose::{tokenize, Token};
-///
-/// let t = tokenize(r"\frac{1}{2}").unwrap();
-/// assert!(matches!(&t[0], Token::Command(s) if s == "frac"));
-/// ```
+/// Returns a typed [`ParseError`] if the source ends with a stray backslash.
 pub fn tokenize(input: &str) -> Result<Vec<Token>, ParseError> {
-    let mut chars = input.chars().peekable();
+    Ok(tokenize_spanned(input)?
+        .into_iter()
+        .map(|item| item.token)
+        .collect())
+}
+
+/// Tokenize a LaTeX math string while retaining original-source byte ranges.
+///
+/// Control-word whitespace consumed after a command is not included in the
+/// command span. Spans therefore identify the lexical token itself rather than
+/// incidental whitespace skipped by TeX command scanning.
+///
+/// # Errors
+///
+/// Returns a typed [`ParseError`] if the source ends with a stray backslash.
+pub fn tokenize_spanned(input: &str) -> Result<Vec<SpannedToken>, ParseError> {
+    tokenize_spanned_with_limit(input, usize::MAX)
+}
+
+pub(crate) fn tokenize_spanned_with_limit(
+    input: &str,
+    max_tokens: usize,
+) -> Result<Vec<SpannedToken>, ParseError> {
+    let mut chars = input.char_indices().peekable();
     let mut out = Vec::new();
-    while let Some(c) = chars.next() {
-        match c {
-            '%' => skip_line(&mut chars),
-            ' ' => out.push(Token::Space),
-            '\t' | '\n' | '\r' => {}
-            '{' => out.push(Token::BeginGroup),
-            '}' => out.push(Token::EndGroup),
-            '^' => out.push(Token::Superscript),
-            '_' => out.push(Token::Subscript),
-            '&' => out.push(Token::AlignmentTab),
+    while let Some((start, c)) = chars.next() {
+        let item = match c {
+            '%' => {
+                skip_line(&mut chars);
+                continue;
+            }
+            ' ' => SpannedToken {
+                token: Token::Space,
+                span: SourceSpan::new(start, start + 1),
+            },
+            '\t' | '\n' | '\r' => continue,
+            '{' => simple(Token::BeginGroup, start, c),
+            '}' => simple(Token::EndGroup, start, c),
+            '^' => simple(Token::Superscript, start, c),
+            '_' => simple(Token::Subscript, start, c),
+            '&' => simple(Token::AlignmentTab, start, c),
             '$' => {
-                if chars.peek() == Some(&'$') {
-                    chars.next();
-                    out.push(Token::DisplayShift);
+                if chars.peek().map(|(_, next)| *next) == Some('$') {
+                    let (second, second_char) = chars.next().expect("peeked dollar");
+                    SpannedToken {
+                        token: Token::DisplayShift,
+                        span: SourceSpan::new(start, second + second_char.len_utf8()),
+                    }
                 } else {
-                    out.push(Token::MathShift);
+                    simple(Token::MathShift, start, c)
                 }
             }
-            '\\' => out.push(command(&mut chars)?),
-            other => out.push(Token::Char(other)),
-        }
+            '\\' => command(input.len(), start, &mut chars)?,
+            other => simple(Token::Char(other), start, other),
+        };
+        push_token(&mut out, item, max_tokens)?;
     }
     Ok(out)
 }
 
-fn skip_line(chars: &mut Peekable<Chars<'_>>) {
-    for c in chars.by_ref() {
+fn simple(token: Token, start: usize, c: char) -> SpannedToken {
+    SpannedToken {
+        token,
+        span: SourceSpan::new(start, start + c.len_utf8()),
+    }
+}
+
+fn push_token(
+    out: &mut Vec<SpannedToken>,
+    token: SpannedToken,
+    max_tokens: usize,
+) -> Result<(), ParseError> {
+    let next = out
+        .len()
+        .checked_add(1)
+        .ok_or_else(|| ParseError::resource_limit(token.span, ParseResource::Tokens, max_tokens))?;
+    if next > max_tokens {
+        return Err(ParseError::resource_limit(
+            token.span,
+            ParseResource::Tokens,
+            max_tokens,
+        ));
+    }
+    out.push(token);
+    Ok(())
+}
+
+fn skip_line(chars: &mut Peekable<CharIndices<'_>>) {
+    for (_, c) in chars.by_ref() {
         if c == '\n' {
             break;
         }
     }
 }
 
-fn command(chars: &mut Peekable<Chars<'_>>) -> Result<Token, ParseError> {
-    let Some(&first) = chars.peek() else {
-        return Err(ParseError::TrailingBackslash);
+fn command(
+    input_len: usize,
+    slash_start: usize,
+    chars: &mut Peekable<CharIndices<'_>>,
+) -> Result<SpannedToken, ParseError> {
+    let Some(&(first_start, first)) = chars.peek() else {
+        return Err(ParseError::trailing_backslash(SourceSpan::new(
+            slash_start,
+            input_len,
+        )));
     };
     if first.is_ascii_alphabetic() {
         let mut name = String::new();
-        while let Some(&c) = chars.peek() {
+        let mut end = first_start;
+        while let Some(&(offset, c)) = chars.peek() {
             if c.is_ascii_alphabetic() {
                 name.push(c);
                 chars.next();
+                end = offset + c.len_utf8();
             } else {
                 break;
             }
         }
-        while matches!(chars.peek(), Some(' ' | '\t' | '\n' | '\r')) {
+        let span = SourceSpan::new(slash_start, end);
+        while matches!(
+            chars.peek().map(|(_, c)| *c),
+            Some(' ' | '\t' | '\n' | '\r')
+        ) {
             chars.next();
         }
-        Ok(Token::Command(name))
+        Ok(SpannedToken {
+            token: Token::Command(name),
+            span,
+        })
     } else {
         chars.next();
-        Ok(Token::Command(first.to_string()))
+        Ok(SpannedToken {
+            token: Token::Command(first.to_string()),
+            span: SourceSpan::new(slash_start, first_start + first.len_utf8()),
+        })
     }
 }

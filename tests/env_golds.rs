@@ -93,12 +93,18 @@ fn parse_style(s: &str) -> MathStyle {
 }
 
 fn variant_name(err: &ParseError) -> &'static str {
-    match err {
-        ParseError::TrailingBackslash => "TrailingBackslash",
-        ParseError::Unsupported(_) => "Unsupported",
-        ParseError::Unknown(_) => "Unknown",
-        ParseError::Malformed(_) => "Malformed",
-        ParseError::UnmatchedDelimiter => "UnmatchedDelimiter",
+    match err.kind() {
+        texpose::ParseErrorKind::TrailingBackslash => "TrailingBackslash",
+        texpose::ParseErrorKind::UnknownCommand => "UnknownCommand",
+        texpose::ParseErrorKind::UnsupportedCommand => "UnsupportedCommand",
+        texpose::ParseErrorKind::UnclosedGroup => "UnclosedGroup",
+        texpose::ParseErrorKind::UnexpectedGroupEnd => "UnexpectedGroupEnd",
+        texpose::ParseErrorKind::UnmatchedDelimiter => "UnmatchedDelimiter",
+        texpose::ParseErrorKind::MismatchedEnvironment => "MismatchedEnvironment",
+        texpose::ParseErrorKind::MalformedArgument => "MalformedArgument",
+        texpose::ParseErrorKind::MalformedDimension => "MalformedDimension",
+        texpose::ParseErrorKind::MalformedMatrix => "MalformedMatrix",
+        texpose::ParseErrorKind::ResourceLimit => "ResourceLimit",
     }
 }
 

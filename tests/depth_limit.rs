@@ -1,8 +1,9 @@
-//! Nesting-depth limit: the default is safe on a 1 MiB stack, and callers can move it.
+//! Parser resource budgets: recursion stays stack-safe and hostile input is bounded.
 
 use texpose::{
     layout, layout_with_max_depth, parse, parse_with_options, MathFont, MathStyle, ParseOptions,
-    DEFAULT_MAX_NESTING_DEPTH,
+    DEFAULT_MAX_AST_NODES, DEFAULT_MAX_ENVIRONMENT_CELLS, DEFAULT_MAX_ENVIRONMENT_ROWS,
+    DEFAULT_MAX_NESTING_DEPTH, DEFAULT_MAX_TOKENS,
 };
 
 /// A named nesting shape that builds input `n` levels deep.
@@ -105,7 +106,134 @@ fn caller_can_raise_and_lower_the_limit() {
 }
 
 #[test]
-fn default_is_32() {
+fn default_resource_budgets_are_stable() {
     assert_eq!(DEFAULT_MAX_NESTING_DEPTH, 32);
-    assert_eq!(ParseOptions::default().max_depth, 32);
+    assert_eq!(DEFAULT_MAX_AST_NODES, 65_536);
+    assert_eq!(DEFAULT_MAX_ENVIRONMENT_ROWS, 4_096);
+    assert_eq!(DEFAULT_MAX_ENVIRONMENT_CELLS, 16_384);
+    assert_eq!(DEFAULT_MAX_TOKENS, 131_072);
+
+    let defaults = ParseOptions::default();
+    assert_eq!(defaults.max_depth, DEFAULT_MAX_NESTING_DEPTH);
+    assert_eq!(defaults.max_ast_nodes, DEFAULT_MAX_AST_NODES);
+    assert_eq!(defaults.max_environment_rows, DEFAULT_MAX_ENVIRONMENT_ROWS);
+    assert_eq!(
+        defaults.max_environment_cells,
+        DEFAULT_MAX_ENVIRONMENT_CELLS
+    );
+    assert_eq!(defaults.max_tokens, DEFAULT_MAX_TOKENS);
+}
+
+fn assert_resource_limit(
+    source: &str,
+    options: &ParseOptions,
+    resource: texpose::ParseResource,
+    limit: usize,
+) {
+    let error = parse_with_options(source, options).expect_err(source);
+    assert_eq!(
+        error.kind(),
+        texpose::ParseErrorKind::ResourceLimit,
+        "{error}"
+    );
+    assert!(
+        matches!(
+            error.detail(),
+            texpose::ParseErrorDetail::ResourceLimit {
+                resource: got,
+                limit: got_limit,
+            } if *got == resource && *got_limit == limit
+        ),
+        "{source}: {error:?}"
+    );
+}
+
+#[test]
+fn parser_resource_budgets_cover_hostile_shapes() {
+    let long_stream = "x".repeat(4_096);
+    assert_resource_limit(
+        &long_stream,
+        &ParseOptions::new().with_max_tokens(1_024),
+        texpose::ParseResource::Tokens,
+        1_024,
+    );
+
+    let deep_groups = "{".repeat(64) + "x" + &"}".repeat(64);
+    assert_resource_limit(
+        &deep_groups,
+        &ParseOptions::new().with_max_depth(8),
+        texpose::ParseResource::NestingDepth,
+        8,
+    );
+
+    let deep_fraction = "\\frac{1}{".repeat(24) + "2" + &"}".repeat(24);
+    assert_resource_limit(
+        &deep_fraction,
+        &ParseOptions::new().with_max_depth(8),
+        texpose::ParseResource::NestingDepth,
+        8,
+    );
+
+    let wide_matrix = format!(
+        r"\begin{{matrix}}{}\end{{matrix}}",
+        (0..64).map(|_| "x").collect::<Vec<_>>().join("&")
+    );
+    assert_resource_limit(
+        &wide_matrix,
+        &ParseOptions::new().with_max_environment_cells(16),
+        texpose::ParseResource::EnvironmentCells,
+        16,
+    );
+
+    let many_rows = format!(
+        r"\begin{{matrix}}{}\end{{matrix}}",
+        (0..64).map(|_| "x").collect::<Vec<_>>().join(r"\\")
+    );
+    assert_resource_limit(
+        &many_rows,
+        &ParseOptions::new().with_max_environment_rows(16),
+        texpose::ParseResource::EnvironmentRows,
+        16,
+    );
+
+    let repeated_scripts = (0..128).map(|_| "x^1").collect::<Vec<_>>().join(" ");
+    assert_resource_limit(
+        &repeated_scripts,
+        &ParseOptions::new().with_max_ast_nodes(128),
+        texpose::ParseResource::AstNodes,
+        128,
+    );
+}
+
+#[test]
+fn exact_resource_boundaries_accept_limit_and_reject_next_unit() {
+    let ast_source = "xy";
+    assert!(parse_with_options(ast_source, &ParseOptions::new().with_max_ast_nodes(3),).is_ok());
+    assert_resource_limit(
+        ast_source,
+        &ParseOptions::new().with_max_ast_nodes(2),
+        texpose::ParseResource::AstNodes,
+        2,
+    );
+
+    let matrix = r"\begin{matrix}x&y\end{matrix}";
+    assert!(parse_with_options(
+        matrix,
+        &ParseOptions::new()
+            .with_max_environment_rows(1)
+            .with_max_environment_cells(2),
+    )
+    .is_ok());
+    assert_resource_limit(
+        matrix,
+        &ParseOptions::new().with_max_environment_cells(1),
+        texpose::ParseResource::EnvironmentCells,
+        1,
+    );
+
+    assert!(parse_with_options("αβ", &ParseOptions::new().with_max_tokens(2)).is_ok());
+    let error = parse_with_options("αβ", &ParseOptions::new().with_max_tokens(1))
+        .expect_err("second UTF-8 token must exceed budget");
+    assert_eq!(error.kind(), texpose::ParseErrorKind::ResourceLimit);
+    assert_eq!(error.span(), texpose::SourceSpan { start: 2, end: 4 });
 }

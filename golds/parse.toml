@@ -958,21 +958,21 @@ expect = "(colorbox #ffff00 (frac (atom Ord \"1\") (atom Ord \"2\")))"
 [[gold]]
 name = "unknown"
 kind = "err"
-error = "Unknown"
+error = "UnknownCommand"
 input = "\\notacommandxyz"
 expect = "unknown command: \\notacommandxyz"
 
 [[gold]]
 name = "malformed_frac"
 kind = "err"
-error = "Malformed"
+error = "MalformedArgument"
 input = "\\frac{1}"
 expect = "malformed: missing argument"
 
 [[gold]]
 name = "malformed_brace"
 kind = "err"
-error = "Malformed"
+error = "UnclosedGroup"
 input = "{x"
 expect = "malformed: unmatched '{'"
 
@@ -993,7 +993,7 @@ expect = "unmatched delimiter"
 [[gold]]
 name = "unsupported_env"
 kind = "err"
-error = "Unsupported"
+error = "UnsupportedCommand"
 input = "\\begin{tikzpicture}x\\end{tikzpicture}"
 expect = "unsupported: environment tikzpicture"
 
@@ -1007,7 +1007,7 @@ expect = "trailing backslash"
 [[gold]]
 name = "unsupported_color"
 kind = "err"
-error = "Unsupported"
+error = "UnsupportedCommand"
 input = "\\textcolor{notacolor}{x}"
 expect = "unsupported: named color notacolor"
 
@@ -1044,7 +1044,7 @@ expect = "(big big Open \"(\")"
 [[gold]]
 name = "unknown_font_style"
 kind = "err"
-error = "Unsupported"
+error = "UnsupportedCommand"
 input = "\\mathfoo{x}"
 expect = "unsupported: font style mathfoo"
 
@@ -1141,14 +1141,14 @@ expect = "(overunder (symbol longrightarrow) (atom Ord \"a\") (atom Ord \"b\"))"
 [[gold]]
 name = "empty_hat"
 kind = "err"
-error = "Malformed"
+error = "MalformedArgument"
 input = "\\hat{}"
 expect = "malformed: empty accent base"
 
 [[gold]]
 name = "unknown_widebox"
 kind = "err"
-error = "Unsupported"
+error = "UnsupportedCommand"
 input = "\\widebox{x}"
 expect = "unsupported: accent widebox"
 
@@ -1179,27 +1179,27 @@ expect = "(color #ff0000 (row (atom Ord \"x\") (atom Bin \"+\") (color #0000ff (
 [[gold]]
 name = "unsupported_color_model"
 kind = "err"
-error = "Unsupported"
+error = "UnsupportedCommand"
 input = "\\definecolor{x}{spot}{0.5}"
 expect = "unsupported: color model spot"
 
 [[gold]]
 name = "definecolor_forward_ref"
 kind = "err"
-error = "Unsupported"
+error = "UnsupportedCommand"
 input = "\\textcolor{later}{x}\\definecolor{later}{rgb}{0,0,1}"
 expect = "unsupported: named color later"
 
 [[gold]]
 name = "malformed_color_spec"
 kind = "err"
-error = "Malformed"
+error = "MalformedArgument"
 input = "\\textcolor[rgb]{0.5}{x}"
 expect = "malformed: color spec `0.5` (need 3 components)"
 
 [[gold]]
 name = "nesting_too_deep"
 kind = "err"
-error = "Malformed"
+error = "ResourceLimit"
 input = "{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{x}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}"
-expect = "malformed: input nests deeper than 32 levels"
+expect = "resource limit: nesting depth exceeds 32"

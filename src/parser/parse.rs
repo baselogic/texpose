@@ -9,10 +9,10 @@ use super::ast::{
     PhantomKind, SpaceKind, TextStyle,
 };
 use super::preproc::preprocess;
-use super::token::{tokenize, Token};
+use super::token::{tokenize_spanned_with_limit, SpannedToken, Token};
 use crate::color::{parse_color_spec, Color, ColorTable};
 use crate::dim::Dim;
-use crate::error::{Error, ParseError};
+use crate::error::{Error, ParseError, ParseErrorKind, ParseResource, SourceSpan};
 use crate::symbols::{lookup, SymbolKind as CatalogKind};
 
 /// Default deepest nesting [`parse`] and [`layout`](crate::layout()) accept.
@@ -31,6 +31,14 @@ use crate::symbols::{lookup, SymbolKind as CatalogKind};
 /// [`ParseOptions::with_max_depth`] and
 /// [`layout_with_max_depth`](crate::layout_with_max_depth).
 pub const DEFAULT_MAX_NESTING_DEPTH: usize = 32;
+/// Default maximum number of AST nodes returned by one parse.
+pub const DEFAULT_MAX_AST_NODES: usize = 65_536;
+/// Default maximum total number of rows across parsed environments.
+pub const DEFAULT_MAX_ENVIRONMENT_ROWS: usize = 4_096;
+/// Default maximum total number of cells across parsed environments.
+pub const DEFAULT_MAX_ENVIRONMENT_CELLS: usize = 16_384;
+/// Default maximum number of lexical tokens produced from one input.
+pub const DEFAULT_MAX_TOKENS: usize = 131_072;
 
 /// Options for [`parse_with_options`].
 ///
@@ -49,12 +57,24 @@ pub const DEFAULT_MAX_NESTING_DEPTH: usize = 32;
 pub struct ParseOptions {
     /// Deepest parser recursion accepted. Defaults to [`DEFAULT_MAX_NESTING_DEPTH`].
     pub max_depth: usize,
+    /// Maximum nodes in the returned AST. Defaults to [`DEFAULT_MAX_AST_NODES`].
+    pub max_ast_nodes: usize,
+    /// Maximum total environment rows. Defaults to [`DEFAULT_MAX_ENVIRONMENT_ROWS`].
+    pub max_environment_rows: usize,
+    /// Maximum total environment cells. Defaults to [`DEFAULT_MAX_ENVIRONMENT_CELLS`].
+    pub max_environment_cells: usize,
+    /// Maximum lexical tokens produced from the source. Defaults to [`DEFAULT_MAX_TOKENS`].
+    pub max_tokens: usize,
 }
 
 impl Default for ParseOptions {
     fn default() -> Self {
         Self {
             max_depth: DEFAULT_MAX_NESTING_DEPTH,
+            max_ast_nodes: DEFAULT_MAX_AST_NODES,
+            max_environment_rows: DEFAULT_MAX_ENVIRONMENT_ROWS,
+            max_environment_cells: DEFAULT_MAX_ENVIRONMENT_CELLS,
+            max_tokens: DEFAULT_MAX_TOKENS,
         }
     }
 }
@@ -75,6 +95,34 @@ impl ParseOptions {
         self.max_depth = max_depth;
         self
     }
+
+    /// Set the maximum number of nodes in the returned AST.
+    #[must_use]
+    pub fn with_max_ast_nodes(mut self, max_ast_nodes: usize) -> Self {
+        self.max_ast_nodes = max_ast_nodes;
+        self
+    }
+
+    /// Set the maximum total number of rows across parsed environments.
+    #[must_use]
+    pub fn with_max_environment_rows(mut self, max_environment_rows: usize) -> Self {
+        self.max_environment_rows = max_environment_rows;
+        self
+    }
+
+    /// Set the maximum total number of cells across parsed environments.
+    #[must_use]
+    pub fn with_max_environment_cells(mut self, max_environment_cells: usize) -> Self {
+        self.max_environment_cells = max_environment_cells;
+        self
+    }
+
+    /// Set the maximum number of lexical tokens produced from the source.
+    #[must_use]
+    pub fn with_max_tokens(mut self, max_tokens: usize) -> Self {
+        self.max_tokens = max_tokens;
+        self
+    }
 }
 
 /// Parse a LaTeX math string into a [`MathNode`] using a fresh color table.
@@ -92,11 +140,10 @@ impl ParseOptions {
 ///
 /// # Errors
 ///
-/// * [`ParseError::Unknown`] — command is not in the catalog.
-/// * [`ParseError::Unsupported`] — known construct this crate will not invent.
-/// * [`ParseError::Malformed`] — syntactically invalid input.
-/// * [`ParseError::UnmatchedDelimiter`] — `\left` without `\right` (or vice versa).
-/// * [`ParseError::TrailingBackslash`] — input ended with a stray `\`.
+/// Errors expose a [`ParseErrorKind`](crate::ParseErrorKind) and an original-source
+/// [`SourceSpan`](crate::SourceSpan). Unknown/unsupported commands, malformed
+/// arguments, unmatched delimiters, resource limits, and other structural failures
+/// remain distinguishable without parsing diagnostic text.
 ///
 /// # Examples
 ///
@@ -142,8 +189,8 @@ pub fn parse_with_colors(input: &str) -> Result<(MathNode, ColorTable), ParseErr
 ///
 /// # Errors
 ///
-/// Same as [`parse`]. Input nesting deeper than `options.max_depth` returns
-/// [`ParseError::Malformed`].
+/// Same as [`parse`]. Any configured resource budget violation returns
+/// [`ParseErrorKind::ResourceLimit`](crate::ParseErrorKind::ResourceLimit).
 ///
 /// # Examples
 ///
@@ -158,23 +205,32 @@ pub fn parse_with_options(
     options: &ParseOptions,
 ) -> Result<(MathNode, ColorTable), ParseError> {
     let sanitized = preprocess(input);
-    let tokens = tokenize(&sanitized)?;
+    let tokens = tokenize_spanned_with_limit(&sanitized, options.max_tokens)?;
     let tokens = strip_fences(&tokens)?;
     let mut p = Parser {
         tokens,
         pos: 0,
         depth: 0,
         max_depth: options.max_depth,
+        rows: 0,
+        max_rows: options.max_environment_rows,
+        cells: 0,
+        max_cells: options.max_environment_cells,
+        source_len: sanitized.len(),
         colors: ColorTable::new(),
     };
     let node = p.parse_list(Stop::eof())?;
     p.skip_ws();
     if p.pos < p.tokens.len() {
-        return Err(ParseError::Malformed(format!(
-            "unexpected leftover token {}",
-            p.tokens[p.pos]
-        )));
+        let span = p.current_span();
+        let token = p.tokens[p.pos].token.to_string();
+        return Err(ParseError::malformed(
+            ParseErrorKind::MalformedArgument,
+            span,
+            format!("unexpected leftover token {token}"),
+        ));
     }
+    enforce_ast_node_limit(&node, options.max_ast_nodes, sanitized.len())?;
     Ok((node, p.colors))
 }
 
@@ -332,25 +388,44 @@ impl ParsedList {
     }
 }
 
+struct SpannedText {
+    text: String,
+    span: SourceSpan,
+}
+
 struct Parser {
-    tokens: Vec<Token>,
+    tokens: Vec<SpannedToken>,
     pos: usize,
     colors: ColorTable,
     /// Current nesting depth, bounded by `max_depth`.
     depth: usize,
     /// Deepest nesting accepted, from [`ParseOptions::max_depth`].
     max_depth: usize,
+    rows: usize,
+    max_rows: usize,
+    cells: usize,
+    max_cells: usize,
+    source_len: usize,
 }
 
 impl Parser {
     fn skip_ws(&mut self) {
-        while matches!(self.tokens.get(self.pos), Some(Token::Space)) {
+        while matches!(
+            self.tokens.get(self.pos).map(|item| &item.token),
+            Some(Token::Space)
+        ) {
             self.pos += 1;
         }
     }
 
     fn peek(&self) -> Option<&Token> {
-        self.tokens.get(self.pos)
+        self.tokens.get(self.pos).map(|item| &item.token)
+    }
+
+    fn current_span(&self) -> SourceSpan {
+        self.tokens
+            .get(self.pos)
+            .map_or(SourceSpan::point(self.source_len), |item| item.span)
     }
 
     fn peek_ws(&mut self) -> Option<&Token> {
@@ -364,7 +439,7 @@ impl Parser {
     }
 
     fn bump_raw(&mut self) -> Option<Token> {
-        let t = self.tokens.get(self.pos).cloned()?;
+        let t = self.tokens.get(self.pos)?.token.clone();
         self.pos += 1;
         Some(t)
     }
@@ -387,16 +462,64 @@ impl Parser {
         &mut self,
         f: impl FnOnce(&mut Self) -> Result<T, ParseError>,
     ) -> Result<T, ParseError> {
-        if self.depth >= self.max_depth {
-            return Err(ParseError::Malformed(format!(
-                "input nests deeper than {} levels",
-                self.max_depth
-            )));
+        let span = self.current_span();
+        let next = self.depth.checked_add(1).ok_or_else(|| {
+            ParseError::resource_limit(span, ParseResource::NestingDepth, self.max_depth)
+        })?;
+        if next > self.max_depth {
+            return Err(ParseError::resource_limit(
+                span,
+                ParseResource::NestingDepth,
+                self.max_depth,
+            ));
         }
-        self.depth += 1;
+        self.depth = next;
         let out = f(self);
         self.depth -= 1;
         out
+    }
+
+    fn consume_environment_row(&mut self, span: SourceSpan) -> Result<(), ParseError> {
+        let next = self.rows.checked_add(1).ok_or_else(|| {
+            ParseError::resource_limit(span, ParseResource::EnvironmentRows, self.max_rows)
+        })?;
+        if next > self.max_rows {
+            return Err(ParseError::resource_limit(
+                span,
+                ParseResource::EnvironmentRows,
+                self.max_rows,
+            ));
+        }
+        self.rows = next;
+        Ok(())
+    }
+
+    fn consume_environment_cell(&mut self, span: SourceSpan) -> Result<(), ParseError> {
+        let next = self.cells.checked_add(1).ok_or_else(|| {
+            ParseError::resource_limit(span, ParseResource::EnvironmentCells, self.max_cells)
+        })?;
+        if next > self.max_cells {
+            return Err(ParseError::resource_limit(
+                span,
+                ParseResource::EnvironmentCells,
+                self.max_cells,
+            ));
+        }
+        self.cells = next;
+        Ok(())
+    }
+
+    fn malformed_here(&self, kind: ParseErrorKind, what: impl Into<String>) -> ParseError {
+        ParseError::malformed(kind, self.current_span(), what.into())
+    }
+
+    fn malformed_at(
+        &self,
+        kind: ParseErrorKind,
+        span: SourceSpan,
+        what: impl Into<String>,
+    ) -> ParseError {
+        ParseError::malformed(kind, span, what.into())
     }
 
     fn parse_list(&mut self, stop: Stop) -> Result<MathNode, ParseError> {
@@ -429,16 +552,23 @@ impl Parser {
             }
             match &tok {
                 Token::MathShift | Token::DisplayShift => {
-                    return Err(ParseError::Malformed("unexpected math shift".into()));
+                    return Err(self.malformed_here(
+                        ParseErrorKind::MalformedArgument,
+                        "unexpected math shift",
+                    ));
                 }
                 Token::Command(n) if n == "over" || n == "choose" => {
                     if !stop.end_group {
-                        return Err(ParseError::Malformed(format!("\\{n} outside a group")));
+                        return Err(self.malformed_here(
+                            ParseErrorKind::MalformedArgument,
+                            format!("\\{n} outside a group"),
+                        ));
                     }
                     if !allow_infix_fraction {
-                        return Err(ParseError::Malformed(format!(
-                            "multiple generalized fraction operators in one group: \\{n}"
-                        )));
+                        return Err(self.malformed_here(
+                            ParseErrorKind::MalformedArgument,
+                            format!("multiple generalized fraction operators in one group: \\{n}"),
+                        ));
                     }
                     self.bump();
                     let denominator = self.parse_list_inner(stop, false)?.into_node();
@@ -500,32 +630,50 @@ impl Parser {
     fn parse_nucleus(&mut self) -> Result<MathNode, ParseError> {
         self.skip_ws();
         match self.peek().cloned() {
-            None => Err(ParseError::Malformed("unexpected end of input".into())),
+            None => {
+                Err(self
+                    .malformed_here(ParseErrorKind::MalformedArgument, "unexpected end of input"))
+            }
             Some(Token::Superscript | Token::Subscript | Token::Char('\'')) => {
                 Ok(MathNode::Row(Vec::new()))
             }
             Some(Token::BeginGroup) => self.parse_group(),
+            Some(Token::EndGroup) => {
+                Err(self.malformed_here(ParseErrorKind::UnexpectedGroupEnd, "unexpected '}'"))
+            }
             Some(Token::Char(c)) => {
                 self.bump();
                 Ok(MathNode::Atom(c, atom_kind(c)))
             }
             Some(Token::Command(name)) => {
+                let command_span = self.current_span();
                 self.bump();
-                self.parse_command(&name)
+                self.parse_command(&name, command_span)
             }
-            Some(other) => Err(ParseError::Malformed(format!("unexpected token {other}"))),
+            Some(other) => Err(self.malformed_here(
+                ParseErrorKind::MalformedArgument,
+                format!("unexpected token {other}"),
+            )),
         }
     }
 
     fn parse_group(&mut self) -> Result<MathNode, ParseError> {
+        self.skip_ws();
+        let open_span = self.current_span();
         match self.bump() {
             Some(Token::BeginGroup) => {}
-            _ => return Err(ParseError::Malformed("expected '{'".into())),
+            _ => {
+                return Err(self.malformed_at(
+                    ParseErrorKind::MalformedArgument,
+                    open_span,
+                    "expected '{'",
+                ))
+            }
         }
         let inner = self.parse_list(Stop::group())?;
         match self.bump() {
             Some(Token::EndGroup) => Ok(inner),
-            _ => Err(ParseError::Malformed("unmatched '{'".into())),
+            _ => Err(self.malformed_at(ParseErrorKind::UnclosedGroup, open_span, "unmatched '{'")),
         }
     }
 
@@ -538,7 +686,7 @@ impl Parser {
         match self.peek() {
             Some(Token::BeginGroup) => self.parse_group(),
             Some(_) => self.parse_nucleus(),
-            None => Err(ParseError::Malformed("missing argument".into())),
+            None => Err(self.malformed_here(ParseErrorKind::MalformedArgument, "missing argument")),
         }
     }
 
@@ -553,18 +701,28 @@ impl Parser {
         loop {
             match self.peek_ws() {
                 Some(Token::Subscript) => {
+                    let operator_span = self.current_span();
                     self.bump();
                     if sub.is_some() {
-                        return Err(ParseError::Malformed("double subscript".into()));
+                        return Err(self.malformed_at(
+                            ParseErrorKind::MalformedArgument,
+                            operator_span,
+                            "double subscript",
+                        ));
                     }
                     sub = Some(self.parse_script()?);
                 }
                 Some(Token::Superscript) => {
+                    let operator_span = self.current_span();
                     self.bump();
                     let s = self.parse_script()?;
                     if let Some(prev) = sup.take() {
                         if !sup_from_prime {
-                            return Err(ParseError::Malformed("double superscript".into()));
+                            return Err(self.malformed_at(
+                                ParseErrorKind::MalformedArgument,
+                                operator_span,
+                                "double superscript",
+                            ));
                         }
                         sup = Some(wrap_row(vec![prev, s]));
                         sup_from_prime = false;
@@ -587,7 +745,11 @@ impl Parser {
         Ok(apply_scripts(nucleus, sub, sup))
     }
 
-    fn parse_command(&mut self, name: &str) -> Result<MathNode, ParseError> {
+    fn parse_command(
+        &mut self,
+        name: &str,
+        command_span: SourceSpan,
+    ) -> Result<MathNode, ParseError> {
         match name {
             "frac" | "dfrac" | "tfrac" => {
                 let numerator = self.parse_arg()?;
@@ -631,11 +793,14 @@ impl Parser {
                 let index = if matches!(self.peek_ws(), Some(Token::Char('['))) {
                     self.bump();
                     let idx = self.parse_list(Stop::index())?;
+                    let close_span = self.current_span();
                     match self.bump() {
                         Some(Token::Char(']')) => {}
                         _ => {
-                            return Err(ParseError::Malformed(
-                                "expected ']' after \\sqrt index".into(),
+                            return Err(self.malformed_at(
+                                ParseErrorKind::MalformedArgument,
+                                close_span,
+                                "expected ']' after \\sqrt index",
                             ))
                         }
                     }
@@ -647,11 +812,23 @@ impl Parser {
                 Ok(MathNode::Radical(index, Box::new(rad)))
             }
             "left" => self.parse_delimited(),
-            "right" => Err(ParseError::UnmatchedDelimiter),
+            "right" => Err(ParseError::unmatched_delimiter(command_span)),
             "begin" => self.parse_begin(),
-            "end" => Err(ParseError::Malformed("unexpected \\end".into())),
-            "over" => Err(ParseError::Malformed("\\over outside a group".into())),
-            "choose" => Err(ParseError::Malformed("\\choose outside a group".into())),
+            "end" => Err(self.malformed_at(
+                ParseErrorKind::MalformedMatrix,
+                command_span,
+                "unexpected \\end",
+            )),
+            "over" => Err(self.malformed_at(
+                ParseErrorKind::MalformedArgument,
+                command_span,
+                "\\over outside a group",
+            )),
+            "choose" => Err(self.malformed_at(
+                ParseErrorKind::MalformedArgument,
+                command_span,
+                "\\choose outside a group",
+            )),
             "hat" => self.accent(AccentKind::Hat),
             "check" => self.accent(AccentKind::Check),
             "breve" => self.accent(AccentKind::Breve),
@@ -685,7 +862,9 @@ impl Parser {
                 let value = self.parse_arg()?;
                 let expr = self.parse_arg()?;
                 if is_empty_node(&expr) {
-                    return Err(ParseError::Malformed("empty accent base".into()));
+                    return Err(
+                        self.malformed_here(ParseErrorKind::MalformedArgument, "empty accent base")
+                    );
                 }
                 Ok(MathNode::CancelTo(Box::new(value), Box::new(expr)))
             }
@@ -746,8 +925,8 @@ impl Parser {
             "qquad" => Ok(MathNode::Space(SpaceKind::Qquad)),
             " " => Ok(MathNode::Space(SpaceKind::ControlSpace)),
             "hspace" => {
-                let spec = self.collect_group_text()?;
-                let d = parse_tex_dim(&spec)?;
+                let spec = self.collect_group_text_spanned()?;
+                let d = parse_tex_dim(&spec.text, spec.span)?;
                 Ok(MathNode::Space(SpaceKind::Hspace(d)))
             }
             "phantom" => {
@@ -763,13 +942,16 @@ impl Parser {
                 Ok(MathNode::Phantom(PhantomKind::Horizontal, Box::new(b)))
             }
             "strut" => Ok(MathNode::Strut(
-                Length::Em(Dim::ratio(7, 10).map_err(numeric_parse_err)?),
-                Length::Em(Dim::ratio(3, 10).map_err(numeric_parse_err)?),
+                Length::Em(Dim::ratio(7, 10).map_err(|e| numeric_parse_err(e, command_span))?),
+                Length::Em(Dim::ratio(3, 10).map_err(|e| numeric_parse_err(e, command_span))?),
             )),
             "rule" => {
-                let width = parse_tex_dim(&self.collect_group_text()?)?;
-                let height = parse_tex_dim(&self.collect_group_text()?)?;
-                Ok(MathNode::Rule(width, height))
+                let width = self.collect_group_text_spanned()?;
+                let height = self.collect_group_text_spanned()?;
+                Ok(MathNode::Rule(
+                    parse_tex_dim(&width.text, width.span)?,
+                    parse_tex_dim(&height.text, height.span)?,
+                ))
             }
             "textcolor" => {
                 let c = self.parse_color_from_cmd()?;
@@ -854,12 +1036,18 @@ impl Parser {
                     && name.len() > 4
                     && name.chars().all(|c| c.is_ascii_alphabetic())
                 {
-                    return Err(ParseError::Unsupported(format!("font style {name}")));
+                    return Err(ParseError::unsupported(
+                        command_span,
+                        format!("font style {name}"),
+                    ));
                 }
                 if name.starts_with("wide") {
-                    return Err(ParseError::Unsupported(format!("accent {name}")));
+                    return Err(ParseError::unsupported(
+                        command_span,
+                        format!("accent {name}"),
+                    ));
                 }
-                self.parse_symbol_or_unknown(name)
+                self.parse_symbol_or_unknown(name, command_span)
             }
         }
     }
@@ -867,7 +1055,7 @@ impl Parser {
     fn accent(&mut self, kind: AccentKind) -> Result<MathNode, ParseError> {
         let body = self.parse_arg()?;
         if is_empty_node(&body) {
-            return Err(ParseError::Malformed("empty accent base".into()));
+            return Err(self.malformed_here(ParseErrorKind::MalformedArgument, "empty accent base"));
         }
         Ok(MathNode::Accent(Box::new(body), kind))
     }
@@ -876,11 +1064,14 @@ impl Parser {
         let under = if matches!(self.peek_ws(), Some(Token::Char('['))) {
             self.bump();
             let u = self.parse_list(Stop::index())?;
+            let close_span = self.current_span();
             match self.bump() {
                 Some(Token::Char(']')) => Some(Box::new(u)),
                 _ => {
-                    return Err(ParseError::Malformed(
-                        "expected ']' after x-arrow optional argument".into(),
+                    return Err(self.malformed_at(
+                        ParseErrorKind::MalformedArgument,
+                        close_span,
+                        "expected ']' after x-arrow optional argument",
                     ))
                 }
             }
@@ -910,15 +1101,19 @@ impl Parser {
         let body = self.parse_list(Stop::delim())?;
         match self.bump() {
             Some(Token::Command(n)) if n == "right" => {}
-            _ => return Err(ParseError::UnmatchedDelimiter),
+            _ => return Err(ParseError::unmatched_delimiter(self.current_span())),
         }
         let close = self.parse_delimiter()?;
         Ok(MathNode::Delimited(open, Box::new(body), close))
     }
 
     fn parse_sized_delim(&mut self, name: &str) -> Result<MathNode, ParseError> {
-        let size = DelimSize::from_command(name)
-            .ok_or_else(|| ParseError::Malformed(format!("unknown delimiter size \\{name}")))?;
+        let size = DelimSize::from_command(name).ok_or_else(|| {
+            self.malformed_here(
+                ParseErrorKind::MalformedArgument,
+                format!("unknown delimiter size \\{name}"),
+            )
+        })?;
         let d = self.parse_delimiter()?;
         let class = DelimSize::class_from_command(name).unwrap_or_else(|| match &d {
             Delimiter::Char(c) => atom_kind(*c),
@@ -931,6 +1126,7 @@ impl Parser {
 
     fn parse_delimiter(&mut self) -> Result<Delimiter, ParseError> {
         self.skip_ws();
+        let delimiter_span = self.current_span();
         match self.bump() {
             Some(Token::Char('.')) => Ok(Delimiter::Empty),
             Some(Token::Char(c)) if matches!(c, '(' | ')' | '[' | ']' | '|' | '/' | '<' | '>') => {
@@ -943,26 +1139,34 @@ impl Parser {
                 | "rvert" | "lVert" | "rVert" | "vert" | "Vert" | "uparrow" | "downarrow"
                 | "Uparrow" | "Downarrow" | "updownarrow" | "Updownarrow" | "backslash"
                 | "lgroup" | "rgroup" | "lmoustache" | "rmoustache" => Ok(Delimiter::Named(n)),
-                other => Err(ParseError::Malformed(format!(
-                    "unknown delimiter \\{other}"
-                ))),
+                other => Err(self.malformed_at(
+                    ParseErrorKind::MalformedArgument,
+                    delimiter_span,
+                    format!("unknown delimiter \\{other}"),
+                )),
             },
-            Some(other) => Err(ParseError::Malformed(format!(
-                "expected delimiter, found {other}"
-            ))),
-            None => Err(ParseError::Malformed("expected delimiter".into())),
+            Some(other) => Err(self.malformed_at(
+                ParseErrorKind::MalformedArgument,
+                delimiter_span,
+                format!("expected delimiter, found {other}"),
+            )),
+            None => Err(self.malformed_at(
+                ParseErrorKind::MalformedArgument,
+                delimiter_span,
+                "expected delimiter",
+            )),
         }
     }
 
     fn parse_begin(&mut self) -> Result<MathNode, ParseError> {
-        let name = self.collect_group_text()?;
-        let colspec = if name == "array" {
-            let preamble = self.collect_group_text()?;
-            parse_colspec(&preamble)?
+        let name = self.collect_group_text_spanned()?;
+        let colspec = if name.text == "array" {
+            let preamble = self.collect_group_text_spanned()?;
+            parse_colspec(&preamble.text, preamble.span)?
         } else {
             Vec::new()
         };
-        let style = match name.as_str() {
+        let style = match name.text.as_str() {
             "matrix" => MatrixStyle::Matrix,
             "pmatrix" => MatrixStyle::Pmatrix,
             "bmatrix" => MatrixStyle::Bmatrix,
@@ -978,21 +1182,27 @@ impl Parser {
             "equation" => MatrixStyle::Equation,
             "split" => MatrixStyle::Split,
             other => {
-                return Err(ParseError::Unsupported(format!("environment {other}")));
+                return Err(ParseError::unsupported(
+                    name.span,
+                    format!("environment {other}"),
+                ));
             }
         };
         let rows = self.parse_rows()?;
-        self.expect_end(&name)?;
+        self.expect_end(&name.text)?;
         Ok(MathNode::Matrix(style, colspec, rows))
     }
 
     fn parse_substack(&mut self) -> Result<MathNode, ParseError> {
         self.skip_ws();
+        let open_span = self.current_span();
         match self.bump() {
             Some(Token::BeginGroup) => {}
             _ => {
-                return Err(ParseError::Malformed(
-                    "expected '{' after \\substack".into(),
+                return Err(self.malformed_at(
+                    ParseErrorKind::MalformedArgument,
+                    open_span,
+                    "expected '{' after \\substack",
                 ))
             }
         }
@@ -1014,16 +1224,22 @@ impl Parser {
                     self.bump();
                     break;
                 }
-                None => return Err(ParseError::Malformed("unmatched '{' in \\substack".into())),
+                None => {
+                    return Err(self.malformed_here(
+                        ParseErrorKind::MalformedArgument,
+                        "unmatched '{' in \\substack",
+                    ))
+                }
                 Some(other) => {
-                    return Err(ParseError::Malformed(format!(
-                        "unexpected token {other} in \\substack"
-                    )))
+                    return Err(self.malformed_here(
+                        ParseErrorKind::MalformedArgument,
+                        format!("unexpected token {other} in \\substack"),
+                    ))
                 }
             }
         }
         if lines.is_empty() {
-            return Err(ParseError::Malformed("empty \\substack".into()));
+            return Err(self.malformed_here(ParseErrorKind::MalformedArgument, "empty \\substack"));
         }
         Ok(MathNode::Substack(lines))
     }
@@ -1039,6 +1255,8 @@ impl Parser {
             if matches!(self.peek(), Some(Token::Command(n)) if n == "end") {
                 return Ok(rows);
             }
+            let row_span = self.current_span();
+            self.consume_environment_row(row_span)?;
             if matches!(self.peek(), Some(Token::Command(n)) if n == "hline") {
                 self.bump();
                 rows.push(EnvRow::Hline);
@@ -1046,9 +1264,9 @@ impl Parser {
             }
             if matches!(self.peek(), Some(Token::Command(n)) if n == "intertext") {
                 self.bump();
-                let s = self.collect_group_text()?;
+                let text = self.collect_group_text()?;
                 rows.push(EnvRow::Intertext(Box::new(MathNode::Text(
-                    s,
+                    text,
                     TextStyle::Text,
                 ))));
                 continue;
@@ -1057,6 +1275,9 @@ impl Parser {
             let mut number = EqNumber::Default;
             let mut labels = Vec::new();
             loop {
+                self.skip_ws();
+                let cell_span = self.current_span();
+                self.consume_environment_cell(cell_span)?;
                 let cell = self.parse_list(Stop::cell())?;
                 let cell = peel_row_meta(cell, &mut number, &mut labels);
                 cells.push(cell);
@@ -1079,14 +1300,17 @@ impl Parser {
                         return Ok(rows);
                     }
                     None => {
-                        return Err(ParseError::Malformed(
-                            "unmatched \\begin (missing \\end)".into(),
+                        return Err(self.malformed_at(
+                            ParseErrorKind::MalformedMatrix,
+                            row_span,
+                            "unmatched \\begin (missing \\end)",
                         ));
                     }
                     Some(other) => {
-                        return Err(ParseError::Malformed(format!(
-                            "unexpected token {other} in environment body"
-                        )));
+                        return Err(self.malformed_here(
+                            ParseErrorKind::MalformedMatrix,
+                            format!("unexpected token {other} in environment body"),
+                        ));
                     }
                 }
             }
@@ -1094,15 +1318,25 @@ impl Parser {
     }
 
     fn expect_end(&mut self, name: &str) -> Result<(), ParseError> {
+        self.skip_ws();
+        let end_span = self.current_span();
         match self.bump() {
             Some(Token::Command(n)) if n == "end" => {}
-            _ => return Err(ParseError::Malformed(format!("expected \\end{{{name}}}"))),
+            _ => {
+                return Err(self.malformed_at(
+                    ParseErrorKind::MalformedMatrix,
+                    end_span,
+                    format!("expected \\end{{{name}}}"),
+                ))
+            }
         }
-        let got = self.collect_group_text()?;
-        if got != name {
-            return Err(ParseError::Malformed(format!(
-                "\\begin{{{name}}} closed by \\end{{{got}}}"
-            )));
+        let got = self.collect_group_text_spanned()?;
+        if got.text != name {
+            return Err(ParseError::mismatched_environment(
+                got.span,
+                name.to_string(),
+                got.text,
+            ));
         }
         Ok(())
     }
@@ -1112,11 +1346,14 @@ impl Parser {
         let numerator_alignment = if matches!(self.peek(), Some(Token::Char('['))) {
             self.bump();
             let alignment = self.collect_until_char(']')?;
+            let close_span = self.current_span();
             match self.bump() {
                 Some(Token::Char(']')) => {}
                 _ => {
-                    return Err(ParseError::Malformed(
-                        "expected ']' after \\cfrac alignment".into(),
+                    return Err(self.malformed_at(
+                        ParseErrorKind::MalformedArgument,
+                        close_span,
+                        "expected ']' after \\cfrac alignment",
                     ))
                 }
             }
@@ -1125,9 +1362,10 @@ impl Parser {
                 "r" => FractionAlignment::Right,
                 "" => FractionAlignment::Center,
                 other => {
-                    return Err(ParseError::Malformed(format!(
-                        "invalid \\cfrac numerator alignment `{other}`"
-                    )))
+                    return Err(self.malformed_here(
+                        ParseErrorKind::MalformedArgument,
+                        format!("invalid \\cfrac numerator alignment `{other}`"),
+                    ))
                 }
             }
         } else {
@@ -1147,21 +1385,25 @@ impl Parser {
     }
 
     fn parse_genfrac(&mut self) -> Result<MathNode, ParseError> {
-        let left_delimiter = delim_from_text(&self.collect_group_text()?)?;
-        let right_delimiter = delim_from_text(&self.collect_group_text()?)?;
-        let thickness_text = self.collect_group_text()?;
-        let style_text = self.collect_group_text()?;
+        let left_text = self.collect_group_text_spanned()?;
+        let right_text = self.collect_group_text_spanned()?;
+        let thickness_text = self.collect_group_text_spanned()?;
+        let style_text = self.collect_group_text_spanned()?;
+        let left_delimiter = delim_from_text(&left_text.text)?;
+        let right_delimiter = delim_from_text(&right_text.text)?;
         let numerator = self.parse_arg()?;
         let denominator = self.parse_arg()?;
 
-        let rule = if thickness_text.trim().is_empty() {
+        let rule = if thickness_text.text.trim().is_empty() {
             FractionRule::Default
         } else {
-            let thickness = parse_tex_dim(&thickness_text)?;
+            let thickness = parse_tex_dim(&thickness_text.text, thickness_text.span)?;
             let value = length_value(&thickness);
             if value < &Dim::zero() {
-                return Err(ParseError::Malformed(
-                    "negative \\genfrac rule thickness".into(),
+                return Err(self.malformed_at(
+                    ParseErrorKind::MalformedArgument,
+                    thickness_text.span,
+                    "negative \\genfrac rule thickness",
                 ));
             }
             if value.is_zero() {
@@ -1170,16 +1412,18 @@ impl Parser {
                 FractionRule::Exact(thickness)
             }
         };
-        let style = match style_text.trim() {
+        let style = match style_text.text.trim() {
             "" => FractionStyle::Inherit,
             "0" => FractionStyle::Display,
             "1" => FractionStyle::Text,
             "2" => FractionStyle::Script,
             "3" => FractionStyle::ScriptScript,
             other => {
-                return Err(ParseError::Malformed(format!(
-                    "invalid \\genfrac style `{other}`"
-                )))
+                return Err(self.malformed_at(
+                    ParseErrorKind::MalformedArgument,
+                    style_text.span,
+                    format!("invalid \\genfrac style `{other}`"),
+                ))
             }
         };
         Ok(MathNode::Fraction(FractionSpec {
@@ -1198,11 +1442,14 @@ impl Parser {
         let model = if matches!(self.peek(), Some(Token::Char('['))) {
             self.bump();
             let m = self.collect_until_char(']')?;
+            let close_span = self.current_span();
             match self.bump() {
                 Some(Token::Char(']')) => {}
                 _ => {
-                    return Err(ParseError::Malformed(
-                        "expected ']' after color model".into(),
+                    return Err(self.malformed_at(
+                        ParseErrorKind::MalformedArgument,
+                        close_span,
+                        "expected ']' after color model",
                     ))
                 }
             }
@@ -1210,71 +1457,127 @@ impl Parser {
         } else {
             "named".into()
         };
-        let spec = self.collect_group_text()?;
-        parse_color_spec(&model, &spec, Some(&self.colors)).map_err(color_err)
+        let spec = self.collect_group_text_spanned()?;
+        parse_color_spec(&model, &spec.text, Some(&self.colors))
+            .map_err(|error| color_err(error, spec.span))
     }
 
     fn parse_definecolor(&mut self) -> Result<(), ParseError> {
         let name = self.collect_group_text()?;
         let model = self.collect_group_text()?;
-        let spec = self.collect_group_text()?;
+        let spec = self.collect_group_text_spanned()?;
         self.colors
-            .define(&name, &model, &spec)
-            .map_err(color_err)?;
+            .define(&name, &model, &spec.text)
+            .map_err(|error| color_err(error, spec.span))?;
         Ok(())
     }
 
     fn collect_group_text(&mut self) -> Result<String, ParseError> {
+        Ok(self.collect_group_text_spanned()?.text)
+    }
+
+    fn collect_group_text_spanned(&mut self) -> Result<SpannedText, ParseError> {
         self.skip_ws();
+        let open_span = self.current_span();
         match self.bump_raw() {
-            Some(Token::Space) => {
-                self.pos -= 1;
-                self.skip_ws();
-                return self.collect_group_text();
-            }
             Some(Token::BeginGroup) => {}
-            _ => return Err(ParseError::Malformed("expected '{'".into())),
+            _ => {
+                return Err(self.malformed_at(
+                    ParseErrorKind::MalformedArgument,
+                    open_span,
+                    "expected '{'",
+                ))
+            }
         }
-        let mut s = String::new();
-        let mut depth = 1;
-        while depth > 0 {
+        let content_start = open_span.end;
+        let initial_depth = self.depth.checked_add(1).ok_or_else(|| {
+            ParseError::resource_limit(open_span, ParseResource::NestingDepth, self.max_depth)
+        })?;
+        if initial_depth > self.max_depth {
+            return Err(ParseError::resource_limit(
+                open_span,
+                ParseResource::NestingDepth,
+                self.max_depth,
+            ));
+        }
+        let mut text = String::new();
+        let mut depth = 1usize;
+        loop {
+            let token_span = self.current_span();
             match self.bump_raw() {
-                None => return Err(ParseError::Malformed("unmatched '{'".into())),
+                None => {
+                    return Err(self.malformed_at(
+                        ParseErrorKind::UnclosedGroup,
+                        open_span,
+                        "unmatched '{'",
+                    ))
+                }
                 Some(Token::BeginGroup) => {
-                    depth += 1;
-                    s.push('{');
+                    let next = depth.checked_add(1).ok_or_else(|| {
+                        ParseError::resource_limit(
+                            token_span,
+                            ParseResource::NestingDepth,
+                            self.max_depth,
+                        )
+                    })?;
+                    let total = self.depth.checked_add(next).ok_or_else(|| {
+                        ParseError::resource_limit(
+                            token_span,
+                            ParseResource::NestingDepth,
+                            self.max_depth,
+                        )
+                    })?;
+                    if total > self.max_depth {
+                        return Err(ParseError::resource_limit(
+                            token_span,
+                            ParseResource::NestingDepth,
+                            self.max_depth,
+                        ));
+                    }
+                    depth = next;
+                    text.push('{');
                 }
                 Some(Token::EndGroup) => {
                     depth -= 1;
-                    if depth > 0 {
-                        s.push('}');
+                    if depth == 0 {
+                        return Ok(SpannedText {
+                            text,
+                            span: SourceSpan::new(content_start, token_span.start),
+                        });
                     }
+                    text.push('}');
                 }
-                Some(Token::Space) => s.push(' '),
-                Some(Token::Char(c)) => s.push(c),
+                Some(Token::Space) => text.push(' '),
+                Some(Token::Char(c)) => text.push(c),
                 Some(Token::Command(n)) => {
                     if n.len() == 1 {
-                        s.push(n.chars().next().unwrap_or('\\'));
+                        text.push(n.chars().next().unwrap_or('\\'));
                     } else {
-                        s.push('\\');
-                        s.push_str(&n);
+                        text.push('\\');
+                        text.push_str(&n);
                     }
                 }
                 Some(other) => {
-                    return Err(ParseError::Malformed(format!(
-                        "unexpected token {other} in group text"
-                    )))
+                    return Err(self.malformed_at(
+                        ParseErrorKind::MalformedArgument,
+                        token_span,
+                        format!("unexpected token {other} in group text"),
+                    ))
                 }
             }
         }
-        Ok(s)
     }
 
     fn collect_until_char(&mut self, end: char) -> Result<String, ParseError> {
         let mut s = String::new();
         loop {
             match self.peek() {
-                None => return Err(ParseError::Malformed(format!("expected '{end}'"))),
+                None => {
+                    return Err(self.malformed_here(
+                        ParseErrorKind::MalformedArgument,
+                        format!("expected '{end}'"),
+                    ))
+                }
                 Some(Token::Char(c)) if *c == end => break,
                 Some(Token::Char(c)) => {
                     s.push(*c);
@@ -1285,21 +1588,26 @@ impl Parser {
                     self.bump_raw();
                 }
                 Some(other) => {
-                    return Err(ParseError::Malformed(format!(
-                        "unexpected token {other} in optional argument"
-                    )))
+                    return Err(self.malformed_here(
+                        ParseErrorKind::MalformedArgument,
+                        format!("unexpected token {other} in optional argument"),
+                    ))
                 }
             }
         }
         Ok(s)
     }
 
-    fn parse_symbol_or_unknown(&self, name: &str) -> Result<MathNode, ParseError> {
+    fn parse_symbol_or_unknown(
+        &self,
+        name: &str,
+        command_span: SourceSpan,
+    ) -> Result<MathNode, ParseError> {
         let canon = alias(name);
         if let Some(e) = lookup(canon).or_else(|| lookup(name)) {
             match e.kind {
                 CatalogKind::Container | CatalogKind::Modifier => {
-                    return Err(ParseError::Unsupported(format!("\\{name}")));
+                    return Err(ParseError::unsupported(command_span, format!("\\{name}")));
                 }
                 CatalogKind::Symbol | CatalogKind::Operator => {
                     return Ok(MathNode::Symbol(canon.to_string()));
@@ -1309,14 +1617,16 @@ impl Parser {
         if is_extra_symbol(canon) {
             return Ok(MathNode::Symbol(canon.to_string()));
         }
-        Err(ParseError::Unknown(format!("\\{name}")))
+        Err(ParseError::unknown(command_span, format!("\\{name}")))
     }
 }
 
-fn strip_fences(tokens: &[Token]) -> Result<Vec<Token>, ParseError> {
+fn strip_fences(tokens: &[SpannedToken]) -> Result<Vec<SpannedToken>, ParseError> {
     let t = trim_spaces(tokens);
     if t.len() >= 2 {
-        let inner = match (&t[0], &t[t.len() - 1]) {
+        let first = &t[0].token;
+        let last = &t[t.len() - 1].token;
+        let inner = match (first, last) {
             (Token::MathShift, Token::MathShift) => Some(&t[1..t.len() - 1]),
             (Token::DisplayShift, Token::DisplayShift) => Some(&t[1..t.len() - 1]),
             (Token::Command(a), Token::Command(b)) if a == "[" && b == "]" => {
@@ -1330,25 +1640,189 @@ fn strip_fences(tokens: &[Token]) -> Result<Vec<Token>, ParseError> {
         if let Some(inner) = inner {
             return Ok(trim_spaces(inner).to_vec());
         }
-        if matches!(t[0], Token::MathShift | Token::DisplayShift)
-            || matches!(&t[0], Token::Command(s) if s == "[" || s == "(")
+        if matches!(first, Token::MathShift | Token::DisplayShift)
+            || matches!(first, Token::Command(s) if s == "[" || s == "(")
         {
-            return Err(ParseError::Malformed("unmatched math delimiter".into()));
+            return Err(ParseError::unmatched_delimiter(t[0].span));
+        }
+    } else if let Some(first) = t.first() {
+        if matches!(&first.token, Token::MathShift | Token::DisplayShift)
+            || matches!(&first.token, Token::Command(s) if s == "[" || s == "(")
+        {
+            return Err(ParseError::unmatched_delimiter(first.span));
         }
     }
     Ok(t.to_vec())
 }
 
-fn trim_spaces(tokens: &[Token]) -> &[Token] {
+fn trim_spaces(tokens: &[SpannedToken]) -> &[SpannedToken] {
     let mut a = 0;
     let mut b = tokens.len();
-    while a < b && tokens[a] == Token::Space {
+    while a < b && matches!(&tokens[a].token, Token::Space) {
         a += 1;
     }
-    while b > a && tokens[b - 1] == Token::Space {
+    while b > a && matches!(&tokens[b - 1].token, Token::Space) {
         b -= 1;
     }
     &tokens[a..b]
+}
+
+fn enforce_ast_node_limit(
+    root: &MathNode,
+    max_nodes: usize,
+    source_len: usize,
+) -> Result<(), ParseError> {
+    let span = SourceSpan::new(0, source_len);
+    if max_nodes == 0 {
+        return Err(ParseError::resource_limit(
+            span,
+            ParseResource::AstNodes,
+            max_nodes,
+        ));
+    }
+
+    let mut count = 0usize;
+    let mut stack = Vec::with_capacity(max_nodes.min(64));
+    stack.push(root);
+    while let Some(node) = stack.pop() {
+        count = count
+            .checked_add(1)
+            .ok_or_else(|| ParseError::resource_limit(span, ParseResource::AstNodes, max_nodes))?;
+        if count > max_nodes {
+            return Err(ParseError::resource_limit(
+                span,
+                ParseResource::AstNodes,
+                max_nodes,
+            ));
+        }
+
+        match node {
+            MathNode::Atom(_, _)
+            | MathNode::SizedDelim(_, _, _)
+            | MathNode::Ref(_)
+            | MathNode::Label(_)
+            | MathNode::NoNumber
+            | MathNode::Hline
+            | MathNode::Text(_, _)
+            | MathNode::Space(_)
+            | MathNode::Operator(_, _)
+            | MathNode::Symbol(_)
+            | MathNode::Strut(_, _)
+            | MathNode::Rule(_, _) => {}
+            MathNode::Fraction(spec) => {
+                push_ast_child(
+                    &mut stack,
+                    spec.denominator.as_ref(),
+                    count,
+                    max_nodes,
+                    span,
+                )?;
+                push_ast_child(&mut stack, spec.numerator.as_ref(), count, max_nodes, span)?;
+            }
+            MathNode::Radical(index, body) => {
+                push_ast_child(&mut stack, body.as_ref(), count, max_nodes, span)?;
+                if let Some(index) = index {
+                    push_ast_child(&mut stack, index.as_ref(), count, max_nodes, span)?;
+                }
+            }
+            MathNode::Superscript(base, script) | MathNode::Subscript(base, script) => {
+                push_ast_child(&mut stack, script.as_ref(), count, max_nodes, span)?;
+                push_ast_child(&mut stack, base.as_ref(), count, max_nodes, span)?;
+            }
+            MathNode::SubSup(base, sub, sup) => {
+                push_ast_child(&mut stack, sup.as_ref(), count, max_nodes, span)?;
+                push_ast_child(&mut stack, sub.as_ref(), count, max_nodes, span)?;
+                push_ast_child(&mut stack, base.as_ref(), count, max_nodes, span)?;
+            }
+            MathNode::Delimited(_, body, _) => {
+                push_ast_child(&mut stack, body.as_ref(), count, max_nodes, span)?;
+            }
+            MathNode::Row(items) | MathNode::Substack(items) => {
+                for item in items.iter().rev() {
+                    push_ast_child(&mut stack, item, count, max_nodes, span)?;
+                }
+            }
+            MathNode::Matrix(_, _, rows) => {
+                for row in rows.iter().rev() {
+                    match row {
+                        EnvRow::Cells { cells, number, .. } => {
+                            if let EqNumber::Tag { body, .. } = number {
+                                push_ast_child(&mut stack, body.as_ref(), count, max_nodes, span)?;
+                            }
+                            for cell in cells.iter().rev() {
+                                push_ast_child(&mut stack, cell, count, max_nodes, span)?;
+                            }
+                        }
+                        EnvRow::Intertext(body) => {
+                            push_ast_child(&mut stack, body.as_ref(), count, max_nodes, span)?;
+                        }
+                        EnvRow::Hline => {}
+                    }
+                }
+            }
+            MathNode::Tag { body, .. }
+            | MathNode::Intertext(body)
+            | MathNode::Accent(body, _)
+            | MathNode::Color(_, body)
+            | MathNode::TextColor(_, body)
+            | MathNode::ColorBox(_, body)
+            | MathNode::FColorBox(_, _, body)
+            | MathNode::Phantom(_, body) => {
+                push_ast_child(&mut stack, body.as_ref(), count, max_nodes, span)?;
+            }
+            MathNode::Sum(lower, upper)
+            | MathNode::Product(lower, upper)
+            | MathNode::Integral(_, lower, upper) => {
+                if let Some(upper) = upper {
+                    push_ast_child(&mut stack, upper.as_ref(), count, max_nodes, span)?;
+                }
+                if let Some(lower) = lower {
+                    push_ast_child(&mut stack, lower.as_ref(), count, max_nodes, span)?;
+                }
+            }
+            MathNode::Limit(lower) => {
+                if let Some(lower) = lower {
+                    push_ast_child(&mut stack, lower.as_ref(), count, max_nodes, span)?;
+                }
+            }
+            MathNode::OverUnder(base, over, under) => {
+                if let Some(under) = under {
+                    push_ast_child(&mut stack, under.as_ref(), count, max_nodes, span)?;
+                }
+                if let Some(over) = over {
+                    push_ast_child(&mut stack, over.as_ref(), count, max_nodes, span)?;
+                }
+                push_ast_child(&mut stack, base.as_ref(), count, max_nodes, span)?;
+            }
+            MathNode::CancelTo(value, expression) => {
+                push_ast_child(&mut stack, expression.as_ref(), count, max_nodes, span)?;
+                push_ast_child(&mut stack, value.as_ref(), count, max_nodes, span)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn push_ast_child<'a>(
+    stack: &mut Vec<&'a MathNode>,
+    child: &'a MathNode,
+    processed: usize,
+    max_nodes: usize,
+    span: SourceSpan,
+) -> Result<(), ParseError> {
+    let discovered = processed
+        .checked_add(stack.len())
+        .and_then(|n| n.checked_add(1))
+        .ok_or_else(|| ParseError::resource_limit(span, ParseResource::AstNodes, max_nodes))?;
+    if discovered > max_nodes {
+        return Err(ParseError::resource_limit(
+            span,
+            ParseResource::AstNodes,
+            max_nodes,
+        ));
+    }
+    stack.push(child);
+    Ok(())
 }
 
 fn wrap_row(mut items: Vec<MathNode>) -> MathNode {
@@ -1359,7 +1833,7 @@ fn wrap_row(mut items: Vec<MathNode>) -> MathNode {
     }
 }
 
-fn parse_colspec(s: &str) -> Result<Vec<ColSpec>, ParseError> {
+fn parse_colspec(s: &str, span: SourceSpan) -> Result<Vec<ColSpec>, ParseError> {
     let mut out = Vec::new();
     for c in s.chars() {
         match c {
@@ -1369,13 +1843,26 @@ fn parse_colspec(s: &str) -> Result<Vec<ColSpec>, ParseError> {
             '|' => out.push(ColSpec::VRule),
             ' ' | '\t' => {}
             '@' | '!' | '>' | '<' | 'p' | 'm' | 'b' | '*' => {
-                return Err(ParseError::Unsupported(format!("array preamble `{c}`")))
+                return Err(ParseError::unsupported(
+                    span,
+                    format!("array preamble `{c}`"),
+                ))
             }
-            other => return Err(ParseError::Malformed(format!("array preamble `{other}`"))),
+            other => {
+                return Err(ParseError::malformed(
+                    ParseErrorKind::MalformedMatrix,
+                    span,
+                    format!("array preamble `{other}`"),
+                ))
+            }
         }
     }
     if out.is_empty() {
-        return Err(ParseError::Malformed("empty array preamble".into()));
+        return Err(ParseError::malformed(
+            ParseErrorKind::MalformedMatrix,
+            span,
+            "empty array preamble".into(),
+        ));
     }
     Ok(out)
 }
@@ -1589,10 +2076,14 @@ fn delim_from_text(s: &str) -> Result<Delimiter, ParseError> {
     Ok(Delimiter::Named(name.to_string()))
 }
 
-fn parse_tex_dim(s: &str) -> Result<Length, ParseError> {
+fn parse_tex_dim(s: &str, span: SourceSpan) -> Result<Length, ParseError> {
     let s = s.trim();
     if s.is_empty() {
-        return Err(ParseError::Malformed("empty dimension".into()));
+        return Err(ParseError::malformed(
+            ParseErrorKind::MalformedDimension,
+            span,
+            "empty dimension".into(),
+        ));
     }
     let mut i = 0;
     let b = s.as_bytes();
@@ -1603,30 +2094,39 @@ fn parse_tex_dim(s: &str) -> Result<Length, ParseError> {
         i += 1;
     }
     if i == 0 || (i == 1 && (b[0] == b'+' || b[0] == b'-')) {
-        return Err(ParseError::Malformed(format!("invalid dimension `{s}`")));
+        return Err(ParseError::malformed(
+            ParseErrorKind::MalformedDimension,
+            span,
+            format!("invalid dimension `{s}`"),
+        ));
     }
-    let num = Dim::parse(&s[..i]).map_err(numeric_parse_err)?;
+    let num = Dim::parse(&s[..i]).map_err(|error| numeric_parse_err(error, span))?;
     let unit = s[i..].trim();
     match unit {
         "" | "em" => Ok(Length::Em(num)),
         "mu" => Ok(Length::Mu(num)),
         "pt" => Ok(Length::TexPt(num)),
         "bp" => Ok(Length::BigPt(num)),
-        other => Err(ParseError::Unsupported(format!("dimension unit {other}"))),
+        other => Err(ParseError::malformed(
+            ParseErrorKind::MalformedDimension,
+            span,
+            format!("unsupported dimension unit {other}"),
+        )),
     }
 }
 
-fn numeric_parse_err(e: crate::NumericError) -> ParseError {
-    ParseError::Malformed(e.to_string())
+fn numeric_parse_err(error: crate::NumericError, span: SourceSpan) -> ParseError {
+    ParseError::malformed(ParseErrorKind::MalformedDimension, span, error.to_string())
 }
 
-fn color_err(e: Error) -> ParseError {
-    match e {
-        Error::Unsupported { what } => ParseError::Unsupported(what),
-        Error::Parse(p) => p,
-        Error::Malformed { what } => ParseError::Malformed(what),
-        Error::InvalidOption { what } => ParseError::Malformed(what),
-        other => ParseError::Malformed(other.to_string()),
+fn color_err(error: Error, span: SourceSpan) -> ParseError {
+    match error {
+        Error::Unsupported { what } => ParseError::unsupported(span, what),
+        Error::Parse(parse) => parse,
+        Error::Malformed { what } | Error::InvalidOption { what } => {
+            ParseError::malformed(ParseErrorKind::MalformedArgument, span, what)
+        }
+        other => ParseError::malformed(ParseErrorKind::MalformedArgument, span, other.to_string()),
     }
 }
 
@@ -1700,6 +2200,6 @@ mod tests {
     fn oversized_dimension_is_rejected_instead_of_becoming_invalid_dim() {
         let err = parse(r"\hspace{170141183460469231731687303715884105728em}")
             .expect_err("2^127 em must exceed the Dim contract");
-        assert!(matches!(err, ParseError::Malformed(_)));
+        assert_eq!(err.kind(), ParseErrorKind::MalformedDimension);
     }
 }

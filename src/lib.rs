@@ -34,7 +34,10 @@ pub use ttf_parser;
 pub use atoms::symbol_atom_kind;
 pub use color::{named_color, parse_color_spec, Color, ColorTable};
 pub use dim::{Dim, DIM_PREC};
-pub use error::{Error, FontError, NumericError, ParseError};
+pub use error::{
+    Error, FontError, NumericError, ParseError, ParseErrorDetail, ParseErrorKind, ParseResource,
+    SourceSpan,
+};
 pub use font::{
     GlyphMetrics, MathFont, STIX_TWO_MATH_NAME, STIX_TWO_MATH_OTF, STIX_TWO_MATH_SHA256,
 };
@@ -44,10 +47,12 @@ pub use layout::{
     NumberStyle, NumberingConfig, NumberingState,
 };
 pub use parser::{
-    format_tokens, parse, parse_with_colors, parse_with_options, preprocess, tokenize, AccentKind,
-    AtomKind, ColSpec, DelimSize, Delimiter, EnvRow, EqNumber, FractionAlignment, FractionRule,
-    FractionSpec, FractionStyle, IntegralKind, Length, MathNode, MatrixStyle, ParseOptions,
-    PhantomKind, SpaceKind, TextStyle, Token, DEFAULT_MAX_NESTING_DEPTH,
+    format_tokens, parse, parse_with_colors, parse_with_options, preprocess, tokenize,
+    tokenize_spanned, AccentKind, AtomKind, ColSpec, DelimSize, Delimiter, EnvRow, EqNumber,
+    FractionAlignment, FractionRule, FractionSpec, FractionStyle, IntegralKind, Length, MathNode,
+    MatrixStyle, ParseOptions, PhantomKind, SpaceKind, SpannedToken, TextStyle, Token,
+    DEFAULT_MAX_AST_NODES, DEFAULT_MAX_ENVIRONMENT_CELLS, DEFAULT_MAX_ENVIRONMENT_ROWS,
+    DEFAULT_MAX_NESTING_DEPTH, DEFAULT_MAX_TOKENS,
 };
 pub use style_map::styled_char;
 pub use symbols::{category_count, glyph_char, lookup, symbols, SymbolEntry, SymbolKind};

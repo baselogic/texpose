@@ -2,7 +2,8 @@
 
 use texpose::{
     category_count, format_tokens, lookup, named_color, parse_color_spec, symbols, tokenize,
-    ColorTable, Dim, Error, MathBox, MathFont, ParseError, STIX_TWO_MATH_OTF, STIX_TWO_MATH_SHA256,
+    ColorTable, Dim, Error, MathBox, MathFont, ParseErrorKind, STIX_TWO_MATH_OTF,
+    STIX_TWO_MATH_SHA256,
 };
 
 #[derive(Default)]
@@ -129,7 +130,12 @@ fn milestone1_golds() {
             }
             "tokenize_err" => {
                 let err = tokenize(&rec.input).expect_err(&rec.name);
-                assert_eq!(err, ParseError::TrailingBackslash, "{}", rec.name);
+                assert_eq!(
+                    err.kind(),
+                    ParseErrorKind::TrailingBackslash,
+                    "{}",
+                    rec.name
+                );
                 assert!(err.to_string().contains(&rec.expect), "{}", rec.name);
             }
             "dim" => match rec.op.as_str() {

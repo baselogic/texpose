@@ -239,13 +239,13 @@ expect = "w=0.892333333333333333333333 h=0.645666666666666666666666 d=0.17666666
 [[gold]]
 name = "empty_hat"
 kind = "err"
-error = "Malformed"
+error = "MalformedArgument"
 input = "\\hat{}"
 expect = "malformed: empty accent base"
 
 [[gold]]
 name = "unknown_widebox"
 kind = "err"
-error = "Unsupported"
+error = "UnsupportedCommand"
 input = "\\widebox{x}"
 expect = "unsupported: accent widebox"

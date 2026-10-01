@@ -204,7 +204,7 @@ fn symbol_golds() {
             "err_parse" => {
                 let err = parse(&rec.input).expect_err(&rec.name);
                 assert!(
-                    matches!(err, texpose::ParseError::Unsupported(_)),
+                    matches!(err.kind(), texpose::ParseErrorKind::UnsupportedCommand),
                     "{}: {err}",
                     rec.name
                 );

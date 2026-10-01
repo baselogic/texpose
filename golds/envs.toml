@@ -232,13 +232,13 @@ expect = "w=4.260777777777777777777777 h=0.736 d=2.172"
 [[gold]]
 name = "mismatch-align-gather"
 kind = "err"
-error = "Malformed"
+error = "MismatchedEnvironment"
 input = "\\begin{align}a\\end{gather}"
 expect = "align"
 
 [[gold]]
 name = "unknown-environment"
 kind = "err"
-error = "Unsupported"
+error = "UnsupportedCommand"
 input = "\\begin{foo}a\\end{foo}"
 expect = "environment foo"

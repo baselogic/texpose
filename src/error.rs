@@ -17,6 +17,206 @@ pub enum NumericError {
     OutOfRange,
 }
 
+/// Byte range in the original math source, half-open as `[start, end)`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SourceSpan {
+    /// Inclusive starting byte offset.
+    pub start: usize,
+    /// Exclusive ending byte offset.
+    pub end: usize,
+}
+
+impl SourceSpan {
+    pub(crate) const fn new(start: usize, end: usize) -> Self {
+        Self { start, end }
+    }
+
+    pub(crate) const fn point(offset: usize) -> Self {
+        Self {
+            start: offset,
+            end: offset,
+        }
+    }
+}
+
+/// Parser resource controlled by [`crate::ParseOptions`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ParseResource {
+    /// Recursive parser nesting.
+    NestingDepth,
+    /// Number of nodes in the returned syntax tree.
+    AstNodes,
+    /// Total rows across parsed environments.
+    EnvironmentRows,
+    /// Total cells across parsed environments.
+    EnvironmentCells,
+    /// Number of lexical tokens produced from the source.
+    Tokens,
+}
+
+impl fmt::Display for ParseResource {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NestingDepth => f.write_str("nesting depth"),
+            Self::AstNodes => f.write_str("AST node count"),
+            Self::EnvironmentRows => f.write_str("environment row count"),
+            Self::EnvironmentCells => f.write_str("environment cell count"),
+            Self::Tokens => f.write_str("token count"),
+        }
+    }
+}
+
+/// Typed parser failure category.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ParseErrorKind {
+    /// Input ended with a stray `\` and no command character.
+    TrailingBackslash,
+    /// Command is not in the supported command catalog.
+    UnknownCommand,
+    /// Command or construct is known but unsupported.
+    UnsupportedCommand,
+    /// A `{` group was not closed.
+    UnclosedGroup,
+    /// A `}` occurred where no group end was expected.
+    UnexpectedGroupEnd,
+    /// `\left` / `\right` pairing is invalid.
+    UnmatchedDelimiter,
+    /// `\begin{...}` and `\end{...}` names do not match.
+    MismatchedEnvironment,
+    /// A construct argument is syntactically malformed or missing.
+    MalformedArgument,
+    /// A dimension is malformed or uses an unsupported unit.
+    MalformedDimension,
+    /// A matrix/environment body or preamble is malformed.
+    MalformedMatrix,
+    /// A configured parser resource budget was exceeded.
+    ResourceLimit,
+}
+
+/// Structured parser-error details.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ParseErrorDetail {
+    /// No additional detail is required.
+    None,
+    /// Command or construct name involved in the failure.
+    Command(String),
+    /// Free-form construct-specific diagnostic text.
+    Message(String),
+    /// Environment closing mismatch.
+    Environment {
+        /// Name from `\begin{...}`.
+        expected: String,
+        /// Name from `\end{...}`.
+        found: String,
+    },
+    /// Configured resource budget that was exceeded.
+    ResourceLimit {
+        /// Resource whose counter would exceed the limit.
+        resource: ParseResource,
+        /// Configured maximum accepted value.
+        limit: usize,
+    },
+}
+
+/// Tokenizer / parser failure with an original-source byte range.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ParseError {
+    kind: ParseErrorKind,
+    span: SourceSpan,
+    detail: ParseErrorDetail,
+}
+
+impl ParseError {
+    /// Typed failure category.
+    #[must_use]
+    pub const fn kind(&self) -> ParseErrorKind {
+        self.kind
+    }
+
+    /// Byte range in the original input associated with the failure.
+    #[must_use]
+    pub const fn span(&self) -> SourceSpan {
+        self.span
+    }
+
+    /// Construct-specific information for diagnostics and callers.
+    #[must_use]
+    pub const fn detail(&self) -> &ParseErrorDetail {
+        &self.detail
+    }
+
+    pub(crate) const fn trailing_backslash(span: SourceSpan) -> Self {
+        Self {
+            kind: ParseErrorKind::TrailingBackslash,
+            span,
+            detail: ParseErrorDetail::None,
+        }
+    }
+
+    pub(crate) fn unknown(span: SourceSpan, command: String) -> Self {
+        Self {
+            kind: ParseErrorKind::UnknownCommand,
+            span,
+            detail: ParseErrorDetail::Command(command),
+        }
+    }
+
+    pub(crate) fn unsupported(span: SourceSpan, what: String) -> Self {
+        Self {
+            kind: ParseErrorKind::UnsupportedCommand,
+            span,
+            detail: ParseErrorDetail::Message(what),
+        }
+    }
+
+    pub(crate) fn malformed(kind: ParseErrorKind, span: SourceSpan, what: String) -> Self {
+        Self {
+            kind,
+            span,
+            detail: ParseErrorDetail::Message(what),
+        }
+    }
+
+    pub(crate) const fn unmatched_delimiter(span: SourceSpan) -> Self {
+        Self {
+            kind: ParseErrorKind::UnmatchedDelimiter,
+            span,
+            detail: ParseErrorDetail::None,
+        }
+    }
+
+    pub(crate) fn mismatched_environment(
+        span: SourceSpan,
+        expected: String,
+        found: String,
+    ) -> Self {
+        Self {
+            kind: ParseErrorKind::MismatchedEnvironment,
+            span,
+            detail: ParseErrorDetail::Environment { expected, found },
+        }
+    }
+
+    pub(crate) const fn resource_limit(
+        span: SourceSpan,
+        resource: ParseResource,
+        limit: usize,
+    ) -> Self {
+        Self {
+            kind: ParseErrorKind::ResourceLimit,
+            span,
+            detail: ParseErrorDetail::ResourceLimit { resource, limit },
+        }
+    }
+
+    fn message(&self) -> Option<&str> {
+        match &self.detail {
+            ParseErrorDetail::Command(s) | ParseErrorDetail::Message(s) => Some(s),
+            _ => None,
+        }
+    }
+}
+
 /// Crate-level error.
 ///
 /// [`Error::Parse`] wraps tokenizer/parser failures; [`Error::Font`] wraps
@@ -50,21 +250,6 @@ pub enum Error {
         /// Human-readable name of the invalid option.
         what: String,
     },
-}
-
-/// Tokenizer / parser failure.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ParseError {
-    /// Input ended with a stray `\` and no command character.
-    TrailingBackslash,
-    /// Command is known but this crate does not support its semantics.
-    Unsupported(String),
-    /// Command is not in the catalog and is not a known math structure.
-    Unknown(String),
-    /// Syntactically invalid input. Names the construct or position.
-    Malformed(String),
-    /// `\left` without `\right`, or `\right` without `\left`.
-    UnmatchedDelimiter,
 }
 
 /// Font loader or metric lookup failure.
@@ -106,12 +291,45 @@ impl fmt::Display for Error {
 
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::TrailingBackslash => f.write_str("trailing backslash"),
-            Self::Unsupported(s) => write!(f, "unsupported: {s}"),
-            Self::Unknown(s) => write!(f, "unknown command: {s}"),
-            Self::Malformed(s) => write!(f, "malformed: {s}"),
-            Self::UnmatchedDelimiter => f.write_str("unmatched delimiter"),
+        match self.kind {
+            ParseErrorKind::TrailingBackslash => f.write_str("trailing backslash"),
+            ParseErrorKind::UnknownCommand => {
+                write!(
+                    f,
+                    "unknown command: {}",
+                    self.message().unwrap_or("<unknown>")
+                )
+            }
+            ParseErrorKind::UnsupportedCommand => {
+                write!(f, "unsupported: {}", self.message().unwrap_or("<unknown>"))
+            }
+            ParseErrorKind::UnclosedGroup
+            | ParseErrorKind::UnexpectedGroupEnd
+            | ParseErrorKind::MalformedArgument
+            | ParseErrorKind::MalformedDimension
+            | ParseErrorKind::MalformedMatrix => {
+                write!(
+                    f,
+                    "malformed: {}",
+                    self.message().unwrap_or("invalid input")
+                )
+            }
+            ParseErrorKind::UnmatchedDelimiter => f.write_str("unmatched delimiter"),
+            ParseErrorKind::MismatchedEnvironment => match &self.detail {
+                ParseErrorDetail::Environment { expected, found } => {
+                    write!(
+                        f,
+                        "malformed: \\begin{{{expected}}} closed by \\end{{{found}}}"
+                    )
+                }
+                _ => f.write_str("malformed: mismatched environment"),
+            },
+            ParseErrorKind::ResourceLimit => match &self.detail {
+                ParseErrorDetail::ResourceLimit { resource, limit } => {
+                    write!(f, "resource limit: {resource} exceeds {limit}")
+                }
+                _ => f.write_str("resource limit exceeded"),
+            },
         }
     }
 }
@@ -126,6 +344,8 @@ impl fmt::Display for FontError {
 }
 
 impl std::error::Error for NumericError {}
+
+impl std::error::Error for ParseError {}
 
 impl std::error::Error for Error {}
 
