@@ -4,8 +4,8 @@
 //! The math list itself is a TeX-style row of atoms, not an arithmetic tree.
 
 use super::ast::{
-    AccentKind, AtomKind, ColSpec, DelimSize, Delimiter, EnvRow, EqNumber, IntegralKind, MathNode,
-    MatrixStyle, PhantomKind, SpaceKind, TextStyle,
+    AccentKind, AtomKind, ColSpec, DelimSize, Delimiter, EnvRow, EqNumber, IntegralKind, Length,
+    MathNode, MatrixStyle, PhantomKind, SpaceKind, TextStyle,
 };
 use super::preproc::preprocess;
 use super::token::{tokenize, Token};
@@ -609,13 +609,13 @@ impl Parser {
                 Ok(MathNode::Phantom(PhantomKind::Horizontal, Box::new(b)))
             }
             "strut" => Ok(MathNode::Strut(
-                Dim::ratio(7, 10).map_err(numeric_parse_err)?,
-                Dim::ratio(3, 10).map_err(numeric_parse_err)?,
+                Length::Em(Dim::ratio(7, 10).map_err(numeric_parse_err)?),
+                Length::Em(Dim::ratio(3, 10).map_err(numeric_parse_err)?),
             )),
             "rule" => {
-                let _w = parse_tex_dim(&self.collect_group_text()?)?;
-                let h = parse_tex_dim(&self.collect_group_text()?)?;
-                Ok(MathNode::Strut(h, Dim::zero()))
+                let width = parse_tex_dim(&self.collect_group_text()?)?;
+                let height = parse_tex_dim(&self.collect_group_text()?)?;
+                Ok(MathNode::Rule(width, height))
             }
             "textcolor" => {
                 let c = self.parse_color_from_cmd()?;
@@ -1346,7 +1346,7 @@ fn delim_from_text(s: &str) -> Result<Delimiter, ParseError> {
     Ok(Delimiter::Named(name.to_string()))
 }
 
-fn parse_tex_dim(s: &str) -> Result<Dim, ParseError> {
+fn parse_tex_dim(s: &str) -> Result<Length, ParseError> {
     let s = s.trim();
     if s.is_empty() {
         return Err(ParseError::Malformed("empty dimension".into()));
@@ -1365,11 +1365,10 @@ fn parse_tex_dim(s: &str) -> Result<Dim, ParseError> {
     let num = Dim::parse(&s[..i]).map_err(numeric_parse_err)?;
     let unit = s[i..].trim();
     match unit {
-        "" | "em" => Ok(num),
-        "mu" => Dim::from_mu(&num).map_err(numeric_parse_err),
-        "pt" | "bp" => num
-            .checked_div(&Dim::from_i64(10))
-            .map_err(numeric_parse_err),
+        "" | "em" => Ok(Length::Em(num)),
+        "mu" => Ok(Length::Mu(num)),
+        "pt" => Ok(Length::TexPt(num)),
+        "bp" => Ok(Length::BigPt(num)),
         other => Err(ParseError::Unsupported(format!("dimension unit {other}"))),
     }
 }

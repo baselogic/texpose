@@ -194,12 +194,14 @@ impl MathParams {
         self.quad.checked_mul(&self.scale(style))
     }
 
-    /// One mu at `style` (`em / 18`).
+    /// One mu at `style` (`current math quad / 18`).
     ///
     /// # Errors
     ///
-    /// Propagates exact-arithmetic overflow from [`Self::em`].
+    /// Propagates exact-arithmetic overflow from scaling the current math quad.
     pub fn mu(&self, style: MathStyle) -> Result<Dim, NumericError> {
-        self.em(style)?.checked_div(&Dim::from_i64(18))
+        self.quad
+            .checked_mul(&self.scale(style))?
+            .checked_div(&Dim::from_i64(18))
     }
 }

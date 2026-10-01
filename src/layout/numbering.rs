@@ -218,6 +218,7 @@ fn collect_node(node: &MathNode, st: &mut NumberingState) {
         | MathNode::Operator(_, _)
         | MathNode::Symbol(_)
         | MathNode::Strut(_, _)
+        | MathNode::Rule(_, _)
         | MathNode::Ref(_)
         | MathNode::Label(_)
         | MathNode::NoNumber

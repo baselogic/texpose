@@ -6,16 +6,16 @@ use core::cmp::Ordering;
 use crate::atoms::symbol_atom_kind;
 use crate::color::Color;
 use crate::dim::Dim;
-use crate::error::Error;
+use crate::error::{Error, NumericError};
 use crate::font::MathFont;
 use crate::layout::metrics::MathParams;
 use crate::layout::numbering::NumberingState;
 use crate::layout::space::{atom_space_mu, convert_bin, space_width};
 use crate::layout::style::MathStyle;
-use crate::layout::{BoxContent, MathBox};
+use crate::layout::{BoxContent, MathBox, RootEmSize};
 use crate::parser::DEFAULT_MAX_NESTING_DEPTH;
 use crate::parser::{
-    AccentKind, AtomKind, ColSpec, DelimSize, Delimiter, EnvRow, IntegralKind, MathNode,
+    AccentKind, AtomKind, ColSpec, DelimSize, Delimiter, EnvRow, IntegralKind, Length, MathNode,
     MatrixStyle, PhantomKind, SpaceKind, TextStyle,
 };
 use crate::style_map::styled_char;
@@ -67,13 +67,14 @@ const TEX_LINE_SKIP_PT: i64 = 1;
 /// ```
 pub fn layout(node: &MathNode, font: &MathFont, style: MathStyle) -> Result<MathBox, Error> {
     let mut state = NumberingState::default();
+    let root_em_size = default_root_em_size();
     layout_impl(
         node,
         font,
         style,
         &mut state,
         DEFAULT_MAX_NESTING_DEPTH,
-        &Dim::from_i64(DEFAULT_LAYOUT_EM_SIZE_PT),
+        &root_em_size,
     )
 }
 
@@ -93,6 +94,7 @@ pub fn layout_with_em_size_pt(
     style: MathStyle,
     em_size_pt: &Dim,
 ) -> Result<MathBox, Error> {
+    let root_em_size = RootEmSize::new(em_size_pt.clone())?;
     let mut state = NumberingState::default();
     layout_impl(
         node,
@@ -100,7 +102,7 @@ pub fn layout_with_em_size_pt(
         style,
         &mut state,
         DEFAULT_MAX_NESTING_DEPTH,
-        em_size_pt,
+        &root_em_size,
     )
 }
 
@@ -138,21 +140,22 @@ pub fn layout_with_numbering(
     style: MathStyle,
     state: &mut NumberingState,
 ) -> Result<MathBox, Error> {
+    let root_em_size = default_root_em_size();
     layout_impl(
         node,
         font,
         style,
         state,
         DEFAULT_MAX_NESTING_DEPTH,
-        &Dim::from_i64(DEFAULT_LAYOUT_EM_SIZE_PT),
+        &root_em_size,
     )
 }
 
 /// Lay out with caller-owned numbering and an explicit physical root em size
 /// in TeX points.
 ///
-/// Returned dimensions remain normalized em units. `em_size_pt` is used only
-/// to normalize absolute TeX dimensions.
+/// Returned dimensions remain normalized em units. `em_size_pt` is validated
+/// into the internal physical root-em type before any absolute-unit resolution.
 ///
 /// # Errors
 ///
@@ -164,13 +167,14 @@ pub fn layout_with_numbering_and_em_size_pt(
     state: &mut NumberingState,
     em_size_pt: &Dim,
 ) -> Result<MathBox, Error> {
+    let root_em_size = RootEmSize::new(em_size_pt.clone())?;
     layout_impl(
         node,
         font,
         style,
         state,
         DEFAULT_MAX_NESTING_DEPTH,
-        em_size_pt,
+        &root_em_size,
     )
 }
 
@@ -202,14 +206,13 @@ pub fn layout_with_max_depth(
     max_depth: usize,
 ) -> Result<MathBox, Error> {
     let mut state = NumberingState::default();
-    layout_impl(
-        node,
-        font,
-        style,
-        &mut state,
-        max_depth,
-        &Dim::from_i64(DEFAULT_LAYOUT_EM_SIZE_PT),
-    )
+    let root_em_size = default_root_em_size();
+    layout_impl(node, font, style, &mut state, max_depth, &root_em_size)
+}
+
+fn default_root_em_size() -> RootEmSize {
+    RootEmSize::new(Dim::from_i64(DEFAULT_LAYOUT_EM_SIZE_PT))
+        .expect("positive static default root em size")
 }
 
 fn layout_impl(
@@ -218,23 +221,26 @@ fn layout_impl(
     style: MathStyle,
     state: &mut NumberingState,
     max_depth: usize,
-    em_size_pt: &Dim,
+    root_em_size: &RootEmSize,
 ) -> Result<MathBox, Error> {
-    if em_size_pt <= &Dim::zero() {
-        return Err(Error::InvalidOption {
-            what: "em_size_pt must be positive".into(),
-        });
-    }
-
     let params = MathParams::from_font(font)?;
     let script_placement = ScriptPlacementParams::from_font(font)?;
     let substack = SubstackParams::from_font(font, &params)?;
-    let null_delimiter_space = Dim::ratio(
-        TEX_NULL_DELIMITER_SPACE_PT_NUM,
-        TEX_NULL_DELIMITER_SPACE_PT_DEN,
-    )?
-    .checked_div(em_size_pt)?;
-    let delimiter_shortfall = Dim::from_i64(TEX_DELIMITER_SHORTFALL_PT).checked_div(em_size_pt)?;
+    let null_delimiter_space = resolve_length(
+        &Length::TexPt(Dim::ratio(
+            TEX_NULL_DELIMITER_SPACE_PT_NUM,
+            TEX_NULL_DELIMITER_SPACE_PT_DEN,
+        )?),
+        MathStyle::Text,
+        &params,
+        root_em_size,
+    )?;
+    let delimiter_shortfall = resolve_length(
+        &Length::TexPt(Dim::from_i64(TEX_DELIMITER_SHORTFALL_PT)),
+        MathStyle::Text,
+        &params,
+        root_em_size,
+    )?;
     let start = state.collect(node);
     Engine {
         font,
@@ -243,13 +249,29 @@ fn layout_impl(
         substack,
         null_delimiter_space,
         delimiter_shortfall,
-        root_em_size_pt: em_size_pt.clone(),
+        root_em_size: root_em_size.clone(),
         numbers: state,
         idx: Cell::new(start),
         depth: Cell::new(0),
         max_depth,
     }
     .layout(node, style)
+}
+
+fn resolve_length(
+    length: &Length,
+    style: MathStyle,
+    params: &MathParams,
+    root_em_size: &RootEmSize,
+) -> Result<Dim, NumericError> {
+    match length {
+        Length::Em(value) => value.checked_mul(&params.em(style)?),
+        Length::Mu(value) => value.checked_mul(&params.mu(style)?),
+        Length::TexPt(value) => value.checked_div(root_em_size.tex_points()),
+        Length::BigPt(value) => value
+            .checked_mul(&Dim::ratio(7227, 7200)?)?
+            .checked_div(root_em_size.tex_points()),
+    }
 }
 
 struct Engine<'a> {
@@ -259,7 +281,7 @@ struct Engine<'a> {
     substack: SubstackParams,
     null_delimiter_space: Dim,
     delimiter_shortfall: Dim,
-    root_em_size_pt: Dim,
+    root_em_size: RootEmSize,
     numbers: &'a NumberingState,
     idx: Cell<usize>,
     /// Current nesting depth, bounded by `max_depth`.
@@ -404,13 +426,25 @@ impl Engine<'_> {
                 bx: MathBox::kern(self.space_dim(kind, style)?),
                 class: None,
             }),
-            MathNode::Strut(h, d) => {
-                let s = self.params.scale(style);
+            MathNode::Strut(h, d) => Ok(Item {
+                bx: MathBox {
+                    width: Dim::zero(),
+                    height: self.resolve_length(h, style)?,
+                    depth: self.resolve_length(d, style)?,
+                    italic: Dim::zero(),
+                    shift: Dim::zero(),
+                    content: BoxContent::Empty,
+                },
+                class: Some(AtomKind::Ord),
+            }),
+            MathNode::Rule(_width, height) => {
+                // Preserve both parsed units without changing the inherited
+                // vertical-strut geometry of `\rule`; width geometry is separate.
                 Ok(Item {
                     bx: MathBox {
                         width: Dim::zero(),
-                        height: h.checked_mul(&s)?,
-                        depth: d.checked_mul(&s)?,
+                        height: self.resolve_length(height, style)?,
+                        depth: Dim::zero(),
                         italic: Dim::zero(),
                         shift: Dim::zero(),
                         content: BoxContent::Empty,
@@ -574,7 +608,7 @@ impl Engine<'_> {
             SpaceKind::Quad => Ok(self.params.em(style)?),
             SpaceKind::Qquad => Ok(self.params.em(style)?.checked_mul(&Dim::from_i64(2))?),
             SpaceKind::ControlSpace => Ok(self.params.em(style)?.checked_div(&Dim::from_i64(3))?),
-            SpaceKind::Hspace(d) => Ok(d.checked_mul(&self.params.scale(style))?),
+            SpaceKind::Hspace(length) => Ok(self.resolve_length(length, style)?),
         }
     }
 
@@ -2153,8 +2187,12 @@ impl Engine<'_> {
         })
     }
 
+    fn resolve_length(&self, length: &Length, style: MathStyle) -> Result<Dim, NumericError> {
+        resolve_length(length, style, &self.params, &self.root_em_size)
+    }
+
     fn tex_points_in_root_em(&self, points: i64) -> Result<Dim, Error> {
-        Ok(Dim::from_i64(points).checked_div(&self.root_em_size_pt)?)
+        Ok(self.resolve_length(&Length::TexPt(Dim::from_i64(points)), MathStyle::Text)?)
     }
 
     fn layout_environment_rows(
@@ -3077,6 +3115,7 @@ fn class_of(n: &MathNode) -> Option<AtomKind> {
         MathNode::Row(_) => Some(AtomKind::Ord),
         MathNode::Space(_)
         | MathNode::Strut(_, _)
+        | MathNode::Rule(_, _)
         | MathNode::Label(_)
         | MathNode::NoNumber
         | MathNode::Hline => None,

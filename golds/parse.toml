@@ -557,7 +557,7 @@ expect = "(row (atom Ord \"a\") (space control) (atom Ord \"b\"))"
 name = "hspace"
 kind = "ast"
 input = "a\\hspace{2em}b"
-expect = "(row (atom Ord \"a\") (space hspace 2) (atom Ord \"b\"))"
+expect = "(row (atom Ord \"a\") (space hspace 2em) (atom Ord \"b\"))"
 
 [[gold]]
 name = "op_sin"
@@ -869,7 +869,7 @@ expect = "(textcolor #808080 (atom Ord \"x\"))"
 name = "strut"
 kind = "ast"
 input = "\\strut"
-expect = "(strut 7/10 3/10)"
+expect = "(strut 7/10em 3/10em)"
 
 [[gold]]
 name = "phantom"

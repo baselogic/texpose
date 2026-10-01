@@ -45,8 +45,8 @@ pub use layout::{
 };
 pub use parser::{
     format_tokens, parse, parse_with_colors, parse_with_options, preprocess, tokenize, AccentKind,
-    AtomKind, ColSpec, DelimSize, Delimiter, EnvRow, EqNumber, IntegralKind, MathNode, MatrixStyle,
-    ParseOptions, PhantomKind, SpaceKind, TextStyle, Token, DEFAULT_MAX_NESTING_DEPTH,
+    AtomKind, ColSpec, DelimSize, Delimiter, EnvRow, EqNumber, IntegralKind, Length, MathNode,
+    MatrixStyle, ParseOptions, PhantomKind, SpaceKind, TextStyle, Token, DEFAULT_MAX_NESTING_DEPTH,
 };
 pub use style_map::styled_char;
 pub use symbols::{category_count, glyph_char, lookup, symbols, SymbolEntry, SymbolKind};

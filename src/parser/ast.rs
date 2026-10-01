@@ -189,6 +189,30 @@ impl TextStyle {
     }
 }
 
+/// Parsed TeX/LaTeX length whose unit is preserved until layout.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Length {
+    /// Math-style em units.
+    Em(Dim),
+    /// Math units; 18 mu equals the current math-style math quad.
+    Mu(Dim),
+    /// TeX points.
+    TexPt(Dim),
+    /// Big points; one bp is exactly 7227/7200 TeX pt.
+    BigPt(Dim),
+}
+
+impl Length {
+    fn gold(&self) -> String {
+        match self {
+            Self::Em(value) => format!("{}em", dim_gold(value)),
+            Self::Mu(value) => format!("{}mu", dim_gold(value)),
+            Self::TexPt(value) => format!("{}pt", dim_gold(value)),
+            Self::BigPt(value) => format!("{}bp", dim_gold(value)),
+        }
+    }
+}
+
 /// Horizontal skip.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SpaceKind {
@@ -206,8 +230,8 @@ pub enum SpaceKind {
     Qquad,
     /// `\ ` (control space)
     ControlSpace,
-    /// `\hspace{...}` in em.
-    Hspace(Dim),
+    /// `\hspace{...}` with its parsed unit preserved.
+    Hspace(Length),
 }
 
 /// Matrix / alignment environment.
@@ -604,8 +628,10 @@ pub enum MathNode {
     ColorBox(Color, Box<MathNode>),
     /// `\fcolorbox{border}{fill}{body}`
     FColorBox(Color, Color, Box<MathNode>),
-    /// Vertical strut (height, depth) in em.
-    Strut(Dim, Dim),
+    /// Vertical strut (height, depth) with parsed units preserved.
+    Strut(Length, Length),
+    /// `\rule{width}{height}` with both parsed units preserved.
+    Rule(Length, Length),
     /// `\phantom` family.
     Phantom(PhantomKind, Box<MathNode>),
 }
@@ -691,7 +717,9 @@ impl MathNode {
             Self::Space(SpaceKind::Quad) => "(space quad)".into(),
             Self::Space(SpaceKind::Qquad) => "(space qquad)".into(),
             Self::Space(SpaceKind::ControlSpace) => "(space control)".into(),
-            Self::Space(SpaceKind::Hspace(d)) => format!("(space hspace {})", dim_gold(d)),
+            Self::Space(SpaceKind::Hspace(length)) => {
+                format!("(space hspace {})", length.gold())
+            }
             Self::Operator(name, false) => format!("(op {name})"),
             Self::Operator(name, true) => format!("(op {name} limits)"),
             Self::Symbol(name) => format!("(symbol {name})"),
@@ -706,7 +734,10 @@ impl MathNode {
                     b.gold()
                 )
             }
-            Self::Strut(h, d) => format!("(strut {} {})", dim_gold(h), dim_gold(d)),
+            Self::Strut(h, d) => format!("(strut {} {})", h.gold(), d.gold()),
+            Self::Rule(width, height) => {
+                format!("(rule {} {})", width.gold(), height.gold())
+            }
             Self::Phantom(k, b) => format!("({} {})", k.gold(), b.gold()),
         }
     }

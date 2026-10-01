@@ -19,6 +19,37 @@ use crate::dim::Dim;
 use crate::error::{Error, NumericError};
 use crate::font::MathFont;
 
+/// Validated physical size of the root math em, expressed in TeX points.
+///
+/// The value is strictly positive. Finiteness and representable bounds are
+/// inherited from [`Dim`], which is always a finite in-range exact rational.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct RootEmSize {
+    tex_points: Dim,
+}
+
+impl RootEmSize {
+    /// Validate a physical root-em size expressed in TeX points.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidOption`] when `tex_points` is zero or negative.
+    pub(crate) fn new(tex_points: Dim) -> Result<Self, Error> {
+        if tex_points <= Dim::zero() {
+            return Err(Error::InvalidOption {
+                what: "root em size must be positive TeX pt".into(),
+            });
+        }
+        Ok(Self { tex_points })
+    }
+
+    /// Exact physical size in TeX points.
+    #[must_use]
+    pub(crate) fn tex_points(&self) -> &Dim {
+        &self.tex_points
+    }
+}
+
 /// What a box contains.
 ///
 /// Glyphs carry an OpenType id from the math face. Lists compose children.
