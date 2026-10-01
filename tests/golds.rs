@@ -111,7 +111,9 @@ fn load_golds() -> Vec<Rec> {
 }
 
 fn csv_dims(s: &str) -> Vec<Dim> {
-    s.split(',').map(|p| Dim::parse(p.trim())).collect()
+    s.split(',')
+        .map(|p| Dim::parse(p.trim()).expect("gold dimension"))
+        .collect()
 }
 
 #[test]
@@ -132,32 +134,57 @@ fn milestone1_golds() {
             }
             "dim" => match rec.op.as_str() {
                 "add" => {
-                    let g = Dim::parse(&rec.lhs) + Dim::parse(&rec.rhs);
-                    assert!(g.eq_dim(&Dim::parse(&rec.expect)), "{}", rec.name);
+                    let lhs = Dim::parse(&rec.lhs).expect(&rec.name);
+                    let rhs = Dim::parse(&rec.rhs).expect(&rec.name);
+                    let g = lhs.checked_add(&rhs).expect(&rec.name);
+                    assert!(
+                        g.eq_dim(&Dim::parse(&rec.expect).expect(&rec.name)),
+                        "{}",
+                        rec.name
+                    );
                 }
                 "mul" => {
-                    let g = Dim::parse(&rec.lhs) * Dim::parse(&rec.rhs);
-                    assert!(g.eq_dim(&Dim::parse(&rec.expect)), "{}", rec.name);
+                    let lhs = Dim::parse(&rec.lhs).expect(&rec.name);
+                    let rhs = Dim::parse(&rec.rhs).expect(&rec.name);
+                    let g = lhs.checked_mul(&rhs).expect(&rec.name);
+                    assert!(
+                        g.eq_dim(&Dim::parse(&rec.expect).expect(&rec.name)),
+                        "{}",
+                        rec.name
+                    );
                 }
                 "div" => {
-                    let g = Dim::parse(&rec.lhs) / Dim::parse(&rec.rhs);
-                    assert!(g.eq_dim(&Dim::parse(&rec.expect)), "{}", rec.name);
+                    let lhs = Dim::parse(&rec.lhs).expect(&rec.name);
+                    let rhs = Dim::parse(&rec.rhs).expect(&rec.name);
+                    let g = lhs.checked_div(&rhs).expect(&rec.name);
+                    assert!(
+                        g.eq_dim(&Dim::parse(&rec.expect).expect(&rec.name)),
+                        "{}",
+                        rec.name
+                    );
                 }
                 "from_mu" => {
-                    let g = Dim::from_mu(&Dim::parse(&rec.lhs));
-                    assert!(g.eq_dim(&Dim::parse(&rec.expect)), "{}", rec.name);
+                    let lhs = Dim::parse(&rec.lhs).expect(&rec.name);
+                    let g = Dim::from_mu(&lhs).expect(&rec.name);
+                    assert!(
+                        g.eq_dim(&Dim::parse(&rec.expect).expect(&rec.name)),
+                        "{}",
+                        rec.name
+                    );
                 }
                 "as_ratio" => {
-                    let (n, d) = Dim::parse(&rec.lhs)
-                        .as_ratio()
-                        .unwrap_or_else(|| panic!("{}: NaN", rec.name));
+                    let (n, d) = Dim::parse(&rec.lhs).expect(&rec.name).as_ratio();
                     assert_eq!(format!("{n}/{d}"), rec.expect, "{}", rec.name);
                 }
                 "font_units" => {
                     let units: i64 = rec.lhs.parse().expect("units");
                     let upem: u16 = rec.rhs.parse().expect("upem");
-                    let g = Dim::from_font_units(units, upem);
-                    assert!(g.eq_dim(&Dim::parse(&rec.expect)), "{}", rec.name);
+                    let g = Dim::from_font_units(units, upem).expect(&rec.name);
+                    assert!(
+                        g.eq_dim(&Dim::parse(&rec.expect).expect(&rec.name)),
+                        "{}",
+                        rec.name
+                    );
                 }
                 other => panic!("{}: unknown dim op {other}", rec.name),
             },
@@ -167,9 +194,10 @@ fn milestone1_golds() {
                         .into_iter()
                         .map(|w| MathBox::rule(w, Dim::zero(), Dim::zero()))
                         .collect();
-                    let b = MathBox::hpack(kids);
+                    let b = MathBox::hpack(kids).expect(&rec.name);
                     assert!(
-                        b.width.eq_dim(&Dim::parse(&rec.expect_width)),
+                        b.width
+                            .eq_dim(&Dim::parse(&rec.expect_width).expect(&rec.name)),
                         "{}: {}",
                         rec.name,
                         b.width
@@ -184,14 +212,16 @@ fn milestone1_golds() {
                         .zip(ds)
                         .map(|(h, d)| MathBox::rule(Dim::zero(), h, d))
                         .collect();
-                    let b = MathBox::vpack(kids);
+                    let b = MathBox::vpack(kids).expect(&rec.name);
                     assert!(
-                        b.height.eq_dim(&Dim::parse(&rec.expect_height)),
+                        b.height
+                            .eq_dim(&Dim::parse(&rec.expect_height).expect(&rec.name)),
                         "{}",
                         rec.name
                     );
                     assert!(
-                        b.depth.eq_dim(&Dim::parse(&rec.expect_depth)),
+                        b.depth
+                            .eq_dim(&Dim::parse(&rec.expect_depth).expect(&rec.name)),
                         "{}: {}",
                         rec.name,
                         b.depth

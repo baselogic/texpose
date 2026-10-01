@@ -11,25 +11,29 @@ fn selected_radical_glyph(font: &MathFont, target: &Dim, scale: &Dim) -> u16 {
         let metrics = font
             .glyph_id('√', glyph_id)
             .expect("radical variant metrics");
-        let span = &(&metrics.height + &metrics.depth) * scale;
+        let span = metrics
+            .height
+            .checked_add(&metrics.depth)
+            .unwrap()
+            .checked_mul(scale)
+            .unwrap();
         match span.cmp(target) {
-            Some(Ordering::Equal | Ordering::Greater) => {
-                let tighter = best_fitting.as_ref().map_or(true, |(_, best_span)| {
-                    span.cmp(best_span) == Some(Ordering::Less)
-                });
+            Ordering::Equal | Ordering::Greater => {
+                let tighter = best_fitting
+                    .as_ref()
+                    .map_or(true, |(_, best_span)| span.cmp(best_span) == Ordering::Less);
                 if tighter {
                     best_fitting = Some((glyph_id, span));
                 }
             }
-            Some(Ordering::Less) => {
+            Ordering::Less => {
                 let taller = tallest_short.as_ref().map_or(true, |(_, best_span)| {
-                    span.cmp(best_span) == Some(Ordering::Greater)
+                    span.cmp(best_span) == Ordering::Greater
                 });
                 if taller {
                     tallest_short = Some((glyph_id, span));
                 }
             }
-            None => panic!("non-finite radical dimensions"),
         }
     }
 
@@ -47,7 +51,8 @@ fn radical_glyph_id(tree: &texpose::MathBox) -> u16 {
         .iter()
         .find_map(|child| match &child.content {
             BoxContent::Glyph {
-                ch: '√', glyph_id, ..
+                ch: '√', glyph_id,
+            ..
             } => Some(*glyph_id),
             _ => None,
         })
@@ -63,12 +68,22 @@ fn radical_variant_selection_excludes_extra_ascender_from_minimum_span() {
 
     let radicand = parse(r"x^2+y^2").expect("radicand");
     let radicand_box = layout(&radicand, &font, style.cramp()).expect("radicand layout");
-    let gap = &params.radical_display_style_vertical_gap * &scale;
-    let thickness = &params.radical_rule_thickness * &scale;
-    let extra = &params.radical_extra_ascender * &scale;
+    let gap = params
+        .radical_display_style_vertical_gap
+        .checked_mul(&scale)
+        .unwrap();
+    let thickness = params.radical_rule_thickness.checked_mul(&scale).unwrap();
+    let extra = params.radical_extra_ascender.checked_mul(&scale).unwrap();
 
-    let needed = &(&(&radicand_box.height + &radicand_box.depth) + &gap) + &thickness;
-    let inflated_needed = &needed + &extra;
+    let needed = radicand_box
+        .height
+        .checked_add(&radicand_box.depth)
+        .unwrap()
+        .checked_add(&gap)
+        .unwrap()
+        .checked_add(&thickness)
+        .unwrap();
+    let inflated_needed = needed.checked_add(&extra).unwrap();
     let expected = selected_radical_glyph(&font, &needed, &scale);
     let defective = selected_radical_glyph(&font, &inflated_needed, &scale);
     assert_ne!(

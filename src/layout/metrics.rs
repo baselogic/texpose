@@ -1,7 +1,7 @@
 //! OpenType MATH constants as [`Dim`](crate::Dim). TeX σ-names are documented on fields.
 
 use crate::dim::Dim;
-use crate::error::Error;
+use crate::error::{Error, NumericError};
 use crate::font::MathFont;
 use crate::layout::style::MathStyle;
 
@@ -15,7 +15,7 @@ use crate::layout::style::MathStyle;
 /// let font = MathFont::stix_two_math().unwrap();
 /// let p = MathParams::from_font(&font).unwrap();
 /// assert!(!p.axis_height.is_zero());
-/// assert!(!p.em(MathStyle::Text).is_zero());
+/// assert!(!p.em(MathStyle::Text).unwrap().is_zero());
 /// ```
 #[derive(Clone, Debug)]
 pub struct MathParams {
@@ -115,10 +115,13 @@ impl MathParams {
         let c = math.constants.ok_or_else(|| Error::Unsupported {
             what: "MATH constants".into(),
         })?;
-        let upem = font.units_per_em();
-        let fu = |v: i16| Dim::from_font_units(i64::from(v), upem);
-        let fu_u = |v: u16| Dim::from_font_units(i64::from(v), upem);
-        let xh = face.x_height().map(fu).unwrap_or_else(|| Dim::ratio(1, 2));
+        let upem = font.units_per_em_nonzero();
+        let fu = |v: i16| Dim::from_font_units_nonzero(i64::from(v), upem);
+        let fu_u = |v: u16| Dim::from_font_units_nonzero(i64::from(v), upem);
+        let xh = match face.x_height() {
+            Some(value) => fu(value),
+            None => Dim::ratio(1, 2).expect("static nonzero x-height fallback denominator"),
+        };
         Ok(Self {
             x_height: xh,
             quad: Dim::one(),
@@ -165,31 +168,38 @@ impl MathParams {
             display_operator_min_height: fu_u(c.display_operator_min_height()),
             script_percent_scale_down: c.script_percent_scale_down(),
             script_script_percent_scale_down: c.script_script_percent_scale_down(),
-            units_per_em: upem,
+            units_per_em: upem.get(),
         })
     }
 
     /// Scale factor for `style` (1, script%, or scriptscript%).
     #[must_use]
     pub fn scale(&self, style: MathStyle) -> Dim {
-        match style.script_level() {
-            0 => Dim::one(),
-            1 => Dim::from_i64(i64::from(self.script_percent_scale_down)) / Dim::from_i64(100),
-            _ => {
-                Dim::from_i64(i64::from(self.script_script_percent_scale_down)) / Dim::from_i64(100)
-            }
-        }
+        let percent = match style.script_level() {
+            0 => return Dim::one(),
+            1 => self.script_percent_scale_down,
+            _ => self.script_script_percent_scale_down,
+        };
+        Dim::ratio(i64::from(percent), 100)
+            .expect("i16 percentage over static nonzero denominator fits Dim")
     }
 
     /// Current em (`quad * scale`).
-    #[must_use]
-    pub fn em(&self, style: MathStyle) -> Dim {
-        &self.quad * &self.scale(style)
+    ///
+    /// # Errors
+    ///
+    /// Returns [`NumericError::ArithmeticOverflow`] if caller-supplied public
+    /// parameters make the exact product exceed the supported [`Dim`] range.
+    pub fn em(&self, style: MathStyle) -> Result<Dim, NumericError> {
+        self.quad.checked_mul(&self.scale(style))
     }
 
     /// One mu at `style` (`em / 18`).
-    #[must_use]
-    pub fn mu(&self, style: MathStyle) -> Dim {
-        self.em(style) / Dim::from_i64(18)
+    ///
+    /// # Errors
+    ///
+    /// Propagates exact-arithmetic overflow from [`Self::em`].
+    pub fn mu(&self, style: MathStyle) -> Result<Dim, NumericError> {
+        self.em(style)?.checked_div(&Dim::from_i64(18))
     }
 }

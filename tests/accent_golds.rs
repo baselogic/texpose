@@ -1,8 +1,6 @@
 //! Gold runner: `golds/accents.toml` is the accent/decoration contract.
 
-use texpose::{
-    latex_to_svg, layout, parse, BoxContent, MathBox, MathFont, MathStyle, ParseError, SvgOptions,
-};
+use texpose::{layout, parse, BoxContent, MathBox, MathFont, MathStyle, ParseError};
 
 #[derive(Default)]
 struct Rec {
@@ -11,8 +9,6 @@ struct Rec {
     style: String,
     input: String,
     expect: String,
-    paths: String,
-    rects: String,
     lines: String,
     error: String,
 }
@@ -74,8 +70,6 @@ fn load_golds() -> Vec<Rec> {
             "style" => rec.style = v,
             "input" => rec.input = v,
             "expect" => rec.expect = v,
-            "paths" => rec.paths = v,
-            "rects" => rec.rects = v,
             "lines" => rec.lines = v,
             "error" => rec.error = v,
             _ => panic!("unknown gold field {k}"),
@@ -94,12 +88,6 @@ fn parse_style(s: &str) -> MathStyle {
         "text-cramped" => MathStyle::TextCramped,
         other => panic!("unknown style {other}"),
     }
-}
-
-fn count_tag(svg: &str, tag: &str) -> usize {
-    let open = format!("<{tag} ");
-    let open2 = format!("<{tag}>");
-    svg.matches(&open).count() + svg.matches(&open2).count()
 }
 
 fn collect_lines(b: &MathBox, out: &mut Vec<String>) {
@@ -166,36 +154,6 @@ fn accent_golds() {
                 let mut got = Vec::new();
                 collect_lines(&bx, &mut got);
                 assert_eq!(got.join(" | "), rec.expect, "{}", rec.name);
-            }
-            "svg" => {
-                let mut opt = SvgOptions::new();
-                opt.display = rec.style == "display";
-                let svg = latex_to_svg(&rec.input, &font, &opt)
-                    .unwrap_or_else(|e| panic!("{}: {e}", rec.name));
-                if !rec.paths.is_empty() {
-                    assert_eq!(
-                        count_tag(&svg, "path").to_string(),
-                        rec.paths,
-                        "{}: path count\n{svg}",
-                        rec.name
-                    );
-                }
-                if !rec.rects.is_empty() {
-                    assert_eq!(
-                        count_tag(&svg, "rect").to_string(),
-                        rec.rects,
-                        "{}: rect count\n{svg}",
-                        rec.name
-                    );
-                }
-                if !rec.lines.is_empty() {
-                    assert_eq!(
-                        count_tag(&svg, "line").to_string(),
-                        rec.lines,
-                        "{}: line count\n{svg}",
-                        rec.name
-                    );
-                }
             }
             "err" => {
                 let err = parse(&rec.input).expect_err(&rec.name);

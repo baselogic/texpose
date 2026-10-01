@@ -1,5 +1,7 @@
 //! OpenType math font metrics. Integer font units → [`Dim`](crate::Dim).
 
+use core::num::NonZeroU16;
+
 use ttf_parser::Face;
 
 use crate::dim::Dim;
@@ -67,7 +69,7 @@ struct ScriptAlternateEntry {
 pub struct MathFont {
     raw: &'static [u8],
     face: Face<'static>,
-    units_per_em: u16,
+    units_per_em: NonZeroU16,
     ascender_fu: i16,
     descender_fu: i16,
     script_alternates: Vec<ScriptAlternateEntry>,
@@ -94,10 +96,7 @@ impl MathFont {
     /// this constructor requires a static buffer so the face can be rebuilt.
     pub fn from_bytes(raw: &'static [u8]) -> Result<Self, Error> {
         let face = Face::parse(raw, 0).map_err(|_| FontError::InvalidFace)?;
-        let units_per_em = face.units_per_em();
-        if units_per_em == 0 {
-            return Err(FontError::InvalidFace.into());
-        }
+        let units_per_em = NonZeroU16::new(face.units_per_em()).ok_or(FontError::InvalidFace)?;
         let ascender_fu = face.ascender();
         let descender_fu = face.descender();
 
@@ -128,8 +127,8 @@ impl MathFont {
 
     /// The parsed OpenType face.
     ///
-    /// An external render backend needs glyph outlines and bounding boxes,
-    /// which this crate does not otherwise expose. Reaching the face here
+    /// A native consumer may need glyph outlines and bounding boxes, which this
+    /// crate does not otherwise expose. Reaching the face here
     /// rather than re-parsing [`Self::bytes`] guarantees that the glyph ids in
     /// [`BoxContent::Glyph`](crate::BoxContent::Glyph) are resolved against the
     /// same face, parsed by the same version of `ttf-parser`, that produced
@@ -151,11 +150,7 @@ impl MathFont {
         &self.face
     }
 
-    pub(crate) fn script_alternate_glyph_id(
-        &self,
-        glyph_id: u16,
-        script_level: u8,
-    ) -> Option<u16> {
+    pub(crate) fn script_alternate_glyph_id(&self, glyph_id: u16, script_level: u8) -> Option<u16> {
         let alternate_index = match script_level {
             1 => 0,
             2 => 1,
@@ -179,6 +174,10 @@ impl MathFont {
     /// `unitsPerEm` from the `head` table.
     #[must_use]
     pub fn units_per_em(&self) -> u16 {
+        self.units_per_em.get()
+    }
+
+    pub(crate) fn units_per_em_nonzero(&self) -> NonZeroU16 {
         self.units_per_em
     }
 
@@ -197,14 +196,14 @@ impl MathFont {
     /// Ascender in em.
     #[must_use]
     pub fn ascender(&self) -> Dim {
-        Dim::from_font_units(i64::from(self.ascender_fu), self.units_per_em)
+        Dim::from_font_units_nonzero(i64::from(self.ascender_fu), self.units_per_em)
     }
 
     /// Depth below baseline from `hhea` descender, in em (non-negative).
     #[must_use]
     pub fn descender(&self) -> Dim {
         let d = i64::from(self.descender_fu);
-        Dim::from_font_units(-d, self.units_per_em)
+        Dim::from_font_units_nonzero(-d, self.units_per_em)
     }
 
     /// Metrics for `ch`, or [`FontError::MissingGlyph`].
@@ -225,9 +224,9 @@ impl MathFont {
             ch,
             glyph_id: gid.0,
             advance_fu,
-            advance: Dim::from_font_units(i64::from(advance_fu), upem),
-            height: Dim::from_font_units(height_fu, upem),
-            depth: Dim::from_font_units(depth_fu, upem),
+            advance: Dim::from_font_units_nonzero(i64::from(advance_fu), upem),
+            height: Dim::from_font_units_nonzero(height_fu, upem),
+            depth: Dim::from_font_units_nonzero(depth_fu, upem),
         })
     }
 
@@ -249,9 +248,9 @@ impl MathFont {
             ch,
             glyph_id: gid.0,
             advance_fu,
-            advance: Dim::from_font_units(i64::from(advance_fu), upem),
-            height: Dim::from_font_units(height_fu, upem),
-            depth: Dim::from_font_units(depth_fu, upem),
+            advance: Dim::from_font_units_nonzero(i64::from(advance_fu), upem),
+            height: Dim::from_font_units_nonzero(height_fu, upem),
+            depth: Dim::from_font_units_nonzero(depth_fu, upem),
         })
     }
 
@@ -268,7 +267,7 @@ impl MathFont {
             return Dim::zero();
         };
         match table.get(ttf_parser::GlyphId(glyph_id)) {
-            Some(v) => Dim::from_font_units(i64::from(v.value), self.units_per_em),
+            Some(v) => Dim::from_font_units_nonzero(i64::from(v.value), self.units_per_em),
             None => Dim::zero(),
         }
     }
@@ -280,7 +279,10 @@ impl MathFont {
         let info = math.glyph_info?;
         let table = info.top_accent_attachments?;
         let v = table.get(ttf_parser::GlyphId(glyph_id))?;
-        Some(Dim::from_font_units(i64::from(v.value), self.units_per_em))
+        Some(Dim::from_font_units_nonzero(
+            i64::from(v.value),
+            self.units_per_em,
+        ))
     }
 
     /// Horizontal glyph-assembly parts: `(gid, start_connector, end_connector, advance, extender)`.
@@ -377,11 +379,7 @@ impl MathFont {
     }
 }
 
-fn ssty_alternate_glyph_id(
-    face: &Face<'_>,
-    glyph_id: u16,
-    script_level: u8,
-) -> Option<u16> {
+fn ssty_alternate_glyph_id(face: &Face<'_>, glyph_id: u16, script_level: u8) -> Option<u16> {
     let alternate_index = match script_level {
         1 => 0,
         2 => 1,
@@ -400,27 +398,19 @@ fn ssty_alternate_glyph_id(
             .subtables
             .into_iter::<ttf_parser::gsub::SubstitutionSubtable<'_>>()
         {
-            let ttf_parser::gsub::SubstitutionSubtable::Alternate(alternate) =
-                subtable
-            else {
+            let ttf_parser::gsub::SubstitutionSubtable::Alternate(alternate) = subtable else {
                 continue;
             };
 
-            let Some(coverage_index) =
-                alternate.coverage.get(ttf_parser::GlyphId(glyph_id))
-            else {
+            let Some(coverage_index) = alternate.coverage.get(ttf_parser::GlyphId(glyph_id)) else {
                 continue;
             };
 
-            let Some(set) =
-                alternate.alternate_sets.get(coverage_index)
-            else {
+            let Some(set) = alternate.alternate_sets.get(coverage_index) else {
                 continue;
             };
 
-            if let Some(selected) =
-                set.alternates.get(alternate_index)
-            {
+            if let Some(selected) = set.alternates.get(alternate_index) {
                 return Some(selected.0);
             }
         }

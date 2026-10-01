@@ -56,7 +56,7 @@ impl SymbolKind {
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SymbolEntry {
-    /// Typical rendered character (may be a placeholder for containers).
+    /// Typical mathematical character (may be a placeholder for containers).
     pub glyph: &'static str,
     /// High-level group (`Greek`, `Calculus`, …).
     pub category: &'static str,

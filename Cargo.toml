@@ -25,22 +25,12 @@ include = [
     "NOTICE",
 ]
 
-[features]
-default = ["std"]
-std = []
-png = ["dep:tiny-skia"]
-egui = ["dep:egui"]
-
 [dependencies]
 ttf-parser = "0.25"
-tiny-skia = { version = "0.11", optional = true }
-egui = { version = "0.28", optional = true }
 
 [[bench]]
 name = "layout"
 harness = false
-required-features = []
 
 [package.metadata.docs.rs]
-all-features = true
 rustdoc-args = ["--cfg", "docsrs"]

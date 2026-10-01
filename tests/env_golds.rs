@@ -109,7 +109,7 @@ fn glyph_xs(b: &MathBox, x: texpose::Dim, ch: char, out: &mut Vec<texpose::Dim>)
             let mut cx = x;
             for k in v {
                 glyph_xs(k, cx.clone(), ch, out);
-                cx = &cx + &k.width;
+                cx = cx.checked_add(&k.width).expect("glyph x overflow");
             }
         }
         BoxContent::VList(v) | BoxContent::Overlap(v) => {

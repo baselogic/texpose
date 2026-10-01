@@ -1,8 +1,8 @@
 //! Gold runner: `golds/symbols.toml` plus a catalog corpus.
 
 use texpose::{
-    latex_to_svg, layout, parse, styled_char, symbol_atom_kind, symbols, AtomKind, BoxContent,
-    Error, MathBox, MathFont, MathNode, MathStyle, SvgOptions, SymbolKind, TextStyle,
+    layout, parse, styled_char, symbol_atom_kind, symbols, AtomKind, BoxContent, Error, MathBox,
+    MathFont, MathNode, MathStyle, SymbolKind, TextStyle,
 };
 
 #[derive(Default)]
@@ -151,9 +151,6 @@ fn symbol_golds() {
                     rec.name,
                     rec.expect
                 );
-                let svg = latex_to_svg(&rec.input, &font, &SvgOptions::new())
-                    .unwrap_or_else(|e| panic!("{}: svg {e}", rec.name));
-                assert!(svg.contains("<path"), "{}: no path", rec.name);
                 if !rec.class.is_empty() {
                     let ast = parse(&rec.input).unwrap();
                     if let MathNode::Symbol(name) = ast {
@@ -185,9 +182,7 @@ fn symbol_golds() {
                 let a = lay(&font, &rec.lhs);
                 let b = lay(&font, &rec.input);
                 assert!(
-                    b.width
-                        .cmp(&a.width)
-                        .is_some_and(|o| o == std::cmp::Ordering::Greater),
+                    b.width.cmp(&a.width) == std::cmp::Ordering::Greater,
                     "{}: {} width {} not greater than {} width {}",
                     rec.name,
                     rec.input,
@@ -272,9 +267,6 @@ fn catalog_single_glyphs_layout() {
         let class = symbol_atom_kind(name);
         if matches!(ast, MathNode::Symbol(_)) && class != symbol_atom_kind(name) {
             failed.push(format!("{} class", e.latex));
-        }
-        if let Err(err) = latex_to_svg(&input, &font, &SvgOptions::new()) {
-            failed.push(format!("{} svg {err}", e.latex));
         }
         let _ = class;
     }

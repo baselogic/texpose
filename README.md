@@ -6,9 +6,9 @@ TeXpose is an independent hard fork of LaTeX-Rust 2.0.1. It is not synchronized 
 
 ## Status
 
-TeXpose is in early development. The inherited codebase currently contains math parsing, OpenType MATH font metrics, TeX-style box layout, and legacy SVG, PNG, and egui rendering backends. The public API and repository structure are intentionally unstable while the hard-fork cutover is completed.
+TeXpose is in early development. The current core contains math parsing, OpenType MATH font metrics, and TeX-style box layout. Rendering, rasterization, windows, surfaces, GPU/device lifetime, pixel snapping, and application UI are consumer responsibilities. The public API and repository structure remain intentionally unstable while the hard-fork cutover is completed.
 
-The target architecture is backend-neutral: TeXpose should produce typed notation and layout data that applications can render through their native graphics stack. Planned domains may extend beyond mathematics to chemistry, SI units, and other scientific notation.
+The target architecture is backend-neutral: TeXpose produces typed notation and layout data that applications can consume through their native graphics stack. Planned domains may extend beyond mathematics to chemistry, SI units, and other scientific notation.
 
 ## Provenance
 

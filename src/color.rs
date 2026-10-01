@@ -1,8 +1,6 @@
 //! Color models for math mode. Channel arithmetic is [`Dim`](crate::Dim) only.
 //!
-//! SVG `fill` / `stroke`, PNG (`tiny-skia`), and egui (`Color32`) all convert
-//! through [`Color::to_rgba8`]. This module resolves a color to 8-bit sRGB so
-//! every backend shares one contract.
+//! Colors are stored as backend-neutral 8-bit sRGB triples.
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -15,9 +13,6 @@ const DVIPS: &str = include_str!("../data/dvipsnames.tsv");
 
 /// 8-bit sRGB color. Values are integers; conversion from unit intervals uses `Dim`.
 ///
-/// SVG `fill` / `stroke`, PNG (`tiny-skia`), and egui (`Color32`) all convert
-/// through [`Color::to_rgba8`].
-///
 /// # Examples
 ///
 /// ```
@@ -25,7 +20,6 @@ const DVIPS: &str = include_str!("../data/dvipsnames.tsv");
 ///
 /// let c = Color::rgb(255, 0, 0);
 /// assert_eq!(c.css_hex(), "#ff0000");
-/// assert_eq!(c.to_rgba8(), [255, 0, 0, 255]);
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Color {
@@ -55,12 +49,6 @@ impl Color {
     #[must_use]
     pub fn css_hex(self) -> String {
         format!("#{:02x}{:02x}{:02x}", self.r, self.g, self.b)
-    }
-
-    /// Opaque sRGB bytes for PNG (`tiny-skia`) and egui (`Color32`) backends.
-    #[must_use]
-    pub const fn to_rgba8(self) -> [u8; 4] {
-        [self.r, self.g, self.b, 255]
     }
 }
 
@@ -162,10 +150,10 @@ fn load_dvips() -> Vec<(String, Color)> {
         let y = cols.next().expect("y");
         let k = cols.next().expect("k");
         let color = cmyk_to_rgb(
-            &Dim::parse(c),
-            &Dim::parse(m),
-            &Dim::parse(y),
-            &Dim::parse(k),
+            &Dim::parse(c).expect("dvipsnames c"),
+            &Dim::parse(m).expect("dvipsnames m"),
+            &Dim::parse(y).expect("dvipsnames y"),
+            &Dim::parse(k).expect("dvipsnames k"),
         )
         .expect("dvipsnames cmyk");
         out.push((name, color));
@@ -192,6 +180,8 @@ fn load_dvips() -> Vec<(String, Color)> {
 ///
 /// * [`Error::Unsupported`] — unknown model or unknown named color.
 /// * [`Error::Malformed`] — wrong component count or out-of-range value.
+/// * [`Error::Numeric`] — exact color-component arithmetic exceeded the
+///   supported [`Dim`] range.
 ///
 /// # Examples
 ///
@@ -309,14 +299,18 @@ fn unit_components(spec: &str, n: usize) -> Result<Vec<Dim>, Error> {
             "color spec `{spec}` (need {n} components)"
         )));
     }
-    Ok(parts.iter().map(|p| Dim::parse(p)).collect())
+    parts
+        .iter()
+        .map(|p| Dim::parse(p).map_err(|e| malformed(format!("color component `{p}`: {e}"))))
+        .collect()
 }
 
 fn cmyk_to_rgb(c: &Dim, m: &Dim, y: &Dim, k: &Dim) -> Result<Color, Error> {
     let one = Dim::one();
-    let r = &(&one - c) * &(&one - k);
-    let g = &(&one - m) * &(&one - k);
-    let b = &(&one - y) * &(&one - k);
+    let one_minus_k = one.checked_sub(k)?;
+    let r = one.checked_sub(c)?.checked_mul(&one_minus_k)?;
+    let g = one.checked_sub(m)?.checked_mul(&one_minus_k)?;
+    let b = one.checked_sub(y)?.checked_mul(&one_minus_k)?;
     Ok(Color::rgb(
         unit_to_u8(&r)?,
         unit_to_u8(&g)?,
@@ -325,35 +319,27 @@ fn cmyk_to_rgb(c: &Dim, m: &Dim, y: &Dim, k: &Dim) -> Result<Color, Error> {
 }
 
 fn unit_to_u8(d: &Dim) -> Result<u8, Error> {
-    if d.is_nan() {
-        return Err(malformed("color component NaN"));
-    }
     let zero = Dim::zero();
     let one = Dim::one();
-    let clamped = if matches!(d.cmp(&zero), Some(core::cmp::Ordering::Less)) {
+    let clamped = if d < &zero {
         zero
-    } else if matches!(d.cmp(&one), Some(core::cmp::Ordering::Greater)) {
+    } else if d > &one {
         one
     } else {
         d.clone()
     };
-    let scaled = clamped * Dim::from_i64(255);
-    let rounded = &scaled + &Dim::ratio(1, 2);
+    let scaled = clamped.checked_mul(&Dim::from_i64(255))?;
+    let rounded = scaled.checked_add(&Dim::ratio(1, 2)?)?;
     Ok(floor_u8(&rounded))
 }
 
 fn byte_channel(d: &Dim) -> Result<u8, Error> {
-    if d.is_nan() {
-        return Err(malformed("RGB component NaN"));
-    }
     let zero = Dim::zero();
     let max = Dim::from_i64(255);
-    if matches!(d.cmp(&zero), Some(core::cmp::Ordering::Less))
-        || matches!(d.cmp(&max), Some(core::cmp::Ordering::Greater))
-    {
+    if d < &zero || d > &max {
         return Err(malformed("RGB component out of 0..255"));
     }
-    let rounded = d + &Dim::ratio(1, 2);
+    let rounded = d.checked_add(&Dim::ratio(1, 2)?)?;
     Ok(floor_u8(&rounded))
 }
 
@@ -366,10 +352,7 @@ fn floor_u8(d: &Dim) -> u8 {
     let mut bit = 128u8;
     while bit > 0 {
         let cand = ans.saturating_add(bit);
-        if Dim::from_i64(i64::from(cand))
-            .cmp(d)
-            .is_some_and(|o| o != core::cmp::Ordering::Greater)
-        {
+        if &Dim::from_i64(i64::from(cand)) <= d {
             ans = cand;
         }
         bit /= 2;

@@ -1,4 +1,11 @@
-use texpose::{layout, parse, MathFont, MathParams, MathStyle};
+use texpose::{layout, parse, Dim, MathFont, MathParams, MathStyle};
+
+fn add(a: &Dim, b: &Dim) -> Dim {
+    a.checked_add(b).unwrap()
+}
+fn mul(a: &Dim, b: &Dim) -> Dim {
+    a.checked_mul(b).unwrap()
+}
 
 fn layout_source(source: &str, style: MathStyle, font: &MathFont) -> texpose::MathBox {
     let ast = parse(source).expect("parse math case");
@@ -14,8 +21,11 @@ fn space_after_script_uses_parent_style_scale() {
     let superscript = layout_source("2", MathStyle::ScriptCramped, &font);
     let scripted = layout_source("i^2", MathStyle::Text, &font);
 
-    let expected_after = &params.space_after_script * &params.scale(MathStyle::Text);
-    let expected_width = &(&(&base.width + &base.italic) + &superscript.width) + &expected_after;
+    let expected_after = mul(&params.space_after_script, &params.scale(MathStyle::Text));
+    let expected_width = add(
+        &add(&add(&base.width, &base.italic), &superscript.width),
+        &expected_after,
+    );
 
     assert!(
         scripted.width.eq_dim(&expected_width),

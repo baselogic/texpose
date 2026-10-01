@@ -26,7 +26,7 @@ pub enum NumberFormat {
     Plain,
 }
 
-/// Counter style for a render (or a sequence of [`layout_with_numbering`](super::layout_with_numbering) calls).
+/// Counter style for one layout operation (or a sequence of [`layout_with_numbering`](super::layout_with_numbering) calls).
 ///
 /// # Examples
 ///

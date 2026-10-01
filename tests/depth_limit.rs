@@ -1,8 +1,8 @@
 //! Nesting-depth limit: the default is safe on a 1 MiB stack, and callers can move it.
 
 use texpose::{
-    layout, layout_with_max_depth, parse, parse_with_options, render_svg, MathFont, MathStyle,
-    ParseOptions, SvgOptions, DEFAULT_MAX_NESTING_DEPTH,
+    layout, layout_with_max_depth, parse, parse_with_options, MathFont, MathStyle, ParseOptions,
+    DEFAULT_MAX_NESTING_DEPTH,
 };
 
 /// A named nesting shape that builds input `n` levels deep.
@@ -32,8 +32,7 @@ fn deepest(make: fn(usize) -> String, opts: &ParseOptions) -> usize {
     n
 }
 
-/// The smallest stack the default limit is documented to be safe on: 1 MiB in an
-/// optimised build (the `wasm32` default), 2 MiB unoptimised (the `std::thread` default).
+/// A deliberately small stack used to exercise the parser/layout depth budget.
 const SMALL_STACK: usize = if cfg!(debug_assertions) {
     2 << 20
 } else {
@@ -50,7 +49,7 @@ fn on_small_stack(f: impl FnOnce() + Send + 'static) {
 }
 
 #[test]
-fn deepest_default_input_parses_lays_out_and_renders_on_small_stack() {
+fn deepest_default_input_parses_and_lays_out_on_small_stack() {
     on_small_stack(|| {
         let font = MathFont::stix_two_math().expect("font");
         let opts = ParseOptions::default();
@@ -59,10 +58,8 @@ fn deepest_default_input_parses_lays_out_and_renders_on_small_stack() {
             assert!(n >= 5, "{name}: default admits only {n} levels");
             eprintln!("{name}: default admits {n} levels");
             let ast = parse(&make(n)).unwrap_or_else(|e| panic!("{name}@{n}: {e}"));
-            let bx = layout(&ast, &font, MathStyle::Display)
+            layout(&ast, &font, MathStyle::Display)
                 .unwrap_or_else(|e| panic!("{name}@{n}: parse accepted but layout refused: {e}"));
-            render_svg(&bx, &font, &SvgOptions::default())
-                .unwrap_or_else(|e| panic!("{name}@{n}: render: {e}"));
         }
     });
 }

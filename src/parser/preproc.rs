@@ -1,6 +1,6 @@
 //! String-level LaTeX math sanitizer run before tokenization.
 //!
-//! Rewrites that preserve math meaning for a renderer: `{a \over b}` →
+//! Rewrites that preserve math meaning for layout: `{a \over b}` →
 //! `\frac`, `{n \choose k}` → `\binom`, `\tfrac`/`\dfrac` → `\frac`, plain-TeX
 //! font switches, `\mbox` → `\text`. Extensible `\left`/`\right`, skips, and
 //! accents are left intact.

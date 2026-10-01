@@ -753,7 +753,8 @@ fn dim_gold(d: &Dim) -> String {
         (1, 10),
     ];
     for (n, den) in RATIOS {
-        if d.eq_dim(&Dim::ratio(n, den)) {
+        let known = Dim::ratio(n, den).expect("static dim-gold ratio");
+        if d.eq_dim(&known) {
             if den == 1 {
                 return n.to_string();
             }
@@ -766,4 +767,15 @@ fn dim_gold(d: &Dim) -> String {
         }
     }
     d.to_dec_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{dim_gold, Dim};
+
+    #[test]
+    fn dim_gold_preserves_known_noncanonical_spellings() {
+        assert_eq!(dim_gold(&Dim::ratio(2, 18).unwrap()), "2/18");
+        assert_eq!(dim_gold(&Dim::ratio(3, 18).unwrap()), "3/18");
+    }
 }

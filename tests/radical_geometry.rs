@@ -1,5 +1,18 @@
 use texpose::{layout, parse, BoxContent, Dim, MathBox, MathFont, MathParams, MathStyle};
 
+fn add(a: &Dim, b: &Dim) -> Dim {
+    a.checked_add(b).unwrap()
+}
+fn sub(a: &Dim, b: &Dim) -> Dim {
+    a.checked_sub(b).unwrap()
+}
+fn mul(a: &Dim, b: &Dim) -> Dim {
+    a.checked_mul(b).unwrap()
+}
+fn div(a: &Dim, b: &Dim) -> Dim {
+    a.checked_div(b).unwrap()
+}
+
 struct RadicalParts<'a> {
     surd_index: usize,
     surd: &'a MathBox,
@@ -38,18 +51,21 @@ fn expected_vertical_geometry(
 ) -> (Dim, Dim, Dim) {
     let scale = params.scale(style);
     let gap0 = if style.is_display() {
-        &params.radical_display_style_vertical_gap * &scale
+        mul(&params.radical_display_style_vertical_gap, &scale)
     } else {
-        &params.radical_vertical_gap * &scale
+        mul(&params.radical_vertical_gap, &scale)
     };
-    let thickness = &params.radical_rule_thickness * &scale;
-    let radicand_span = &parts.radicand.height + &parts.radicand.depth;
-    let surd_span = &parts.surd.height + &parts.surd.depth;
-    let distributed = (&(&(&surd_span - &thickness) - &radicand_span) + &gap0) / &Dim::from_i64(2);
-    let gap = gap0.max(&distributed);
-    let ascent = &parts.radicand.height + &gap + &thickness;
-    let descent = (&surd_span - &ascent).clamp_nonneg();
-    let shift = &ascent - &parts.surd.height;
+    let thickness = mul(&params.radical_rule_thickness, &scale);
+    let radicand_span = add(&parts.radicand.height, &parts.radicand.depth);
+    let surd_span = add(&parts.surd.height, &parts.surd.depth);
+    let distributed = div(
+        &add(&sub(&sub(&surd_span, &thickness), &radicand_span), &gap0),
+        &Dim::from_i64(2),
+    );
+    let gap = gap0.max_ref(&distributed);
+    let ascent = add(&add(&parts.radicand.height, &gap), &thickness);
+    let descent = sub(&surd_span, &ascent).clamp_nonneg();
+    let shift = sub(&ascent, &parts.surd.height);
     (gap, descent, shift)
 }
 
@@ -63,9 +79,9 @@ fn radical_variant_slack_is_redistributed_into_gap_and_descent() {
     let tree = layout(&ast, &font, style).expect("radical layout");
     let parts = radical_parts(&tree);
     let scale = params.scale(style);
-    let gap0 = &params.radical_display_style_vertical_gap * &scale;
-    let thickness = &params.radical_rule_thickness * &scale;
-    let extra = &params.radical_extra_ascender * &scale;
+    let gap0 = mul(&params.radical_display_style_vertical_gap, &scale);
+    let thickness = mul(&params.radical_rule_thickness, &scale);
+    let extra = mul(&params.radical_extra_ascender, &scale);
     let (gap, expected_descent, expected_surd_shift) =
         expected_vertical_geometry(&parts, &params, style);
 
@@ -74,11 +90,11 @@ fn radical_variant_slack_is_redistributed_into_gap_and_descent() {
         "fixture must expose discrete radical-variant slack"
     );
     assert_eq!(parts.surd.shift, expected_surd_shift);
-    assert_eq!(parts.rule.shift, &parts.radicand.height + &gap);
-    assert_eq!(tree.depth, parts.radicand.depth.max(&expected_descent));
+    assert_eq!(parts.rule.shift, add(&parts.radicand.height, &gap));
+    assert_eq!(tree.depth, parts.radicand.depth.max_ref(&expected_descent));
     assert_eq!(
         tree.height,
-        &(&parts.radicand.height + &gap + &thickness) + &extra
+        add(&add(&add(&parts.radicand.height, &gap), &thickness), &extra)
     );
 }
 
@@ -97,18 +113,20 @@ fn radical_degree_uses_bottom_of_corrected_surd_span() {
     assert_eq!(parts.surd_index, 3, "expected indexed radical topology");
     let degree = &children[1];
     let (_, corrected_descent, _) = expected_vertical_geometry(&parts, &params, style);
-    let surd_span = &parts.surd.height + &parts.surd.depth;
-    let pct =
-        Dim::from_i64(i64::from(params.radical_degree_bottom_raise_percent)) / Dim::from_i64(100);
-    let expected_shift = &(&surd_span * &pct) - &corrected_descent;
+    let surd_span = add(&parts.surd.height, &parts.surd.depth);
+    let pct = div(
+        &Dim::from_i64(i64::from(params.radical_degree_bottom_raise_percent)),
+        &Dim::from_i64(100),
+    );
+    let expected_shift = sub(&mul(&surd_span, &pct), &corrected_descent);
 
     assert_eq!(degree.shift, expected_shift);
     assert_eq!(
         children[0].width,
-        &params.radical_kern_before_degree * &params.scale(style)
+        mul(&params.radical_kern_before_degree, &params.scale(style))
     );
     assert_eq!(
         children[2].width,
-        &params.radical_kern_after_degree * &params.scale(style)
+        mul(&params.radical_kern_after_degree, &params.scale(style))
     );
 }

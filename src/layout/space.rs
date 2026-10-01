@@ -1,6 +1,7 @@
 //! TeXbook Table 18 inter-atom spacing (mu). Negative table entries vanish in script style.
 
 use crate::dim::Dim;
+use crate::error::NumericError;
 use crate::layout::metrics::MathParams;
 use crate::layout::style::MathStyle;
 use crate::parser::AtomKind;
@@ -45,11 +46,11 @@ pub fn convert_bin(prev: Option<AtomKind>, this: AtomKind, next: Option<AtomKind
 }
 
 /// Kern width for a Table 18 space at `style`.
-pub fn space_width(mu: i64, params: &MathParams, style: MathStyle) -> Dim {
+pub fn space_width(mu: i64, params: &MathParams, style: MathStyle) -> Result<Dim, NumericError> {
     if mu == 0 {
-        return Dim::zero();
+        return Ok(Dim::zero());
     }
-    params.mu(style) * Dim::from_i64(mu)
+    params.mu(style)?.checked_mul(&Dim::from_i64(mu))
 }
 
 fn idx(k: AtomKind) -> usize {

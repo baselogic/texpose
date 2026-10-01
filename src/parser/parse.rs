@@ -18,24 +18,17 @@ use crate::symbols::{lookup, SymbolKind as CatalogKind};
 ///
 /// Both recurse over the structure of the input, so their stack use grows with
 /// how deeply it nests. Past the limit they return an error rather than
-/// consume unbounded stack: input this deep is pathological, and a crate that
-/// refuses to invent a render should not abort the process either.
+/// consume unbounded stack: input this deep is pathological, and rejecting it
+/// is preferable to risking process-stack exhaustion.
 ///
 /// The count is of parser recursion levels rather than of LaTeX constructs, and
 /// a braced argument costs two of them (one for the argument and one for the
 /// group), so the default admits `\frac{1}{…}` nested about 15 deep. Real
 /// mathematics rarely nests beyond five levels.
 ///
-/// Measured on Linux x86-64 with the deepest input 32 admits in each nesting
-/// shape, parsed, laid out, rendered to SVG and dropped: an optimised build
-/// survives on a 1 MiB stack (the `wasm32` default) with about three times the
-/// headroom needed, and an unoptimised build survives on the 2 MiB stack of a
-/// default `std::thread` worker with about twice. An unoptimised build on a
-/// 1 MiB stack is *not* covered: layout overflows there at about 14 nested
-/// radicals or scripts. A caller that knows it has more stack can raise the
-/// limit with [`ParseOptions::with_max_depth`] and
-/// [`layout_with_max_depth`](crate::layout_with_max_depth); a caller on a
-/// smaller stack should lower it.
+/// A caller that deliberately accepts deeper input can raise the limit with
+/// [`ParseOptions::with_max_depth`] and
+/// [`layout_with_max_depth`](crate::layout_with_max_depth).
 pub const DEFAULT_MAX_NESTING_DEPTH: usize = 32;
 
 /// Options for [`parse_with_options`].
@@ -615,7 +608,10 @@ impl Parser {
                 let b = self.parse_arg()?;
                 Ok(MathNode::Phantom(PhantomKind::Horizontal, Box::new(b)))
             }
-            "strut" => Ok(MathNode::Strut(Dim::ratio(7, 10), Dim::ratio(3, 10))),
+            "strut" => Ok(MathNode::Strut(
+                Dim::ratio(7, 10).map_err(numeric_parse_err)?,
+                Dim::ratio(3, 10).map_err(numeric_parse_err)?,
+            )),
             "rule" => {
                 let _w = parse_tex_dim(&self.collect_group_text()?)?;
                 let h = parse_tex_dim(&self.collect_group_text()?)?;
@@ -1366,14 +1362,20 @@ fn parse_tex_dim(s: &str) -> Result<Dim, ParseError> {
     if i == 0 || (i == 1 && (b[0] == b'+' || b[0] == b'-')) {
         return Err(ParseError::Malformed(format!("invalid dimension `{s}`")));
     }
-    let num = Dim::parse(&s[..i]);
+    let num = Dim::parse(&s[..i]).map_err(numeric_parse_err)?;
     let unit = s[i..].trim();
     match unit {
         "" | "em" => Ok(num),
-        "mu" => Ok(Dim::from_mu(&num)),
-        "pt" | "bp" => Ok(num / Dim::from_i64(10)),
+        "mu" => Dim::from_mu(&num).map_err(numeric_parse_err),
+        "pt" | "bp" => num
+            .checked_div(&Dim::from_i64(10))
+            .map_err(numeric_parse_err),
         other => Err(ParseError::Unsupported(format!("dimension unit {other}"))),
     }
+}
+
+fn numeric_parse_err(e: crate::NumericError) -> ParseError {
+    ParseError::Malformed(e.to_string())
 }
 
 fn color_err(e: Error) -> ParseError {
@@ -1450,5 +1452,12 @@ mod tests {
     fn frac_gold() {
         let n = parse(r"\frac{1}{2}").unwrap();
         assert_eq!(n.gold(), r#"(frac (atom Ord "1") (atom Ord "2"))"#);
+    }
+
+    #[test]
+    fn oversized_dimension_is_rejected_instead_of_becoming_invalid_dim() {
+        let err = parse(r"\hspace{170141183460469231731687303715884105728em}")
+            .expect_err("2^127 em must exceed the Dim contract");
+        assert!(matches!(err, ParseError::Malformed(_)));
     }
 }

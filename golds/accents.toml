@@ -15,14 +15,6 @@ input = "\\hat{x}"
 expect = "w=0.569 h=0.674 d=0.01"
 
 [[gold]]
-name = "hat-x-svg"
-kind = "svg"
-input = "\\hat{x}"
-paths = "2"
-rects = "0"
-lines = "0"
-
-[[gold]]
 name = "hat-f-italic"
 kind = "dims"
 input = "\\hat{f}"
@@ -107,14 +99,6 @@ input = "\\widehat{x+y+z}"
 expect = "w=3.925888888888888888888888 h=0.834 d=0.22"
 
 [[gold]]
-name = "widehat-xyz-svg"
-kind = "svg"
-input = "\\widehat{x+y+z}"
-paths = "6"
-rects = "0"
-lines = "0"
-
-[[gold]]
 name = "widetilde-xyz"
 kind = "dims"
 input = "\\widetilde{xyz}"
@@ -127,14 +111,6 @@ input = "\\overline{x+y}"
 expect = "w=2.258444444444444444444444 h=0.869 d=0.22"
 
 [[gold]]
-name = "overline-xy-svg"
-kind = "svg"
-input = "\\overline{x+y}"
-paths = "3"
-rects = "1"
-lines = "0"
-
-[[gold]]
 name = "underline-abc"
 kind = "dims"
 input = "\\underline{abc}"
@@ -145,14 +121,6 @@ name = "overrightarrow-AB"
 kind = "dims"
 input = "\\overrightarrow{AB}"
 expect = "w=1.447 h=1.121 d=0.0"
-
-[[gold]]
-name = "overrightarrow-AB-svg"
-kind = "svg"
-input = "\\overrightarrow{AB}"
-paths = "5"
-rects = "0"
-lines = "0"
 
 [[gold]]
 name = "overleftarrow-AB"
@@ -203,14 +171,6 @@ input = "\\overbrace{a+b+c}^{n}"
 expect = "w=4.054 h=2.3439 d=0.04"
 
 [[gold]]
-name = "overbrace-abc-n-svg"
-kind = "svg"
-input = "\\overbrace{a+b+c}^{n}"
-paths = "17"
-rects = "0"
-lines = "0"
-
-[[gold]]
 name = "underbrace-x1-x2"
 kind = "dims"
 input = "\\underbrace{x_1 + x_2}_{n=2}"
@@ -247,14 +207,6 @@ input = "\\cancel{x+y}"
 expect = "x1=0.0 y1=-0.22 x2=2.258444444444444444444444 y2=0.558 t=0.068"
 
 [[gold]]
-name = "cancel-xy-svg"
-kind = "svg"
-input = "\\cancel{x+y}"
-paths = "3"
-rects = "0"
-lines = "1"
-
-[[gold]]
 name = "bcancel-x"
 kind = "lines"
 input = "\\bcancel{x}"
@@ -267,40 +219,16 @@ input = "\\xcancel{abc}"
 expect = "x1=0.0 y1=-0.012 x2=1.492 y2=0.705 t=0.068 | x1=0.0 y1=0.705 x2=1.492 y2=-0.012 t=0.068"
 
 [[gold]]
-name = "xcancel-abc-svg"
-kind = "svg"
-input = "\\xcancel{abc}"
-paths = "3"
-rects = "0"
-lines = "2"
-
-[[gold]]
 name = "cancelto-0-x"
 kind = "dims"
 input = "\\cancelto{0}{x}"
 expect = "w=1.005 h=0.9564 d=0.01"
 
 [[gold]]
-name = "cancelto-0-x-svg"
-kind = "svg"
-input = "\\cancelto{0}{x}"
-paths = "2"
-rects = "0"
-lines = "1"
-
-[[gold]]
 name = "boxed-frac"
 kind = "dims"
 input = "\\boxed{\\frac{1}{2}}"
 expect = "w=0.940133333333333333333333 h=1.218566666666666666666666 d=0.751666666666666666666666"
-
-[[gold]]
-name = "boxed-frac-svg"
-kind = "svg"
-input = "\\boxed{\\frac{1}{2}}"
-paths = "2"
-rects = "2"
-lines = "0"
 
 [[gold]]
 name = "fbox-x"

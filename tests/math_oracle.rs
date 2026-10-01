@@ -379,8 +379,119 @@ fn box_stats(math_box: &MathBox) -> BoxStats {
     stats
 }
 
+fn fraction_step(rem: u128, den: u128) -> (u32, u128) {
+    let complement = den - rem;
+    if rem >= complement {
+        (1, rem - complement)
+    } else {
+        (0, rem + rem)
+    }
+}
+
+fn normalized_fraction(n: u128, d: u128, exponent: i32) -> (u128, u128) {
+    if exponent >= 0 {
+        let den = d << exponent as u32;
+        return (n - den, den);
+    }
+
+    let steps = (-exponent) as u32;
+    let mut scaled = n;
+    for step in 0..steps {
+        let complement = d - scaled;
+        if scaled >= complement {
+            debug_assert_eq!(step + 1, steps);
+            return (scaled - complement, d);
+        }
+        scaled += scaled;
+    }
+    unreachable!("normalization exponent must expose the leading binary digit")
+}
+
+fn rational_to_f32_bits(num: i128, den: i128) -> u32 {
+    debug_assert!(den > 0);
+    if num == 0 {
+        return 0;
+    }
+
+    let sign = if num < 0 { 1u32 << 31 } else { 0 };
+    let n = num.unsigned_abs();
+    let d = den as u128;
+    let n_bits = (u128::BITS - n.leading_zeros()) as i32;
+    let d_bits = (u128::BITS - d.leading_zeros()) as i32;
+    let mut exponent = n_bits - d_bits;
+    let below_power = if exponent >= 0 {
+        n < (d << exponent as u32)
+    } else {
+        (n << (-exponent) as u32) < d
+    };
+    if below_power {
+        exponent -= 1;
+    }
+
+    if exponent > 127 {
+        return sign | 0x7f80_0000;
+    }
+
+    let (mut rem, norm_den) = normalized_fraction(n, d, exponent);
+    let fraction_bits = if exponent >= -126 {
+        23
+    } else if exponent >= -149 {
+        (149 + exponent) as u32
+    } else if exponent == -150 {
+        return sign | u32::from(rem != 0);
+    } else {
+        return sign;
+    };
+
+    let mut significand = 1u32;
+    for _ in 0..fraction_bits {
+        let (bit, next_rem) = fraction_step(rem, norm_den);
+        significand = (significand << 1) | bit;
+        rem = next_rem;
+    }
+
+    let complement = norm_den - rem;
+    if rem > complement || (rem == complement && significand & 1 != 0) {
+        significand += 1;
+    }
+
+    if exponent >= -126 {
+        if significand == 1 << 24 {
+            significand >>= 1;
+            exponent += 1;
+            if exponent > 127 {
+                return sign | 0x7f80_0000;
+            }
+        }
+        let biased = (exponent + 127) as u32;
+        return sign | (biased << 23) | (significand & 0x7f_ffff);
+    }
+
+    if significand >= 1 << 23 {
+        sign | (1 << 23)
+    } else {
+        sign | significand
+    }
+}
+
 fn dim_f32(value: &Dim) -> f32 {
-    f32::from_bits(value.to_ieee32_bits())
+    let (num, den) = value.as_ratio();
+    f32::from_bits(rational_to_f32_bits(num, den))
+}
+
+#[test]
+fn dim_f32_rounds_directly_to_binary32() {
+    let half_ulp = Dim::ratio(1, 1 << 24).unwrap();
+    let tiny = Dim::ratio(1, 1 << 40)
+        .unwrap()
+        .checked_mul(&Dim::ratio(1, 1 << 40).unwrap())
+        .unwrap();
+    let midpoint = Dim::one().checked_add(&half_ulp).unwrap();
+    let above_midpoint = midpoint.checked_add(&tiny).unwrap();
+
+    assert_eq!(dim_f32(&midpoint).to_bits(), 0x3f80_0000);
+    assert_eq!(dim_f32(&above_midpoint).to_bits(), 0x3f80_0001);
+    assert_eq!(dim_f32(&(-above_midpoint)).to_bits(), 0xbf80_0001);
 }
 
 #[test]

@@ -13,25 +13,29 @@ fn select_vertical_variant(font: &MathFont, ch: char, target: &Dim, scale: &Dim)
         let metrics = font
             .glyph_id(ch, glyph_id)
             .expect("delimiter variant metrics");
-        let span = &(&metrics.height + &metrics.depth) * scale;
+        let span = metrics
+            .height
+            .checked_add(&metrics.depth)
+            .unwrap()
+            .checked_mul(scale)
+            .unwrap();
         match span.cmp(target) {
-            Some(Ordering::Equal | Ordering::Greater) => {
-                let tighter = best_fitting.as_ref().map_or(true, |(_, best_span)| {
-                    span.cmp(best_span) == Some(Ordering::Less)
-                });
+            Ordering::Equal | Ordering::Greater => {
+                let tighter = best_fitting
+                    .as_ref()
+                    .map_or(true, |(_, best_span)| span.cmp(best_span) == Ordering::Less);
                 if tighter {
                     best_fitting = Some((glyph_id, span));
                 }
             }
-            Some(Ordering::Less) => {
+            Ordering::Less => {
                 let taller = tallest_short.as_ref().map_or(true, |(_, best_span)| {
-                    span.cmp(best_span) == Some(Ordering::Greater)
+                    span.cmp(best_span) == Ordering::Greater
                 });
                 if taller {
                     tallest_short = Some((glyph_id, span));
                 }
             }
-            None => panic!("non-finite delimiter dimensions"),
         }
     }
 
@@ -42,10 +46,17 @@ fn select_vertical_variant(font: &MathFont, ch: char, target: &Dim, scale: &Dim)
 }
 
 fn tex_delimiter_target(max_distance: &Dim, em_size_pt: &Dim) -> Dim {
-    let factor_target = max_distance * &Dim::ratio(901, 500);
-    let shortfall = &Dim::from_i64(5) / em_size_pt;
-    let shortfall_target = (&(max_distance * &Dim::from_i64(2)) - &shortfall).clamp_nonneg();
-    factor_target.max(&shortfall_target)
+    let factor_target = max_distance
+        .checked_mul(&Dim::ratio(901, 500).unwrap())
+        .unwrap();
+    let shortfall = Dim::from_i64(5).checked_div(em_size_pt).unwrap();
+    let shortfall_target = max_distance
+        .checked_mul(&Dim::from_i64(2))
+        .unwrap()
+        .checked_sub(&shortfall)
+        .unwrap()
+        .clamp_nonneg();
+    factor_target.max_ref(&shortfall_target)
 }
 
 fn delimited_children(tree: &MathBox) -> (&MathBox, &MathBox, &MathBox) {
@@ -70,10 +81,14 @@ fn expected_center_shift(font: &MathFont, ch: char, glyph_id: u16, scale: &Dim, 
     let metrics = font
         .glyph_id(ch, glyph_id)
         .expect("selected delimiter metrics");
-    let height = &metrics.height * scale;
-    let depth = &metrics.depth * scale;
-    let center = &(&height - &depth) / &Dim::from_i64(2);
-    axis - &center
+    let height = metrics.height.checked_mul(scale).unwrap();
+    let depth = metrics.depth.checked_mul(scale).unwrap();
+    let center = height
+        .checked_sub(&depth)
+        .unwrap()
+        .checked_div(&Dim::from_i64(2))
+        .unwrap();
+    axis.checked_sub(&center).unwrap()
 }
 
 #[test]
@@ -83,16 +98,16 @@ fn delimited_fraction_uses_tex_target_and_math_axis_centering() {
     let style = MathStyle::Display;
     let scale = params.scale(style);
     let em_size_pt = Dim::from_i64(10);
-    let axis = &params.axis_height * &scale;
+    let axis = params.axis_height.checked_mul(&scale).unwrap();
 
     let body_ast = parse(r"\frac{a+b}{c+d}").expect("fraction body");
     let body =
         layout_with_em_size_pt(&body_ast, &font, style, &em_size_pt).expect("fraction body layout");
-    let above = (&body.height - &axis).clamp_nonneg();
-    let below = &body.depth + &axis;
-    let max_distance = above.max(&below);
+    let above = body.height.checked_sub(&axis).unwrap().clamp_nonneg();
+    let below = body.depth.checked_add(&axis).unwrap();
+    let max_distance = above.max_ref(&below);
     let expected_target = tex_delimiter_target(&max_distance, &em_size_pt);
-    let legacy_target = &max_distance * &Dim::from_i64(2);
+    let legacy_target = max_distance.checked_mul(&Dim::from_i64(2)).unwrap();
 
     let expected_left = select_vertical_variant(&font, '(', &expected_target, &scale);
     let legacy_left = select_vertical_variant(&font, '(', &legacy_target, &scale);
@@ -120,12 +135,24 @@ fn delimited_fraction_uses_tex_target_and_math_axis_centering() {
 
     let expected_height = body
         .height
-        .max(&(&left.height + &left.shift).clamp_nonneg())
-        .max(&(&right.height + &right.shift).clamp_nonneg());
+        .max_ref(&left.height.checked_add(&left.shift).unwrap().clamp_nonneg())
+        .max_ref(
+            &right
+                .height
+                .checked_add(&right.shift)
+                .unwrap()
+                .clamp_nonneg(),
+        );
     let expected_depth = body
         .depth
-        .max(&(&left.depth - &left.shift).clamp_nonneg())
-        .max(&(&right.depth - &right.shift).clamp_nonneg());
+        .max_ref(&left.depth.checked_sub(&left.shift).unwrap().clamp_nonneg())
+        .max_ref(
+            &right
+                .depth
+                .checked_sub(&right.shift)
+                .unwrap()
+                .clamp_nonneg(),
+        );
     assert!(tree.height.eq_dim(&expected_height));
     assert!(tree.depth.eq_dim(&expected_depth));
 }
@@ -137,14 +164,14 @@ fn delimiter_shortfall_remains_a_physical_five_points() {
     let style = MathStyle::Display;
     let scale = params.scale(style);
     let em_size_pt = Dim::from_i64(20);
-    let axis = &params.axis_height * &scale;
+    let axis = params.axis_height.checked_mul(&scale).unwrap();
 
     let body_ast = parse(r"\rule{0pt}{1.96em}").expect("tall rule");
     let body =
         layout_with_em_size_pt(&body_ast, &font, style, &em_size_pt).expect("tall rule layout");
-    let above = (&body.height - &axis).clamp_nonneg();
-    let below = &body.depth + &axis;
-    let max_distance = above.max(&below);
+    let above = body.height.checked_sub(&axis).unwrap().clamp_nonneg();
+    let below = body.depth.checked_add(&axis).unwrap();
+    let max_distance = above.max_ref(&below);
 
     let expected_target = tex_delimiter_target(&max_distance, &em_size_pt);
     let wrongly_normalized_target = tex_delimiter_target(&max_distance, &Dim::from_i64(10));
