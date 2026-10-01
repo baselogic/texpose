@@ -162,10 +162,11 @@ fn collect_node(node: &MathNode, st: &mut NumberingState) {
                 collect_node(n, st);
             }
         }
-        MathNode::Fraction(a, b)
-        | MathNode::Superscript(a, b)
-        | MathNode::Subscript(a, b)
-        | MathNode::CancelTo(a, b) => {
+        MathNode::Fraction(spec) => {
+            collect_node(&spec.numerator, st);
+            collect_node(&spec.denominator, st);
+        }
+        MathNode::Superscript(a, b) | MathNode::Subscript(a, b) | MathNode::CancelTo(a, b) => {
             collect_node(a, st);
             collect_node(b, st);
         }

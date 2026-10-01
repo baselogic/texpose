@@ -15,8 +15,9 @@ use crate::layout::style::MathStyle;
 use crate::layout::{BoxContent, MathBox, RootEmSize};
 use crate::parser::DEFAULT_MAX_NESTING_DEPTH;
 use crate::parser::{
-    AccentKind, AtomKind, ColSpec, DelimSize, Delimiter, EnvRow, IntegralKind, Length, MathNode,
-    MatrixStyle, PhantomKind, SpaceKind, TextStyle,
+    AccentKind, AtomKind, ColSpec, DelimSize, Delimiter, EnvRow, FractionAlignment, FractionRule,
+    FractionSpec, FractionStyle, IntegralKind, Length, MathNode, MatrixStyle, PhantomKind,
+    SpaceKind, TextStyle,
 };
 use crate::style_map::styled_char;
 use crate::symbols::lookup;
@@ -226,6 +227,7 @@ fn layout_impl(
     let params = MathParams::from_font(font)?;
     let script_placement = ScriptPlacementParams::from_font(font)?;
     let substack = SubstackParams::from_font(font, &params)?;
+    let fraction_stack = FractionStackParams::from_font(font)?;
     let null_delimiter_space = resolve_length(
         &Length::TexPt(Dim::ratio(
             TEX_NULL_DELIMITER_SPACE_PT_NUM,
@@ -247,6 +249,7 @@ fn layout_impl(
         params,
         script_placement,
         substack,
+        fraction_stack,
         null_delimiter_space,
         delimiter_shortfall,
         root_em_size: root_em_size.clone(),
@@ -279,6 +282,7 @@ struct Engine<'a> {
     params: MathParams,
     script_placement: ScriptPlacementParams,
     substack: SubstackParams,
+    fraction_stack: FractionStackParams,
     null_delimiter_space: Dim,
     delimiter_shortfall: Dim,
     root_em_size: RootEmSize,
@@ -363,6 +367,59 @@ impl SubstackParams {
         })
     }
 }
+/// OpenType MATH stack constants used by ruleless generalized fractions.
+/// A no-rule fraction is a stack, not a ruled fraction with zero thickness.
+struct FractionStackParams {
+    top_shift_up: Dim,
+    top_display_shift_up: Dim,
+    bottom_shift_down: Dim,
+    bottom_display_shift_down: Dim,
+    gap_min: Dim,
+    display_gap_min: Dim,
+}
+
+impl FractionStackParams {
+    fn from_font(font: &MathFont) -> Result<Self, Error> {
+        let math = font
+            .face()
+            .tables()
+            .math
+            .ok_or_else(|| Error::Unsupported {
+                what: "OpenType MATH table".into(),
+            })?;
+        let constants = math.constants.ok_or_else(|| Error::Unsupported {
+            what: "MATH constants".into(),
+        })?;
+        let units_per_em = font.units_per_em_nonzero();
+        let fu = |value: i16| Dim::from_font_units_nonzero(i64::from(value), units_per_em);
+        Ok(Self {
+            top_shift_up: fu(constants.stack_top_shift_up().value),
+            top_display_shift_up: fu(constants.stack_top_display_style_shift_up().value),
+            bottom_shift_down: fu(constants.stack_bottom_shift_down().value),
+            bottom_display_shift_down: fu(constants.stack_bottom_display_style_shift_down().value),
+            gap_min: fu(constants.stack_gap_min().value),
+            display_gap_min: fu(constants.stack_display_style_gap_min().value),
+        })
+    }
+
+    fn scaled(&self, style: MathStyle, scale: &Dim) -> Result<(Dim, Dim, Dim), Error> {
+        let (top, bottom, gap) = if style.is_display() {
+            (
+                &self.top_display_shift_up,
+                &self.bottom_display_shift_down,
+                &self.display_gap_min,
+            )
+        } else {
+            (&self.top_shift_up, &self.bottom_shift_down, &self.gap_min)
+        };
+        Ok((
+            top.checked_mul(scale)?,
+            bottom.checked_mul(scale)?,
+            gap.checked_mul(scale)?,
+        ))
+    }
+}
+
 struct Item {
     bx: MathBox,
     class: Option<AtomKind>,
@@ -409,7 +466,7 @@ impl Engine<'_> {
                 })
             }
             MathNode::Row(items) => self.row(items, style),
-            MathNode::Fraction(num, den) => self.fraction(num, den, style),
+            MathNode::Fraction(spec) => self.generalized_fraction(spec, style),
             MathNode::Radical(deg, rad) => self.radical(deg.as_deref(), rad, style),
             MathNode::Superscript(base, exp) => self.scripts(base, None, Some(exp), style),
             MathNode::Subscript(base, sub) => self.scripts(base, Some(sub), None, style),
@@ -782,6 +839,165 @@ impl Engine<'_> {
                 inner,
                 MathBox::kern(self.null_delimiter_space.clone()),
             ])?,
+        })
+    }
+
+    fn generalized_fraction(&self, spec: &FractionSpec, style: MathStyle) -> Result<Item, Error> {
+        let fraction_style = match spec.style {
+            FractionStyle::Inherit => style,
+            FractionStyle::Display => MathStyle::Display,
+            FractionStyle::Text => MathStyle::Text,
+            FractionStyle::Script => MathStyle::Script,
+            FractionStyle::ScriptScript => MathStyle::ScriptScript,
+        };
+
+        if spec.rule == FractionRule::Default
+            && spec.left_delimiter == Delimiter::Empty
+            && spec.right_delimiter == Delimiter::Empty
+            && matches!(
+                spec.numerator_alignment,
+                FractionAlignment::Default | FractionAlignment::Center
+            )
+        {
+            return self.fraction(&spec.numerator, &spec.denominator, fraction_style);
+        }
+
+        let num_b = self.layout(&spec.numerator, fraction_style.numerator())?;
+        let den_b = self.layout(&spec.denominator, fraction_style.denominator())?;
+        let scale = self.params.scale(fraction_style);
+        let axis = self.params.axis_height.checked_mul(&scale)?;
+
+        let rule_thickness = match &spec.rule {
+            FractionRule::None => None,
+            FractionRule::Default => Some(self.params.fraction_rule_thickness.checked_mul(&scale)?),
+            FractionRule::Exact(length) => {
+                let thickness = self.resolve_length(length, fraction_style)?;
+                if thickness < Dim::zero() {
+                    return Err(Error::Malformed {
+                        what: "negative fraction rule thickness".into(),
+                    });
+                }
+                if thickness.is_zero() {
+                    None
+                } else {
+                    Some(thickness)
+                }
+            }
+        };
+
+        let (num_shift, den_shift, rule_layer) = if let Some(thick) = rule_thickness {
+            let half = thick.checked_div(&Dim::from_i64(2))?;
+            let (shift_up0, shift_dn0, gap_num, gap_den) = if fraction_style.is_display() {
+                (
+                    self.params
+                        .fraction_numerator_display_style_shift_up
+                        .checked_mul(&scale)?,
+                    self.params
+                        .fraction_denominator_display_style_shift_down
+                        .checked_mul(&scale)?,
+                    self.params
+                        .fraction_num_display_style_gap_min
+                        .checked_mul(&scale)?,
+                    self.params
+                        .fraction_denom_display_style_gap_min
+                        .checked_mul(&scale)?,
+                )
+            } else {
+                (
+                    self.params
+                        .fraction_numerator_shift_up
+                        .checked_mul(&scale)?,
+                    self.params
+                        .fraction_denominator_shift_down
+                        .checked_mul(&scale)?,
+                    self.params.fraction_numerator_gap_min.checked_mul(&scale)?,
+                    self.params
+                        .fraction_denominator_gap_min
+                        .checked_mul(&scale)?,
+                )
+            };
+            let num_floor = axis
+                .checked_add(&half)?
+                .checked_add(&gap_num)?
+                .checked_add(&num_b.depth)?;
+            let den_floor = den_b
+                .height
+                .checked_add(&gap_den)?
+                .checked_add(&half)?
+                .checked_sub(&axis)?
+                .clamp_nonneg();
+            let bar_shift = axis.checked_sub(&half)?;
+            (
+                shift_up0.max_ref(&num_floor),
+                shift_dn0.max_ref(&den_floor),
+                Some((thick, bar_shift)),
+            )
+        } else {
+            let (mut num_shift, mut den_shift, gap_min) =
+                self.fraction_stack.scaled(fraction_style, &scale)?;
+            let actual_gap = num_shift
+                .checked_sub(&num_b.depth)?
+                .checked_add(&den_shift)?
+                .checked_sub(&den_b.height)?;
+            if actual_gap < gap_min {
+                let correction = gap_min
+                    .checked_sub(&actual_gap)?
+                    .checked_div(&Dim::from_i64(2))?;
+                num_shift = num_shift.checked_add(&correction)?;
+                den_shift = den_shift.checked_add(&correction)?;
+            }
+            (num_shift, den_shift, None)
+        };
+
+        let content_width = num_b.width.max_ref(&den_b.width);
+        let num_c = match spec.numerator_alignment {
+            FractionAlignment::Default | FractionAlignment::Center => {
+                center_in(num_b, &content_width)?
+            }
+            FractionAlignment::Left => align_in(num_b, &content_width, ColSpec::Left)?,
+            FractionAlignment::Right => align_in(num_b, &content_width, ColSpec::Right)?,
+        };
+        let den_c = center_in(den_b, &content_width)?;
+        let num_h = num_c.height.clone();
+        let den_d = den_c.depth.clone();
+        let mut layers = vec![num_c.with_shift(num_shift.clone())];
+        if let Some((thick, bar_shift)) = rule_layer {
+            if !thick.is_zero() {
+                layers.push(
+                    MathBox::rule(content_width.clone(), thick, Dim::zero()).with_shift(bar_shift),
+                );
+            }
+        }
+        layers.push(den_c.with_shift(-den_shift.clone()));
+        let inner = MathBox {
+            width: content_width,
+            height: num_shift.checked_add(&num_h)?,
+            depth: den_shift.checked_add(&den_d)?,
+            italic: Dim::zero(),
+            shift: Dim::zero(),
+            content: BoxContent::Overlap(layers),
+        };
+
+        let needed = self.delimiter_target(&inner.height, &inner.depth, &axis)?;
+        let left = if spec.left_delimiter == Delimiter::Empty {
+            MathBox::kern(self.null_delimiter_space.clone())
+        } else {
+            self.center_delimiter(
+                self.delim_box(&spec.left_delimiter, &needed, fraction_style)?,
+                &axis,
+            )?
+        };
+        let right = if spec.right_delimiter == Delimiter::Empty {
+            MathBox::kern(self.null_delimiter_space.clone())
+        } else {
+            self.center_delimiter(
+                self.delim_box(&spec.right_delimiter, &needed, fraction_style)?,
+                &axis,
+            )?
+        };
+        Ok(Item {
+            class: Some(AtomKind::Inner),
+            bx: shifted_hpack(vec![left, inner, right])?,
         })
     }
 
@@ -3091,7 +3307,7 @@ fn class_of(n: &MathNode) -> Option<AtomKind> {
         | MathNode::Product(_, _)
         | MathNode::Integral(_, _, _)
         | MathNode::Limit(_) => Some(AtomKind::Op),
-        MathNode::Fraction(_, _)
+        MathNode::Fraction(_)
         | MathNode::Radical(_, _)
         | MathNode::Matrix(_, _, _)
         | MathNode::Substack(_)

@@ -4,8 +4,9 @@
 //! The math list itself is a TeX-style row of atoms, not an arithmetic tree.
 
 use super::ast::{
-    AccentKind, AtomKind, ColSpec, DelimSize, Delimiter, EnvRow, EqNumber, IntegralKind, Length,
-    MathNode, MatrixStyle, PhantomKind, SpaceKind, TextStyle,
+    AccentKind, AtomKind, ColSpec, DelimSize, Delimiter, EnvRow, EqNumber, FractionAlignment,
+    FractionRule, FractionSpec, FractionStyle, IntegralKind, Length, MathNode, MatrixStyle,
+    PhantomKind, SpaceKind, TextStyle,
 };
 use super::preproc::preprocess;
 use super::token::{tokenize, Token};
@@ -238,6 +239,99 @@ impl Stop {
     }
 }
 
+#[derive(Clone, Copy)]
+enum InfixFractionKind {
+    Over,
+    Choose,
+}
+
+enum ParsedList {
+    Plain(MathNode),
+    Infix {
+        kind: InfixFractionKind,
+        numerator: MathNode,
+        denominator: MathNode,
+    },
+}
+
+impl ParsedList {
+    fn into_node(self) -> MathNode {
+        match self {
+            Self::Plain(node) => node,
+            Self::Infix {
+                kind,
+                numerator,
+                denominator,
+            } => {
+                let spec = match kind {
+                    InfixFractionKind::Over => FractionSpec::ordinary(numerator, denominator),
+                    InfixFractionKind::Choose => FractionSpec {
+                        style: FractionStyle::Inherit,
+                        rule: FractionRule::None,
+                        left_delimiter: Delimiter::Char('('),
+                        right_delimiter: Delimiter::Char(')'),
+                        numerator_alignment: FractionAlignment::Default,
+                        numerator: Box::new(numerator),
+                        denominator: Box::new(denominator),
+                    },
+                };
+                MathNode::Fraction(spec)
+            }
+        }
+    }
+
+    fn prepend(self, mut items: Vec<MathNode>) -> Self {
+        match self {
+            Self::Plain(node) => {
+                items.push(node);
+                Self::Plain(wrap_row(items))
+            }
+            Self::Infix {
+                kind,
+                numerator,
+                denominator,
+            } => {
+                items.push(numerator);
+                Self::Infix {
+                    kind,
+                    numerator: wrap_row(items),
+                    denominator,
+                }
+            }
+        }
+    }
+
+    fn with_color(self, color: Color) -> Self {
+        match self {
+            Self::Plain(node) => Self::Plain(MathNode::Color(color, Box::new(node))),
+            Self::Infix {
+                kind,
+                numerator,
+                denominator,
+            } => Self::Infix {
+                kind,
+                numerator: MathNode::Color(color, Box::new(numerator)),
+                denominator: MathNode::Color(color, Box::new(denominator)),
+            },
+        }
+    }
+
+    fn with_text_style(self, style: TextStyle) -> Self {
+        match self {
+            Self::Plain(node) => Self::Plain(collapse_text(apply_text_style(node, style))),
+            Self::Infix {
+                kind,
+                numerator,
+                denominator,
+            } => Self::Infix {
+                kind,
+                numerator: collapse_text(apply_text_style(numerator, style)),
+                denominator: collapse_text(apply_text_style(denominator, style)),
+            },
+        }
+    }
+}
+
 struct Parser {
     tokens: Vec<Token>,
     pos: usize,
@@ -306,10 +400,14 @@ impl Parser {
     }
 
     fn parse_list(&mut self, stop: Stop) -> Result<MathNode, ParseError> {
-        self.nested(|p| p.parse_list_inner(stop))
+        self.nested(|p| p.parse_list_inner(stop, true).map(ParsedList::into_node))
     }
 
-    fn parse_list_inner(&mut self, stop: Stop) -> Result<MathNode, ParseError> {
+    fn parse_list_inner(
+        &mut self,
+        stop: Stop,
+        allow_infix_fraction: bool,
+    ) -> Result<ParsedList, ParseError> {
         let mut items = Vec::new();
         loop {
             self.skip_ws();
@@ -319,16 +417,49 @@ impl Parser {
             if self.is_stop(&tok, stop) {
                 break;
             }
+            if let Token::Command(name) = &tok {
+                if let Some(style) = plain_tex_font_style(name) {
+                    self.bump();
+                    let rest = self
+                        .parse_list_inner(stop, allow_infix_fraction)?
+                        .with_text_style(style)
+                        .prepend(items);
+                    return Ok(rest);
+                }
+            }
             match &tok {
                 Token::MathShift | Token::DisplayShift => {
                     return Err(ParseError::Malformed("unexpected math shift".into()));
                 }
+                Token::Command(n) if n == "over" || n == "choose" => {
+                    if !stop.end_group {
+                        return Err(ParseError::Malformed(format!("\\{n} outside a group")));
+                    }
+                    if !allow_infix_fraction {
+                        return Err(ParseError::Malformed(format!(
+                            "multiple generalized fraction operators in one group: \\{n}"
+                        )));
+                    }
+                    self.bump();
+                    let denominator = self.parse_list_inner(stop, false)?.into_node();
+                    return Ok(ParsedList::Infix {
+                        kind: if n == "choose" {
+                            InfixFractionKind::Choose
+                        } else {
+                            InfixFractionKind::Over
+                        },
+                        numerator: wrap_row(items),
+                        denominator,
+                    });
+                }
                 Token::Command(n) if n == "color" => {
                     self.bump();
-                    let c = self.parse_color_from_cmd()?;
-                    let rest = self.parse_list(stop)?;
-                    items.push(MathNode::Color(c, Box::new(rest)));
-                    break;
+                    let color = self.parse_color_from_cmd()?;
+                    let rest = self
+                        .parse_list_inner(stop, allow_infix_fraction)?
+                        .with_color(color)
+                        .prepend(items);
+                    return Ok(rest);
                 }
                 Token::Command(n) if n == "definecolor" => {
                     self.bump();
@@ -339,7 +470,7 @@ impl Parser {
             }
             items.push(self.parse_atom()?);
         }
-        Ok(wrap_row(items))
+        Ok(ParsedList::Plain(wrap_row(items)))
     }
 
     fn parse_atom(&mut self) -> Result<MathNode, ParseError> {
@@ -458,19 +589,42 @@ impl Parser {
 
     fn parse_command(&mut self, name: &str) -> Result<MathNode, ParseError> {
         match name {
-            "frac" | "dfrac" | "tfrac" | "cfrac" => {
-                let n = self.parse_arg()?;
-                let d = self.parse_arg()?;
-                Ok(MathNode::Fraction(Box::new(n), Box::new(d)))
+            "frac" | "dfrac" | "tfrac" => {
+                let numerator = self.parse_arg()?;
+                let denominator = self.parse_arg()?;
+                let style = match name {
+                    "dfrac" => FractionStyle::Display,
+                    "tfrac" => FractionStyle::Text,
+                    _ => FractionStyle::Inherit,
+                };
+                Ok(MathNode::Fraction(FractionSpec {
+                    style,
+                    rule: FractionRule::Default,
+                    left_delimiter: Delimiter::Empty,
+                    right_delimiter: Delimiter::Empty,
+                    numerator_alignment: FractionAlignment::Default,
+                    numerator: Box::new(numerator),
+                    denominator: Box::new(denominator),
+                }))
             }
+            "cfrac" => self.parse_cfrac(),
             "binom" | "dbinom" | "tbinom" => {
-                let n = self.parse_arg()?;
-                let k = self.parse_arg()?;
-                Ok(MathNode::Delimited(
-                    Delimiter::Char('('),
-                    Box::new(MathNode::Fraction(Box::new(n), Box::new(k))),
-                    Delimiter::Char(')'),
-                ))
+                let numerator = self.parse_arg()?;
+                let denominator = self.parse_arg()?;
+                let style = match name {
+                    "dbinom" => FractionStyle::Display,
+                    "tbinom" => FractionStyle::Text,
+                    _ => FractionStyle::Inherit,
+                };
+                Ok(MathNode::Fraction(FractionSpec {
+                    style,
+                    rule: FractionRule::None,
+                    left_delimiter: Delimiter::Char('('),
+                    right_delimiter: Delimiter::Char(')'),
+                    numerator_alignment: FractionAlignment::Default,
+                    numerator: Box::new(numerator),
+                    denominator: Box::new(denominator),
+                }))
             }
             "genfrac" => self.parse_genfrac(),
             "sqrt" => {
@@ -953,22 +1107,90 @@ impl Parser {
         Ok(())
     }
 
+    fn parse_cfrac(&mut self) -> Result<MathNode, ParseError> {
+        self.skip_ws();
+        let numerator_alignment = if matches!(self.peek(), Some(Token::Char('['))) {
+            self.bump();
+            let alignment = self.collect_until_char(']')?;
+            match self.bump() {
+                Some(Token::Char(']')) => {}
+                _ => {
+                    return Err(ParseError::Malformed(
+                        "expected ']' after \\cfrac alignment".into(),
+                    ))
+                }
+            }
+            match alignment.trim() {
+                "l" => FractionAlignment::Left,
+                "r" => FractionAlignment::Right,
+                "" => FractionAlignment::Center,
+                other => {
+                    return Err(ParseError::Malformed(format!(
+                        "invalid \\cfrac numerator alignment `{other}`"
+                    )))
+                }
+            }
+        } else {
+            FractionAlignment::Center
+        };
+        let numerator = self.parse_arg()?;
+        let denominator = self.parse_arg()?;
+        Ok(MathNode::Fraction(FractionSpec {
+            style: FractionStyle::Display,
+            rule: FractionRule::Default,
+            left_delimiter: Delimiter::Empty,
+            right_delimiter: Delimiter::Empty,
+            numerator_alignment,
+            numerator: Box::new(numerator),
+            denominator: Box::new(denominator),
+        }))
+    }
+
     fn parse_genfrac(&mut self) -> Result<MathNode, ParseError> {
-        let ldel = self.collect_group_text()?;
-        let rdel = self.collect_group_text()?;
-        let _thickness = self.collect_group_text()?;
-        let _style = self.collect_group_text()?;
-        let num = self.parse_arg()?;
-        let den = self.parse_arg()?;
-        let frac = MathNode::Fraction(Box::new(num), Box::new(den));
-        if ldel.is_empty() && rdel.is_empty() {
-            return Ok(frac);
-        }
-        Ok(MathNode::Delimited(
-            delim_from_text(&ldel)?,
-            Box::new(frac),
-            delim_from_text(&rdel)?,
-        ))
+        let left_delimiter = delim_from_text(&self.collect_group_text()?)?;
+        let right_delimiter = delim_from_text(&self.collect_group_text()?)?;
+        let thickness_text = self.collect_group_text()?;
+        let style_text = self.collect_group_text()?;
+        let numerator = self.parse_arg()?;
+        let denominator = self.parse_arg()?;
+
+        let rule = if thickness_text.trim().is_empty() {
+            FractionRule::Default
+        } else {
+            let thickness = parse_tex_dim(&thickness_text)?;
+            let value = length_value(&thickness);
+            if value < &Dim::zero() {
+                return Err(ParseError::Malformed(
+                    "negative \\genfrac rule thickness".into(),
+                ));
+            }
+            if value.is_zero() {
+                FractionRule::None
+            } else {
+                FractionRule::Exact(thickness)
+            }
+        };
+        let style = match style_text.trim() {
+            "" => FractionStyle::Inherit,
+            "0" => FractionStyle::Display,
+            "1" => FractionStyle::Text,
+            "2" => FractionStyle::Script,
+            "3" => FractionStyle::ScriptScript,
+            other => {
+                return Err(ParseError::Malformed(format!(
+                    "invalid \\genfrac style `{other}`"
+                )))
+            }
+        };
+        Ok(MathNode::Fraction(FractionSpec {
+            style,
+            rule,
+            left_delimiter,
+            right_delimiter,
+            numerator_alignment: FractionAlignment::Default,
+            numerator: Box::new(numerator),
+            denominator: Box::new(denominator),
+        }))
     }
 
     fn parse_color_from_cmd(&mut self) -> Result<Color, ParseError> {
@@ -1288,10 +1510,11 @@ fn apply_text_style(node: MathNode, style: TextStyle) -> MathNode {
             Box::new(apply_text_style(*sub, style)),
             Box::new(apply_text_style(*sup, style)),
         ),
-        MathNode::Fraction(num, den) => MathNode::Fraction(
-            Box::new(apply_text_style(*num, style)),
-            Box::new(apply_text_style(*den, style)),
-        ),
+        MathNode::Fraction(mut spec) => {
+            spec.numerator = Box::new(apply_text_style(*spec.numerator, style));
+            spec.denominator = Box::new(apply_text_style(*spec.denominator, style));
+            MathNode::Fraction(spec)
+        }
         MathNode::Radical(index, body) => MathNode::Radical(
             index.map(|i| Box::new(apply_text_style(*i, style))),
             Box::new(apply_text_style(*body, style)),
@@ -1320,6 +1543,26 @@ fn collapse_text(node: MathNode) -> MathNode {
         }
     }
     wrap_row(out)
+}
+
+fn plain_tex_font_style(name: &str) -> Option<TextStyle> {
+    match name {
+        "rm" => Some(TextStyle::Rm),
+        "bf" => Some(TextStyle::Bf),
+        "cal" => Some(TextStyle::Cal),
+        "it" => Some(TextStyle::It),
+        "sf" => Some(TextStyle::Sf),
+        "tt" => Some(TextStyle::Tt),
+        _ => None,
+    }
+}
+
+fn length_value(length: &Length) -> &Dim {
+    match length {
+        Length::Em(value) | Length::Mu(value) | Length::TexPt(value) | Length::BigPt(value) => {
+            value
+        }
+    }
 }
 
 fn atom_kind(c: char) -> AtomKind {

@@ -495,6 +495,122 @@ impl Delimiter {
     }
 }
 
+/// Math style explicitly requested by a generalized fraction command.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FractionStyle {
+    /// Inherit the surrounding math style (`\frac`, `\over`, `\choose`).
+    Inherit,
+    /// Force display style (`\dfrac`, `\dbinom`, `\cfrac`, `\genfrac` style 0).
+    Display,
+    /// Force text style (`\tfrac`, `\tbinom`, `\genfrac` style 1).
+    Text,
+    /// Force script style (`\genfrac` style 2).
+    Script,
+    /// Force scriptscript style (`\genfrac` style 3).
+    ScriptScript,
+}
+
+impl FractionStyle {
+    fn gold(self) -> &'static str {
+        match self {
+            Self::Inherit => "inherit",
+            Self::Display => "display",
+            Self::Text => "text",
+            Self::Script => "script",
+            Self::ScriptScript => "scriptscript",
+        }
+    }
+}
+
+/// Fraction-rule policy retained from syntax until fraction layout.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FractionRule {
+    /// Use the font's normal fraction-rule thickness.
+    Default,
+    /// Suppress the rule (`\binom`, `\choose`, zero-thickness `\genfrac`).
+    None,
+    /// Use an explicitly parsed rule thickness.
+    Exact(Length),
+}
+
+impl FractionRule {
+    fn gold(&self) -> String {
+        match self {
+            Self::Default => "default".into(),
+            Self::None => "none".into(),
+            Self::Exact(length) => format!("exact:{}", length.gold()),
+        }
+    }
+}
+
+/// Numerator alignment policy. `Default` identifies ordinary fractions;
+/// explicit center/left/right values retain `\cfrac` semantics.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FractionAlignment {
+    /// Ordinary fraction centering.
+    Default,
+    /// Centered continued-fraction numerator (`\cfrac`).
+    Center,
+    /// Left-aligned continued-fraction numerator (`\cfrac[l]`).
+    Left,
+    /// Right-aligned continued-fraction numerator (`\cfrac[r]`).
+    Right,
+}
+
+impl FractionAlignment {
+    fn gold(self) -> &'static str {
+        match self {
+            Self::Default => "default",
+            Self::Center => "center",
+            Self::Left => "left",
+            Self::Right => "right",
+        }
+    }
+}
+
+/// Complete semantic representation of a fraction-like construct.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FractionSpec {
+    /// Optional style override selected by the source command.
+    pub style: FractionStyle,
+    /// Fraction-rule policy.
+    pub rule: FractionRule,
+    /// Left delimiter; [`Delimiter::Empty`] means a null delimiter.
+    pub left_delimiter: Delimiter,
+    /// Right delimiter; [`Delimiter::Empty`] means a null delimiter.
+    pub right_delimiter: Delimiter,
+    /// Numerator alignment, including `\cfrac` alignment semantics.
+    pub numerator_alignment: FractionAlignment,
+    /// Numerator syntax tree.
+    pub numerator: Box<MathNode>,
+    /// Denominator syntax tree.
+    pub denominator: Box<MathNode>,
+}
+
+impl FractionSpec {
+    /// Ordinary `\frac` / `\over` semantics.
+    #[must_use]
+    pub fn ordinary(numerator: MathNode, denominator: MathNode) -> Self {
+        Self {
+            style: FractionStyle::Inherit,
+            rule: FractionRule::Default,
+            left_delimiter: Delimiter::Empty,
+            right_delimiter: Delimiter::Empty,
+            numerator_alignment: FractionAlignment::Default,
+            numerator: Box::new(numerator),
+            denominator: Box::new(denominator),
+        }
+    }
+
+    fn is_plain_frac(&self) -> bool {
+        self.style == FractionStyle::Inherit
+            && self.rule == FractionRule::Default
+            && self.left_delimiter == Delimiter::Empty
+            && self.right_delimiter == Delimiter::Empty
+            && self.numerator_alignment == FractionAlignment::Default
+    }
+}
+
 /// `\big` / `\Big` / `\bigg` / `\Bigg` (and `l`/`r`/`m` siblings).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DelimSize {
@@ -561,8 +677,8 @@ impl DelimSize {
 pub enum MathNode {
     /// Single character with a TeX atom class.
     Atom(char, AtomKind),
-    /// `\frac` / `\dfrac` / `\tfrac` / `\cfrac` / `{a \over b}`.
-    Fraction(Box<MathNode>, Box<MathNode>),
+    /// Generalized fraction semantics (`\frac`, `\binom`, `\over`, `\choose`, ...).
+    Fraction(FractionSpec),
     /// `\sqrt` / `\sqrt[n]`. Index `None` is a square root.
     Radical(Option<Box<MathNode>>, Box<MathNode>),
     /// `x^{}`
@@ -642,7 +758,23 @@ impl MathNode {
     pub fn gold(&self) -> String {
         match self {
             Self::Atom(c, k) => format!("(atom {} {})", k.gold(), quote_atom(*c)),
-            Self::Fraction(n, d) => format!("(frac {} {})", n.gold(), d.gold()),
+            Self::Fraction(spec) if spec.is_plain_frac() => {
+                format!(
+                    "(frac {} {})",
+                    spec.numerator.gold(),
+                    spec.denominator.gold()
+                )
+            }
+            Self::Fraction(spec) => format!(
+                "(fraction style={} rule={} left={} right={} align={} {} {})",
+                spec.style.gold(),
+                spec.rule.gold(),
+                spec.left_delimiter.gold(),
+                spec.right_delimiter.gold(),
+                spec.numerator_alignment.gold(),
+                spec.numerator.gold(),
+                spec.denominator.gold(),
+            ),
             Self::Radical(None, r) => format!("(sqrt {})", r.gold()),
             Self::Radical(Some(i), r) => format!("(sqrtn {} {})", i.gold(), r.gold()),
             Self::Superscript(b, e) => format!("(sup {} {})", b.gold(), e.gold()),

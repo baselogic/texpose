@@ -920,16 +920,34 @@ input = "{a \\over b}"
 expect = "(frac (atom Ord \"a\") (atom Ord \"b\"))"
 
 [[gold]]
+name = "dfrac_semantics"
+kind = "ast"
+input = "\\dfrac{a}{b}"
+expect = "(fraction style=display rule=default left=. right=. align=default (atom Ord \"a\") (atom Ord \"b\"))"
+
+[[gold]]
+name = "tfrac_semantics"
+kind = "ast"
+input = "\\tfrac{a}{b}"
+expect = "(fraction style=text rule=default left=. right=. align=default (atom Ord \"a\") (atom Ord \"b\"))"
+
+[[gold]]
+name = "cfrac_left_semantics"
+kind = "ast"
+input = "\\cfrac[l]{a}{b}"
+expect = "(fraction style=display rule=default left=. right=. align=left (atom Ord \"a\") (atom Ord \"b\"))"
+
+[[gold]]
 name = "choose"
 kind = "ast"
 input = "{n \\choose k}"
-expect = "(delim ( (frac (atom Ord \"n\") (atom Ord \"k\")) ))"
+expect = "(fraction style=inherit rule=none left=( right=) align=default (atom Ord \"n\") (atom Ord \"k\"))"
 
 [[gold]]
 name = "binom"
 kind = "ast"
 input = "\\binom{n}{k}"
-expect = "(delim ( (frac (atom Ord \"n\") (atom Ord \"k\")) ))"
+expect = "(fraction style=inherit rule=none left=( right=) align=default (atom Ord \"n\") (atom Ord \"k\"))"
 
 [[gold]]
 name = "colorbox_frac"
