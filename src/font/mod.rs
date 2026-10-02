@@ -291,12 +291,13 @@ impl<'a> MathFontView<'a> {
             .expect("MathFont unitsPerEm was validated at construction")
     }
 
+    pub(crate) fn glyph_index(&self, ch: char) -> Option<u16> {
+        self.face.glyph_index(ch).map(|glyph_id| glyph_id.0)
+    }
+
     pub(crate) fn glyph(&self, ch: char) -> Result<GlyphMetrics, Error> {
-        let gid = self
-            .face
-            .glyph_index(ch)
-            .ok_or(FontError::MissingGlyph { ch })?;
-        self.glyph_id(ch, gid.0)
+        let gid = self.glyph_index(ch).ok_or(FontError::MissingGlyph { ch })?;
+        self.glyph_id(ch, gid)
     }
 
     pub(crate) fn glyph_id(&self, ch: char, gid: u16) -> Result<GlyphMetrics, Error> {

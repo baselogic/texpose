@@ -485,9 +485,8 @@ expect = "s"
 
 [[gold]]
 name = "missing_glyph"
-kind = "err_layout"
+kind = "missing_glyph"
 input = "\u{0378}"
-expect = "missing glyph"
 
 [[gold]]
 name = "unknown_font_style"

@@ -8,8 +8,11 @@ mod space;
 mod style;
 
 pub use engine::{
-    layout, layout_with_em_size_pt, layout_with_max_depth, layout_with_numbering,
-    layout_with_numbering_and_em_size_pt,
+    layout, layout_with_diagnostics, layout_with_em_size_pt,
+    layout_with_em_size_pt_and_diagnostics, layout_with_max_depth,
+    layout_with_max_depth_and_diagnostics, layout_with_numbering,
+    layout_with_numbering_and_diagnostics, layout_with_numbering_and_em_size_pt,
+    layout_with_numbering_and_em_size_pt_and_diagnostics,
 };
 pub use metrics::MathParams;
 pub use numbering::{NumberFormat, NumberStyle, NumberingConfig, NumberingState};
@@ -19,6 +22,32 @@ use crate::color::Color;
 use crate::dim::Dim;
 use crate::error::{Error, NumericError};
 use crate::font::MathFont;
+
+/// Recoverable issue discovered while producing a mathematical layout.
+///
+/// Diagnostics do not invalidate the returned box tree. Callers that need to
+/// surface graceful-degradation events should use a `*_with_diagnostics` layout
+/// entry point.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum LayoutDiagnostic {
+    /// The selected face had no cmap entry for a required Unicode scalar.
+    ///
+    /// Layout continues with glyph id 0 when it has a usable horizontal
+    /// advance, otherwise with the deterministic missing-glyph fallback box.
+    MissingGlyph {
+        /// Unicode scalar that could not be resolved through cmap.
+        ch: char,
+    },
+}
+
+/// Box tree plus recoverable diagnostics from one layout operation.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LayoutOutput {
+    /// Backend-neutral mathematical box tree.
+    pub math_box: MathBox,
+    /// Recoverable diagnostics in deterministic traversal order.
+    pub diagnostics: Vec<LayoutDiagnostic>,
+}
 
 /// Validated physical size of the root math em, expressed in TeX points.
 ///

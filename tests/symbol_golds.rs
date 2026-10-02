@@ -3,8 +3,8 @@
 mod common;
 
 use texpose::{
-    layout, parse, styled_char, symbol_atom_kind, symbols, AtomKind, BoxContent, Error, MathBox,
-    MathFont, MathNode, MathStyle, SymbolKind, TextStyle,
+    layout, layout_with_diagnostics, parse, styled_char, symbol_atom_kind, symbols, AtomKind,
+    BoxContent, LayoutDiagnostic, MathBox, MathFont, MathNode, MathStyle, SymbolKind, TextStyle,
 };
 
 #[derive(Default)]
@@ -193,15 +193,17 @@ fn symbol_golds() {
                     a.width
                 );
             }
-            "err_layout" => {
+            "missing_glyph" => {
                 let ch = rec.input.chars().next().expect("char");
                 let ast = MathNode::Atom(ch, AtomKind::Ord);
-                let err = layout(&ast, &font, MathStyle::Text).expect_err(&rec.name);
-                match err {
-                    Error::Font(_) => {}
-                    other => panic!("{}: {other}", rec.name),
-                }
-                assert!(err.to_string().contains(&rec.expect), "{}: {err}", rec.name);
+                let output = layout_with_diagnostics(&ast, &font, MathStyle::Text)
+                    .unwrap_or_else(|err| panic!("{}: {err}", rec.name));
+                assert_eq!(
+                    output.diagnostics,
+                    vec![LayoutDiagnostic::MissingGlyph { ch }],
+                    "{}",
+                    rec.name
+                );
             }
             "err_parse" => {
                 let err = parse(&rec.input).expect_err(&rec.name);

@@ -271,7 +271,7 @@ pub enum FontError {
     MissingMathConstants,
     /// The referenced MathConstants table is truncated or otherwise malformed.
     MalformedMathConstants,
-    /// Character has no glyph in this face.
+    /// Character has no glyph in this face for a direct or strict glyph lookup.
     MissingGlyph {
         /// Requested character.
         ch: char,

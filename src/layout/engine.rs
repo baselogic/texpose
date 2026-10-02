@@ -1,12 +1,12 @@
 //! `MathNode` → `MathBox`. All sizes are [`Dim`](crate::Dim).
 
-use core::cell::Cell;
+use core::cell::{Cell, RefCell};
 use core::cmp::Ordering;
 
 use crate::atoms::symbol_atom_kind;
 use crate::color::Color;
 use crate::dim::Dim;
-use crate::error::{Error, NumericError};
+use crate::error::{Error, FontError, NumericError};
 use crate::font::{math_value_design_units, MathFont, MathFontView, MathGsubContext};
 use crate::layout::metrics::MathParams;
 use crate::layout::numbering::NumberingState;
@@ -16,7 +16,7 @@ use crate::layout::semantic::{
 };
 use crate::layout::space::{atom_space_mu, space_width};
 use crate::layout::style::MathStyle;
-use crate::layout::{BoxContent, MathBox, RootEmSize};
+use crate::layout::{BoxContent, LayoutDiagnostic, LayoutOutput, MathBox, RootEmSize};
 use crate::parser::DEFAULT_MAX_NESTING_DEPTH;
 use crate::parser::{
     AccentKind, AtomKind, ColSpec, DelimSize, Delimiter, EnvRow, FractionAlignment, FractionRule,
@@ -39,8 +39,10 @@ const TEX_LINE_SKIP_PT: i64 = 1;
 
 /// Lay out `node` in `style` using caller-provided OpenType MATH metrics.
 ///
-/// Every dimension on the returned [`MathBox`] is a [`Dim`](crate::Dim). Missing
-/// glyphs and unsupported constructs are errors — never a substitute glyph.
+/// Every dimension on the returned [`MathBox`] is a [`Dim`](crate::Dim).
+/// Missing cmap entries degrade deterministically instead of failing layout.
+/// This compatibility entry point discards recoverable diagnostics; use
+/// [`layout_with_diagnostics`] when the caller must observe them.
 ///
 /// # Arguments
 ///
@@ -54,7 +56,7 @@ const TEX_LINE_SKIP_PT: i64 = 1;
 ///
 /// # Errors
 ///
-/// * [`Error::Font`] — glyph missing from the face.
+/// * [`Error::Font`] — a construct-specific source glyph or metric cannot be used.
 /// * [`Error::Unsupported`] — construct or MATH table the engine will not fake.
 /// * [`Error::Malformed`] — invalid structure discovered during layout.
 /// * [`Error::Numeric`] — exact dimension arithmetic exceeded the supported
@@ -72,6 +74,24 @@ const TEX_LINE_SKIP_PT: i64 = 1;
 /// assert!(!boxed.width.is_zero());
 /// ```
 pub fn layout(node: &MathNode, font: &MathFont, style: MathStyle) -> Result<MathBox, Error> {
+    Ok(layout_with_diagnostics(node, font, style)?.math_box)
+}
+
+/// Lay out `node` and return recoverable diagnostics with the box tree.
+///
+/// A required Unicode scalar missing from cmap produces
+/// [`LayoutDiagnostic::MissingGlyph`] and a deterministic substitute box while
+/// layout continues. Construct-specific source glyph failures retain their
+/// construct degradation policy instead of being converted into this diagnostic.
+///
+/// # Errors
+///
+/// Same unrecoverable failures as [`layout`].
+pub fn layout_with_diagnostics(
+    node: &MathNode,
+    font: &MathFont,
+    style: MathStyle,
+) -> Result<LayoutOutput, Error> {
     let mut state = NumberingState::default();
     let root_em_size = default_root_em_size();
     layout_impl(
@@ -88,7 +108,8 @@ pub fn layout(node: &MathNode, font: &MathFont, style: MathStyle) -> Result<Math
 ///
 /// Returned dimensions remain normalized em units. The physical root em is
 /// used only to normalize absolute TeX dimensions such as
-/// `\nulldelimiterspace`.
+/// `\nulldelimiterspace`. Recoverable diagnostics are discarded; use
+/// [`layout_with_em_size_pt_and_diagnostics`] to retain them.
 ///
 /// # Errors
 ///
@@ -100,6 +121,20 @@ pub fn layout_with_em_size_pt(
     style: MathStyle,
     em_size_pt: &Dim,
 ) -> Result<MathBox, Error> {
+    Ok(layout_with_em_size_pt_and_diagnostics(node, font, style, em_size_pt)?.math_box)
+}
+
+/// Lay out with an explicit physical root em size and retain diagnostics.
+///
+/// # Errors
+///
+/// Same as [`layout_with_em_size_pt`].
+pub fn layout_with_em_size_pt_and_diagnostics(
+    node: &MathNode,
+    font: &MathFont,
+    style: MathStyle,
+    em_size_pt: &Dim,
+) -> Result<LayoutOutput, Error> {
     let root_em_size = RootEmSize::new(em_size_pt.clone())?;
     let mut state = NumberingState::default();
     layout_impl(
@@ -123,7 +158,9 @@ pub fn layout_with_em_size_pt(
 ///
 /// # Returns
 ///
-/// A box tree. Numbers assigned for this tree are recorded in `state`.
+/// A box tree. Numbers assigned for this tree are recorded in `state`. Recoverable
+/// diagnostics are discarded; use [`layout_with_numbering_and_diagnostics`] to
+/// retain them.
 ///
 /// # Errors
 ///
@@ -147,6 +184,20 @@ pub fn layout_with_numbering(
     style: MathStyle,
     state: &mut NumberingState,
 ) -> Result<MathBox, Error> {
+    Ok(layout_with_numbering_and_diagnostics(node, font, style, state)?.math_box)
+}
+
+/// Lay out with caller-owned numbering and retain recoverable diagnostics.
+///
+/// # Errors
+///
+/// Same as [`layout`].
+pub fn layout_with_numbering_and_diagnostics(
+    node: &MathNode,
+    font: &MathFont,
+    style: MathStyle,
+    state: &mut NumberingState,
+) -> Result<LayoutOutput, Error> {
     let root_em_size = default_root_em_size();
     layout_impl(
         node,
@@ -163,6 +214,8 @@ pub fn layout_with_numbering(
 ///
 /// Returned dimensions remain normalized em units. `em_size_pt` is validated
 /// into the internal physical root-em type before any absolute-unit resolution.
+/// Recoverable diagnostics are discarded; use
+/// [`layout_with_numbering_and_em_size_pt_and_diagnostics`] to retain them.
 ///
 /// # Errors
 ///
@@ -174,6 +227,24 @@ pub fn layout_with_numbering_and_em_size_pt(
     state: &mut NumberingState,
     em_size_pt: &Dim,
 ) -> Result<MathBox, Error> {
+    Ok(
+        layout_with_numbering_and_em_size_pt_and_diagnostics(node, font, style, state, em_size_pt)?
+            .math_box,
+    )
+}
+
+/// Lay out with caller-owned numbering and physical root em, retaining diagnostics.
+///
+/// # Errors
+///
+/// Same as [`layout_with_em_size_pt`].
+pub fn layout_with_numbering_and_em_size_pt_and_diagnostics(
+    node: &MathNode,
+    font: &MathFont,
+    style: MathStyle,
+    state: &mut NumberingState,
+    em_size_pt: &Dim,
+) -> Result<LayoutOutput, Error> {
     let root_em_size = RootEmSize::new(em_size_pt.clone())?;
     layout_impl(
         node,
@@ -189,7 +260,9 @@ pub fn layout_with_numbering_and_em_size_pt(
 /// [`DEFAULT_MAX_NESTING_DEPTH`](crate::DEFAULT_MAX_NESTING_DEPTH).
 ///
 /// Use the same limit given to [`ParseOptions::with_max_depth`](crate::ParseOptions::with_max_depth),
-/// so that every tree the parser accepts can also be laid out.
+/// so that every tree the parser accepts can also be laid out. Recoverable
+/// diagnostics are discarded; use [`layout_with_max_depth_and_diagnostics`] to
+/// retain them.
 ///
 /// # Errors
 ///
@@ -213,6 +286,20 @@ pub fn layout_with_max_depth(
     style: MathStyle,
     max_depth: usize,
 ) -> Result<MathBox, Error> {
+    Ok(layout_with_max_depth_and_diagnostics(node, font, style, max_depth)?.math_box)
+}
+
+/// Lay out with an explicit nesting limit and retain recoverable diagnostics.
+///
+/// # Errors
+///
+/// Same as [`layout_with_max_depth`].
+pub fn layout_with_max_depth_and_diagnostics(
+    node: &MathNode,
+    font: &MathFont,
+    style: MathStyle,
+    max_depth: usize,
+) -> Result<LayoutOutput, Error> {
     let mut state = NumberingState::default();
     let root_em_size = default_root_em_size();
     layout_impl(node, font, style, &mut state, max_depth, &root_em_size)
@@ -230,7 +317,7 @@ fn layout_impl(
     state: &mut NumberingState,
     max_depth: usize,
     root_em_size: &RootEmSize,
-) -> Result<MathBox, Error> {
+) -> Result<LayoutOutput, Error> {
     // Parse the selected OpenType face once and reuse it for the complete
     // layout operation.
     let font = font.operation_view();
@@ -254,7 +341,7 @@ fn layout_impl(
         root_em_size,
     )?;
     let start = state.collect(node);
-    Engine {
+    let engine = Engine {
         font,
         params,
         script_placement,
@@ -267,8 +354,13 @@ fn layout_impl(
         idx: Cell::new(start),
         depth: Cell::new(0),
         max_depth,
-    }
-    .layout(node, style)
+        diagnostics: RefCell::new(Vec::new()),
+    };
+    let math_box = engine.layout(node, style)?;
+    Ok(LayoutOutput {
+        math_box,
+        diagnostics: engine.diagnostics.into_inner(),
+    })
 }
 
 fn resolve_length(
@@ -302,6 +394,7 @@ struct Engine<'font, 'state> {
     depth: Cell<usize>,
     /// Deepest nesting accepted.
     max_depth: usize,
+    diagnostics: RefCell<Vec<LayoutDiagnostic>>,
 }
 
 struct ScriptPlacementParams {
@@ -616,8 +709,58 @@ impl<'font, 'state> Engine<'font, 'state> {
         style: MathStyle,
         context: MathGsubContext,
     ) -> Result<MathBox, Error> {
-        let base = self.font.glyph(ch)?;
-        self.glyph_id_with_context(ch, base.glyph_id, style, context)
+        match self.font.glyph_index(ch) {
+            Some(glyph_id) => self.glyph_id_with_context(ch, glyph_id, style, context),
+            None => self.missing_glyph(ch, style),
+        }
+    }
+
+    fn strict_glyph(&self, ch: char, style: MathStyle) -> Result<MathBox, Error> {
+        self.strict_glyph_with_context(ch, style, MathGsubContext::None)
+    }
+
+    fn strict_glyph_with_context(
+        &self,
+        ch: char,
+        style: MathStyle,
+        context: MathGsubContext,
+    ) -> Result<MathBox, Error> {
+        let glyph_id = self
+            .font
+            .glyph_index(ch)
+            .ok_or(FontError::MissingGlyph { ch })?;
+        self.glyph_id_with_context(ch, glyph_id, style, context)
+    }
+
+    fn missing_glyph(&self, ch: char, style: MathStyle) -> Result<MathBox, Error> {
+        self.diagnostics
+            .borrow_mut()
+            .push(LayoutDiagnostic::MissingGlyph { ch });
+
+        let scale = self.params.scale(style);
+        match self.font.glyph_id(ch, 0) {
+            Ok(glyph) if glyph.advance_fu != 0 => {
+                return Ok(MathBox {
+                    width: glyph.advance.checked_mul(&scale)?,
+                    height: glyph.height.checked_mul(&scale)?,
+                    depth: glyph.depth.checked_mul(&scale)?,
+                    italic: Dim::zero(),
+                    shift: Dim::zero(),
+                    content: BoxContent::glyph(ch, 0, scale),
+                });
+            }
+            Ok(_) | Err(_) => {}
+        }
+
+        let em = self.params.em(style)?;
+        Ok(MathBox {
+            width: em.clone(),
+            height: em,
+            depth: Dim::zero(),
+            italic: Dim::zero(),
+            shift: Dim::zero(),
+            content: BoxContent::Empty,
+        })
     }
 
     fn glyph_id(&self, ch: char, gid: u16, style: MathStyle) -> Result<MathBox, Error> {
@@ -694,7 +837,10 @@ impl<'font, 'state> Engine<'font, 'state> {
     }
 
     fn literal_glyph(&self, ch: char, style: MathStyle) -> Result<MathBox, Error> {
-        let glyph = self.font.glyph(ch)?;
+        let Some(glyph_id) = self.font.glyph_index(ch) else {
+            return self.missing_glyph(ch, style);
+        };
+        let glyph = self.font.glyph_id(ch, glyph_id)?;
         let scale = self.params.scale(style);
         Ok(MathBox {
             width: glyph.advance.checked_mul(&scale)?,
@@ -1391,10 +1537,13 @@ impl<'font, 'state> Engine<'font, 'state> {
     }
 
     fn sized_glyph(&self, ch: char, needed: &Dim, style: MathStyle) -> Result<MathBox, Error> {
-        let base = self.font.glyph(ch)?;
-        let mut best = self.glyph(ch, style)?;
+        let base_glyph_id = self
+            .font
+            .glyph_index(ch)
+            .ok_or(FontError::MissingGlyph { ch })?;
+        let mut best = self.glyph_id(ch, base_glyph_id, style)?;
         let mut best_span = best.height.checked_add(&best.depth)?;
-        for gid in self.font.vertical_variants(base.glyph_id) {
+        for gid in self.font.vertical_variants(base_glyph_id) {
             let cand = self.glyph_id(ch, gid, style)?;
             let span = cand.height.checked_add(&cand.depth)?;
             let meets = span >= *needed;
@@ -1413,6 +1562,9 @@ impl<'font, 'state> Engine<'font, 'state> {
         let BoxContent::Glyph { ch, glyph_id, .. } = base.content else {
             return Ok(base);
         };
+        if self.font.glyph_index(ch).is_none() {
+            return Ok(base);
+        }
         let mut best = base;
         let mut best_w = best.width.clone();
         for gid in self.font.horizontal_variants(glyph_id) {
@@ -1871,9 +2023,9 @@ impl<'font, 'state> Engine<'font, 'state> {
     }
 
     fn not_overlay(&self, base: &MathNode, b: MathBox, style: MathStyle) -> Result<Item, Error> {
-        let slash = match self.glyph('\u{0338}', style) {
+        let slash = match self.strict_glyph('\u{0338}', style) {
             Ok(bx) => bx,
-            Err(_) => self.glyph('/', style)?,
+            Err(_) => self.strict_glyph('/', style)?,
         };
         let width = b.width.max_ref(&slash.width);
         let two = Dim::from_i64(2);
@@ -2035,7 +2187,7 @@ impl<'font, 'state> Engine<'font, 'state> {
         context: MathGsubContext,
     ) -> Result<MathBox, Error> {
         for &ch in accent_candidates(kind) {
-            if let Ok(bx) = self.glyph_with_context(ch, style, context) {
+            if let Ok(bx) = self.strict_glyph_with_context(ch, style, context) {
                 return Ok(bx);
             }
         }
@@ -2062,13 +2214,15 @@ impl<'font, 'state> Engine<'font, 'state> {
             _ => return Ok(fixed),
         };
 
-        let seed = self.font.glyph(seed_ch)?;
+        let Some(seed_glyph_id) = self.font.glyph_index(seed_ch) else {
+            return Ok(fixed);
+        };
 
         let mut selected = fixed;
         let mut selected_width = selected.width.clone();
 
-        for glyph_id in self.font.horizontal_variants(seed.glyph_id) {
-            if glyph_id == seed.glyph_id {
+        for glyph_id in self.font.horizontal_variants(seed_glyph_id) {
+            if glyph_id == seed_glyph_id {
                 continue;
             }
 
@@ -2103,13 +2257,15 @@ impl<'font, 'state> Engine<'font, 'state> {
         let scale = self.params.scale(style);
         let two = Dim::from_i64(2);
 
-        let base_att = match single_glyph_id(base)
+        let base_att = match single_glyph_source(base)
+            .and_then(|(ch, glyph_id)| self.font.glyph_index(ch).map(|_| glyph_id))
             .and_then(|glyph_id| self.font.top_accent_attachment(glyph_id))
         {
             Some(value) => value.checked_mul(&scale)?,
             None => base.width.checked_div(&two)?,
         };
-        let acc_att = match single_glyph_id(acc)
+        let acc_att = match single_glyph_source(acc)
+            .and_then(|(ch, glyph_id)| self.font.glyph_index(ch).map(|_| glyph_id))
             .and_then(|glyph_id| self.font.top_accent_attachment(glyph_id))
         {
             Some(value) => value.checked_mul(&scale)?,
@@ -2254,12 +2410,17 @@ impl<'font, 'state> Engine<'font, 'state> {
 
     fn accent_x_off(&self, base: &MathBox, acc: &MathBox, kind: AccentKind) -> Result<Dim, Error> {
         let two = Dim::from_i64(2);
-        let base_att = match first_glyph_id(base).and_then(|id| self.font.top_accent_attachment(id))
+        let base_att = match first_glyph_source(base)
+            .and_then(|(ch, glyph_id)| self.font.glyph_index(ch).map(|_| glyph_id))
+            .and_then(|glyph_id| self.font.top_accent_attachment(glyph_id))
         {
             Some(value) => value,
             None => base.width.checked_add(&base.italic)?.checked_div(&two)?,
         };
-        let acc_att = match first_glyph_id(acc).and_then(|id| self.font.top_accent_attachment(id)) {
+        let acc_att = match first_glyph_source(acc)
+            .and_then(|(ch, glyph_id)| self.font.glyph_index(ch).map(|_| glyph_id))
+            .and_then(|glyph_id| self.font.top_accent_attachment(glyph_id))
+        {
             Some(value) => value,
             None => acc.width.checked_div(&two)?,
         };
@@ -3275,9 +3436,9 @@ fn overlay_accent(base: MathBox, acc: MathBox, x_off: Dim, raise: Dim) -> Result
     })
 }
 
-fn single_glyph_id(b: &MathBox) -> Option<u16> {
+fn single_glyph_source(b: &MathBox) -> Option<(char, u16)> {
     match &b.content {
-        BoxContent::Glyph { glyph_id, .. } => Some(*glyph_id),
+        BoxContent::Glyph { ch, glyph_id, .. } => Some((*ch, *glyph_id)),
 
         BoxContent::HList(children) | BoxContent::VList(children) => {
             let mut found = None;
@@ -3287,9 +3448,9 @@ fn single_glyph_id(b: &MathBox) -> Option<u16> {
                     continue;
                 }
 
-                let glyph_id = single_glyph_id(child)?;
+                let glyph = single_glyph_source(child)?;
 
-                if found.replace(glyph_id).is_some() {
+                if found.replace(glyph).is_some() {
                     return None;
                 }
             }
@@ -3299,21 +3460,21 @@ fn single_glyph_id(b: &MathBox) -> Option<u16> {
 
         BoxContent::Color(_, inner)
         | BoxContent::BackColor(_, inner)
-        | BoxContent::Frame { inner, .. } => single_glyph_id(inner),
+        | BoxContent::Frame { inner, .. } => single_glyph_source(inner),
 
         _ => None,
     }
 }
 
-fn first_glyph_id(b: &MathBox) -> Option<u16> {
+fn first_glyph_source(b: &MathBox) -> Option<(char, u16)> {
     match &b.content {
-        BoxContent::Glyph { glyph_id, .. } => Some(*glyph_id),
+        BoxContent::Glyph { ch, glyph_id, .. } => Some((*ch, *glyph_id)),
         BoxContent::HList(v) | BoxContent::VList(v) | BoxContent::Overlap(v) => {
-            v.iter().find_map(first_glyph_id)
+            v.iter().find_map(first_glyph_source)
         }
         BoxContent::Color(_, inner)
         | BoxContent::BackColor(_, inner)
-        | BoxContent::Frame { inner, .. } => first_glyph_id(inner),
+        | BoxContent::Frame { inner, .. } => first_glyph_source(inner),
         _ => None,
     }
 }

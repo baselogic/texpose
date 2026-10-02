@@ -4,7 +4,7 @@
 //! being reduced and reworked around backend-neutral parsing, font metrics, and
 //! layout. Public API stability is not yet promised.
 //!
-//! Unsupported constructs return [`Error`] rather than fabricating output.
+//! Unsupported constructs return [`Error`] rather than fabricating output. Missing cmap entries are recoverable layout diagnostics with deterministic degradation.
 
 #![forbid(unsafe_code)]
 #![deny(dead_code)]
@@ -40,9 +40,13 @@ pub use error::{
 };
 pub use font::{GlyphMetrics, MathFont};
 pub use layout::{
-    layout, layout_with_em_size_pt, layout_with_max_depth, layout_with_numbering,
-    layout_with_numbering_and_em_size_pt, BoxContent, MathBox, MathParams, MathStyle, NumberFormat,
-    NumberStyle, NumberingConfig, NumberingState,
+    layout, layout_with_diagnostics, layout_with_em_size_pt,
+    layout_with_em_size_pt_and_diagnostics, layout_with_max_depth,
+    layout_with_max_depth_and_diagnostics, layout_with_numbering,
+    layout_with_numbering_and_diagnostics, layout_with_numbering_and_em_size_pt,
+    layout_with_numbering_and_em_size_pt_and_diagnostics, BoxContent, LayoutDiagnostic,
+    LayoutOutput, MathBox, MathParams, MathStyle, NumberFormat, NumberStyle, NumberingConfig,
+    NumberingState,
 };
 pub use parser::{
     format_tokens, parse, parse_with_colors, parse_with_options, preprocess, tokenize,
