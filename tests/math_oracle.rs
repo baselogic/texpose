@@ -1,6 +1,7 @@
-mod common;
-
-use texpose::{layout_with_em_size_pt, parse, BoxContent, Dim, MathBox, MathParams, MathStyle};
+use texpose::{
+    layout_with_em_size_pt, parse, styled_char, BoxContent, Dim, MathBox, MathFont, MathStyle,
+    TextStyle,
+};
 
 #[derive(Clone, Copy)]
 struct MathComparisonCase<'a> {
@@ -493,17 +494,41 @@ fn dim_f32_rounds_directly_to_binary32() {
     assert_eq!(dim_f32(&(-above_midpoint)).to_bits(), 0xbf80_0001);
 }
 
+fn required_oracle_env(name: &str) -> String {
+    std::env::var(name).unwrap_or_else(|_| panic!("missing oracle environment variable {name}"))
+}
+
 #[test]
 #[ignore = "explicit LuaLaTeX differential math-layout probe"]
 fn lualatex_math_comparison_probe() {
     // LuaLaTeX is an external differential oracle, not a production dependency.
-    // TeXpose and LuaLaTeX consume the same committed verification fixture.
-    let font = common::stix_two_math().unwrap();
-    let params = MathParams::from_font(&font).unwrap();
-    println!(
-        "TEXPOSE_MATH_COMPARE_PARAMS script_percent={} scriptscript_percent={}",
-        params.script_percent_scale_down, params.script_script_percent_scale_down
+    // The verifier owns one immutable font file and supplies that exact path to
+    // both this probe and the reference engine.
+    let path = required_oracle_env("TEXPOSE_MATH_COMPARE_FONT");
+    let expected_hash = required_oracle_env("TEXPOSE_MATH_COMPARE_FONT_SHA256");
+    let face_index = required_oracle_env("TEXPOSE_MATH_COMPARE_FACE_INDEX")
+        .parse::<u32>()
+        .expect("oracle face index must be u32");
+    let profile = required_oracle_env("TEXPOSE_MATH_COMPARE_PROFILE");
+    let revision = required_oracle_env("TEXPOSE_MATH_COMPARE_REVISION");
+    let bytes = std::fs::read(&path).expect("verifier-owned oracle font must be readable");
+    let actual_hash = MathFont::sha256_hex(&bytes);
+    assert_eq!(
+        actual_hash, expected_hash,
+        "oracle font hash changed before probe"
     );
+    let font = MathFont::from_bytes_at_index(&bytes, face_index)
+        .expect("verifier-owned oracle font face must construct");
+    let control_char = styled_char('x', TextStyle::It);
+    let control_glyph_id = font
+        .glyph(control_char)
+        .expect("oracle profile must contain the default italic x control glyph")
+        .glyph_id;
+    println!(
+        "TEXPOSE_MATH_COMPARE_META profile={} revision={} font_sha256={} face_index={} control_glyph_id={}",
+        profile, revision, actual_hash, face_index, control_glyph_id
+    );
+
     let stress_enabled =
         std::env::var("TEXPOSE_MATH_COMPARE_STRESS").is_ok_and(|value| value == "1");
     let stress_cases = if stress_enabled {
@@ -523,6 +548,13 @@ fn lualatex_math_comparison_probe() {
         measurements
             .iter()
             .map(|item| item.case.name)
+            .collect::<Vec<_>>()
+            .join(",")
+    );
+    println!(
+        "TEXPOSE_MATH_COMPARE_ALIASES names={}",
+        all.iter()
+            .map(|case| case.name)
             .collect::<Vec<_>>()
             .join(",")
     );
