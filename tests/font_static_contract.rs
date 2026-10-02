@@ -191,7 +191,7 @@ fn static_otf_and_ttf_faces_load_with_explicit_profile_index() {
     assert_eq!(&DEJAVU_TTF[..4], &[0, 1, 0, 0]);
     assert!(matches!(
         MathFont::from_bytes_at_index(STIX, 1),
-        Err(FontError::InvalidFace)
+        Err(FontError::FaceIndexOutOfBounds)
     ));
 }
 
@@ -222,7 +222,7 @@ fn collections_require_and_honor_an_explicit_face_index() {
     );
     assert!(matches!(
         MathFont::from_bytes_at_index(collection, 2),
-        Err(FontError::InvalidFace)
+        Err(FontError::FaceIndexOutOfBounds)
     ));
 }
 

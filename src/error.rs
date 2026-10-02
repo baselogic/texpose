@@ -259,8 +259,18 @@ pub enum FontError {
     InvalidFace,
     /// A font collection was supplied without selecting an explicit face index.
     CollectionFaceIndexRequired,
+    /// The requested face index does not exist in the supplied font or collection.
+    FaceIndexOutOfBounds,
     /// The selected face contains functional OpenType variation axes.
     VariableFontUnsupported,
+    /// The selected face has no physical OpenType MATH table.
+    MissingMathTable,
+    /// A physical MATH table exists but its header or table range is malformed.
+    MalformedMathTable,
+    /// The MATH header does not reference a MathConstants table.
+    MissingMathConstants,
+    /// The referenced MathConstants table is truncated or otherwise malformed.
+    MalformedMathConstants,
     /// Character has no glyph in this face.
     MissingGlyph {
         /// Requested character.
@@ -345,7 +355,12 @@ impl fmt::Display for FontError {
             Self::CollectionFaceIndexRequired => {
                 f.write_str("font collection requires an explicit face index")
             }
+            Self::FaceIndexOutOfBounds => f.write_str("font face index is out of bounds"),
             Self::VariableFontUnsupported => f.write_str("variable fonts are unsupported"),
+            Self::MissingMathTable => f.write_str("font has no OpenType MATH table"),
+            Self::MalformedMathTable => f.write_str("OpenType MATH table is malformed"),
+            Self::MissingMathConstants => f.write_str("MATH table has no MathConstants offset"),
+            Self::MalformedMathConstants => f.write_str("MATH MathConstants table is malformed"),
             Self::MissingGlyph { ch } => write!(f, "missing glyph for {ch:?}"),
         }
     }

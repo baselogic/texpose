@@ -7,7 +7,7 @@ use crate::atoms::symbol_atom_kind;
 use crate::color::Color;
 use crate::dim::Dim;
 use crate::error::{Error, NumericError};
-use crate::font::{MathFont, MathFontView};
+use crate::font::{math_value_design_units, MathFont, MathFontView};
 use crate::layout::metrics::MathParams;
 use crate::layout::numbering::NumberingState;
 use crate::layout::semantic::{
@@ -234,10 +234,10 @@ fn layout_impl(
     // Parse the selected OpenType face once and reuse it for the complete
     // layout operation.
     let font = font.operation_view();
-    let params = MathParams::from_view(&font)?;
-    let script_placement = ScriptPlacementParams::from_view(&font)?;
+    let params = MathParams::from_view(&font);
+    let script_placement = ScriptPlacementParams::from_view(&font);
     let substack = SubstackParams::from_view(&font, &params)?;
-    let fraction_stack = FractionStackParams::from_view(&font)?;
+    let fraction_stack = FractionStackParams::from_view(&font);
     let null_delimiter_space = resolve_length(
         &Length::TexPt(Dim::ratio(
             TEX_NULL_DELIMITER_SPACE_PT_NUM,
@@ -313,31 +313,22 @@ struct ScriptPlacementParams {
 }
 
 impl ScriptPlacementParams {
-    fn from_view(font: &MathFontView<'_>) -> Result<Self, Error> {
-        let math = font
-            .face()
-            .tables()
-            .math
-            .ok_or_else(|| Error::Unsupported {
-                what: "OpenType MATH table".into(),
-            })?;
-
-        let constants = math.constants.ok_or_else(|| Error::Unsupported {
-            what: "MATH constants".into(),
-        })?;
-
+    fn from_view(font: &MathFontView<'_>) -> Self {
+        let constants = font.math_constants();
         let units_per_em = font.units_per_em_nonzero();
-        let fu = |value: i16| Dim::from_font_units_nonzero(i64::from(value), units_per_em);
+        let fu = |value| {
+            Dim::from_font_units_nonzero(i64::from(math_value_design_units(value)), units_per_em)
+        };
 
-        Ok(Self {
-            subscript_top_max: fu(constants.subscript_top_max().value),
-            subscript_baseline_drop_min: fu(constants.subscript_baseline_drop_min().value),
-            superscript_bottom_min: fu(constants.superscript_bottom_min().value),
-            superscript_bottom_max_with_subscript: fu(constants
-                .superscript_bottom_max_with_subscript()
-                .value),
-            superscript_baseline_drop_max: fu(constants.superscript_baseline_drop_max().value),
-        })
+        Self {
+            subscript_top_max: fu(constants.subscript_top_max()),
+            subscript_baseline_drop_min: fu(constants.subscript_baseline_drop_min()),
+            superscript_bottom_min: fu(constants.superscript_bottom_min()),
+            superscript_bottom_max_with_subscript: fu(
+                constants.superscript_bottom_max_with_subscript()
+            ),
+            superscript_baseline_drop_max: fu(constants.superscript_baseline_drop_max()),
+        }
     }
 }
 
@@ -348,28 +339,19 @@ struct SubstackParams {
 
 impl SubstackParams {
     fn from_view(font: &MathFontView<'_>, params: &MathParams) -> Result<Self, Error> {
-        let math = font
-            .face()
-            .tables()
-            .math
-            .ok_or_else(|| Error::Unsupported {
-                what: "OpenType MATH table".into(),
-            })?;
-
-        let constants = math.constants.ok_or_else(|| Error::Unsupported {
-            what: "MATH constants".into(),
-        })?;
-
+        let constants = font.math_constants();
         let units_per_em = font.units_per_em_nonzero();
-        let fu = |value: i16| Dim::from_font_units_nonzero(i64::from(value), units_per_em);
+        let fu = |value| {
+            Dim::from_font_units_nonzero(i64::from(math_value_design_units(value)), units_per_em)
+        };
 
         let script_scale = params.scale(MathStyle::Script);
 
-        let top = fu(constants.stack_top_shift_up().value);
+        let top = fu(constants.stack_top_shift_up());
 
-        let bottom = fu(constants.stack_bottom_shift_down().value);
+        let bottom = fu(constants.stack_bottom_shift_down());
 
-        let gap = fu(constants.stack_gap_min().value);
+        let gap = fu(constants.stack_gap_min());
 
         Ok(Self {
             baseline_skip: top.checked_add(&bottom)?.checked_mul(&script_scale)?,
@@ -389,27 +371,20 @@ struct FractionStackParams {
 }
 
 impl FractionStackParams {
-    fn from_view(font: &MathFontView<'_>) -> Result<Self, Error> {
-        let math = font
-            .face()
-            .tables()
-            .math
-            .ok_or_else(|| Error::Unsupported {
-                what: "OpenType MATH table".into(),
-            })?;
-        let constants = math.constants.ok_or_else(|| Error::Unsupported {
-            what: "MATH constants".into(),
-        })?;
+    fn from_view(font: &MathFontView<'_>) -> Self {
+        let constants = font.math_constants();
         let units_per_em = font.units_per_em_nonzero();
-        let fu = |value: i16| Dim::from_font_units_nonzero(i64::from(value), units_per_em);
-        Ok(Self {
-            top_shift_up: fu(constants.stack_top_shift_up().value),
-            top_display_shift_up: fu(constants.stack_top_display_style_shift_up().value),
-            bottom_shift_down: fu(constants.stack_bottom_shift_down().value),
-            bottom_display_shift_down: fu(constants.stack_bottom_display_style_shift_down().value),
-            gap_min: fu(constants.stack_gap_min().value),
-            display_gap_min: fu(constants.stack_display_style_gap_min().value),
-        })
+        let fu = |value| {
+            Dim::from_font_units_nonzero(i64::from(math_value_design_units(value)), units_per_em)
+        };
+        Self {
+            top_shift_up: fu(constants.stack_top_shift_up()),
+            top_display_shift_up: fu(constants.stack_top_display_style_shift_up()),
+            bottom_shift_down: fu(constants.stack_bottom_shift_down()),
+            bottom_display_shift_down: fu(constants.stack_bottom_display_style_shift_down()),
+            gap_min: fu(constants.stack_gap_min()),
+            display_gap_min: fu(constants.stack_display_style_gap_min()),
+        }
     }
 
     fn scaled(&self, style: MathStyle, scale: &Dim) -> Result<(Dim, Dim, Dim), Error> {

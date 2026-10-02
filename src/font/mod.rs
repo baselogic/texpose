@@ -3,7 +3,7 @@
 use core::num::NonZeroU16;
 use std::sync::Arc;
 
-use ttf_parser::{Face, RawFace, Tag};
+use ttf_parser::{Face, FaceParsingError, RawFace, Tag};
 
 use crate::dim::Dim;
 use crate::error::{Error, FontError};
@@ -105,16 +105,18 @@ impl MathFont {
     /// OpenType variation axes return [`FontError::VariableFontUnsupported`].
     pub fn from_shared_bytes(raw: Arc<[u8]>, face_index: u32) -> Result<Self, FontError> {
         {
-            let raw_face =
-                RawFace::parse(raw.as_ref(), face_index).map_err(|_| FontError::InvalidFace)?;
+            let raw_face = RawFace::parse(raw.as_ref(), face_index).map_err(map_face_error)?;
             if raw_face_has_variable_axes(&raw_face)? {
                 return Err(FontError::VariableFontUnsupported);
             }
+            validate_math_contract(&raw_face)?;
         }
 
         {
-            let face = Face::parse(raw.as_ref(), face_index).map_err(|_| FontError::InvalidFace)?;
+            let face = Face::parse(raw.as_ref(), face_index).map_err(map_face_error)?;
             NonZeroU16::new(face.units_per_em()).ok_or(FontError::InvalidFace)?;
+            let math = face.tables().math.ok_or(FontError::MalformedMathTable)?;
+            math.constants.ok_or(FontError::MalformedMathConstants)?;
         }
 
         Ok(Self {
@@ -268,6 +270,19 @@ impl<'a> MathFontView<'a> {
         &self.face
     }
 
+    pub(crate) fn math_table(&self) -> ttf_parser::math::Table<'a> {
+        self.face
+            .tables()
+            .math
+            .expect("MathFont validates the MATH table at construction")
+    }
+
+    pub(crate) fn math_constants(&self) -> ttf_parser::math::Constants<'a> {
+        self.math_table()
+            .constants
+            .expect("MathFont validates MathConstants at construction")
+    }
+
     pub(crate) fn units_per_em_nonzero(&self) -> NonZeroU16 {
         NonZeroU16::new(self.face.units_per_em())
             .expect("MathFont unitsPerEm was validated at construction")
@@ -305,9 +320,7 @@ impl<'a> MathFontView<'a> {
     }
 
     pub(crate) fn italic_correction(&self, glyph_id: u16) -> Dim {
-        let Some(math) = self.face.tables().math else {
-            return Dim::zero();
-        };
+        let math = self.math_table();
         let Some(info) = math.glyph_info else {
             return Dim::zero();
         };
@@ -315,20 +328,21 @@ impl<'a> MathFontView<'a> {
             return Dim::zero();
         };
         match table.get(ttf_parser::GlyphId(glyph_id)) {
-            Some(v) => {
-                Dim::from_font_units_nonzero(i64::from(v.value), self.units_per_em_nonzero())
-            }
+            Some(v) => Dim::from_font_units_nonzero(
+                i64::from(math_value_design_units(v)),
+                self.units_per_em_nonzero(),
+            ),
             None => Dim::zero(),
         }
     }
 
     pub(crate) fn top_accent_attachment(&self, glyph_id: u16) -> Option<Dim> {
-        let math = self.face.tables().math?;
+        let math = self.math_table();
         let info = math.glyph_info?;
         let table = info.top_accent_attachments?;
         let v = table.get(ttf_parser::GlyphId(glyph_id))?;
         Some(Dim::from_font_units_nonzero(
-            i64::from(v.value),
+            i64::from(math_value_design_units(v)),
             self.units_per_em_nonzero(),
         ))
     }
@@ -338,9 +352,7 @@ impl<'a> MathFontView<'a> {
         glyph_id: u16,
     ) -> Vec<(u16, u16, u16, u16, bool)> {
         let mut out = Vec::new();
-        let Some(math) = self.face.tables().math else {
-            return out;
-        };
+        let math = self.math_table();
         let Some(variants) = math.variants else {
             return out;
         };
@@ -369,9 +381,7 @@ impl<'a> MathFontView<'a> {
 
     pub(crate) fn horizontal_variants(&self, glyph_id: u16) -> Vec<u16> {
         let mut out = vec![glyph_id];
-        let Some(math) = self.face.tables().math else {
-            return out;
-        };
+        let math = self.math_table();
         let Some(variants) = math.variants else {
             return out;
         };
@@ -391,9 +401,7 @@ impl<'a> MathFontView<'a> {
 
     pub(crate) fn vertical_variants(&self, glyph_id: u16) -> Vec<u16> {
         let mut out = vec![glyph_id];
-        let Some(math) = self.face.tables().math else {
-            return out;
-        };
+        let math = self.math_table();
         let Some(variants) = math.variants else {
             return out;
         };
@@ -414,6 +422,84 @@ impl<'a> MathFontView<'a> {
     pub(crate) fn script_alternate_glyph_id(&self, glyph_id: u16, script_level: u8) -> Option<u16> {
         ssty_alternate_glyph_id(&self.face, glyph_id, script_level)
     }
+}
+
+const MATH_HEADER_LEN: usize = 10;
+const MATH_CONSTANTS_LEN: usize = 214;
+
+fn map_face_error(error: FaceParsingError) -> FontError {
+    match error {
+        FaceParsingError::FaceIndexOutOfBounds => FontError::FaceIndexOutOfBounds,
+        _ => FontError::InvalidFace,
+    }
+}
+
+fn validate_math_contract(raw_face: &RawFace<'_>) -> Result<(), FontError> {
+    let math = raw_math_table(raw_face)?;
+    if math.len() < MATH_HEADER_LEN {
+        return Err(FontError::MalformedMathTable);
+    }
+
+    let major = u16::from_be_bytes([math[0], math[1]]);
+    let minor = u16::from_be_bytes([math[2], math[3]]);
+    if (major, minor) != (1, 0) {
+        return Err(FontError::MalformedMathTable);
+    }
+
+    let constants_offset = usize::from(u16::from_be_bytes([math[4], math[5]]));
+    if constants_offset == 0 {
+        return Err(FontError::MissingMathConstants);
+    }
+    if constants_offset < MATH_HEADER_LEN {
+        return Err(FontError::MalformedMathConstants);
+    }
+    let constants_end = constants_offset
+        .checked_add(MATH_CONSTANTS_LEN)
+        .ok_or(FontError::MalformedMathConstants)?;
+    if constants_end > math.len() {
+        return Err(FontError::MalformedMathConstants);
+    }
+
+    let parsed = ttf_parser::math::Table::parse(math).ok_or(FontError::MalformedMathTable)?;
+    parsed.constants.ok_or(FontError::MalformedMathConstants)?;
+    Ok(())
+}
+
+fn raw_math_table<'a>(raw_face: &RawFace<'a>) -> Result<&'a [u8], FontError> {
+    let math_tag = Tag::from_bytes(b"MATH");
+    let mut found = None;
+    for index in 0..raw_face.table_records.len() {
+        let record = raw_face
+            .table_records
+            .get(index)
+            .ok_or(FontError::MalformedMathTable)?;
+        if record.tag == math_tag {
+            if found.is_some() {
+                return Err(FontError::MalformedMathTable);
+            }
+            found = Some(record);
+        }
+    }
+
+    let record = found.ok_or(FontError::MissingMathTable)?;
+    let offset = usize::try_from(record.offset).map_err(|_| FontError::MalformedMathTable)?;
+    let length = usize::try_from(record.length).map_err(|_| FontError::MalformedMathTable)?;
+    let end = offset
+        .checked_add(length)
+        .ok_or(FontError::MalformedMathTable)?;
+    raw_face
+        .data
+        .get(offset..end)
+        .ok_or(FontError::MalformedMathTable)
+}
+
+/// Return the design-unit component of an OpenType `MathValueRecord`.
+///
+/// TeXpose deliberately ignores PPEM-dependent Device-table corrections in
+/// the stable core so mathematical layout is independent of display DPI and
+/// pixel-grid hinting.
+pub(crate) fn math_value_design_units(value: ttf_parser::math::MathValue<'_>) -> i16 {
+    value.value
 }
 
 fn raw_face_has_variable_axes(raw_face: &RawFace<'_>) -> Result<bool, FontError> {

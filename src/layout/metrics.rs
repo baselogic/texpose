@@ -2,7 +2,7 @@
 
 use crate::dim::Dim;
 use crate::error::{Error, NumericError};
-use crate::font::{MathFont, MathFontView};
+use crate::font::{math_value_design_units, MathFont, MathFontView};
 use crate::layout::style::MathStyle;
 
 /// MATH-table parameters used by the layout engine.
@@ -103,24 +103,18 @@ pub struct MathParams {
 }
 
 impl MathParams {
-    /// Load MATH constants from `font`. Missing MATH is [`Error::Unsupported`].
+    /// Load validated MATH constants from `font`.
     ///
-    /// # Errors
-    ///
-    /// [`Error::Unsupported`] if the face has no MATH table or constants.
+    /// MATH-table absence and malformation are rejected while constructing
+    /// [`MathFont`], so layout never needs an absent-table fallback.
     pub fn from_font(font: &MathFont) -> Result<Self, Error> {
         let font = font.operation_view();
-        Self::from_view(&font)
+        Ok(Self::from_view(&font))
     }
 
-    pub(crate) fn from_view(font: &MathFontView<'_>) -> Result<Self, Error> {
+    pub(crate) fn from_view(font: &MathFontView<'_>) -> Self {
         let face = font.face();
-        let math = face.tables().math.ok_or_else(|| Error::Unsupported {
-            what: "OpenType MATH table".into(),
-        })?;
-        let c = math.constants.ok_or_else(|| Error::Unsupported {
-            what: "MATH constants".into(),
-        })?;
+        let c = font.math_constants();
         let upem = font.units_per_em_nonzero();
         let fu = |v: i16| Dim::from_font_units_nonzero(i64::from(v), upem);
         let fu_u = |v: u16| Dim::from_font_units_nonzero(i64::from(v), upem);
@@ -128,54 +122,72 @@ impl MathParams {
             Some(value) => fu(value),
             None => Dim::ratio(1, 2).expect("static nonzero x-height fallback denominator"),
         };
-        Ok(Self {
+        Self {
             x_height: xh,
             quad: Dim::one(),
-            axis_height: fu(c.axis_height().value),
-            accent_base_height: fu(c.accent_base_height().value),
-            flattened_accent_base_height: fu(c.flattened_accent_base_height().value),
-            fraction_rule_thickness: fu(c.fraction_rule_thickness().value),
-            fraction_numerator_shift_up: fu(c.fraction_numerator_shift_up().value),
-            fraction_numerator_display_style_shift_up: fu(c
-                .fraction_numerator_display_style_shift_up()
-                .value),
-            fraction_denominator_shift_down: fu(c.fraction_denominator_shift_down().value),
-            fraction_denominator_display_style_shift_down: fu(c
-                .fraction_denominator_display_style_shift_down()
-                .value),
-            fraction_numerator_gap_min: fu(c.fraction_numerator_gap_min().value),
-            fraction_num_display_style_gap_min: fu(c.fraction_num_display_style_gap_min().value),
-            fraction_denominator_gap_min: fu(c.fraction_denominator_gap_min().value),
-            fraction_denom_display_style_gap_min: fu(c
-                .fraction_denom_display_style_gap_min()
-                .value),
-            superscript_shift_up: fu(c.superscript_shift_up().value),
-            superscript_shift_up_cramped: fu(c.superscript_shift_up_cramped().value),
-            subscript_shift_down: fu(c.subscript_shift_down().value),
-            sub_superscript_gap_min: fu(c.sub_superscript_gap_min().value),
-            space_after_script: fu(c.space_after_script().value),
-            radical_vertical_gap: fu(c.radical_vertical_gap().value),
-            radical_display_style_vertical_gap: fu(c.radical_display_style_vertical_gap().value),
-            radical_rule_thickness: fu(c.radical_rule_thickness().value),
-            radical_extra_ascender: fu(c.radical_extra_ascender().value),
-            radical_kern_before_degree: fu(c.radical_kern_before_degree().value),
-            radical_kern_after_degree: fu(c.radical_kern_after_degree().value),
+            axis_height: fu(math_value_design_units(c.axis_height())),
+            accent_base_height: fu(math_value_design_units(c.accent_base_height())),
+            flattened_accent_base_height: fu(math_value_design_units(
+                c.flattened_accent_base_height(),
+            )),
+            fraction_rule_thickness: fu(math_value_design_units(c.fraction_rule_thickness())),
+            fraction_numerator_shift_up: fu(math_value_design_units(
+                c.fraction_numerator_shift_up(),
+            )),
+            fraction_numerator_display_style_shift_up: fu(math_value_design_units(
+                c.fraction_numerator_display_style_shift_up(),
+            )),
+            fraction_denominator_shift_down: fu(math_value_design_units(
+                c.fraction_denominator_shift_down(),
+            )),
+            fraction_denominator_display_style_shift_down: fu(math_value_design_units(
+                c.fraction_denominator_display_style_shift_down(),
+            )),
+            fraction_numerator_gap_min: fu(math_value_design_units(c.fraction_numerator_gap_min())),
+            fraction_num_display_style_gap_min: fu(math_value_design_units(
+                c.fraction_num_display_style_gap_min(),
+            )),
+            fraction_denominator_gap_min: fu(math_value_design_units(
+                c.fraction_denominator_gap_min(),
+            )),
+            fraction_denom_display_style_gap_min: fu(math_value_design_units(
+                c.fraction_denom_display_style_gap_min(),
+            )),
+            superscript_shift_up: fu(math_value_design_units(c.superscript_shift_up())),
+            superscript_shift_up_cramped: fu(math_value_design_units(
+                c.superscript_shift_up_cramped(),
+            )),
+            subscript_shift_down: fu(math_value_design_units(c.subscript_shift_down())),
+            sub_superscript_gap_min: fu(math_value_design_units(c.sub_superscript_gap_min())),
+            space_after_script: fu(math_value_design_units(c.space_after_script())),
+            radical_vertical_gap: fu(math_value_design_units(c.radical_vertical_gap())),
+            radical_display_style_vertical_gap: fu(math_value_design_units(
+                c.radical_display_style_vertical_gap(),
+            )),
+            radical_rule_thickness: fu(math_value_design_units(c.radical_rule_thickness())),
+            radical_extra_ascender: fu(math_value_design_units(c.radical_extra_ascender())),
+            radical_kern_before_degree: fu(math_value_design_units(c.radical_kern_before_degree())),
+            radical_kern_after_degree: fu(math_value_design_units(c.radical_kern_after_degree())),
             radical_degree_bottom_raise_percent: c.radical_degree_bottom_raise_percent(),
-            overbar_vertical_gap: fu(c.overbar_vertical_gap().value),
-            overbar_rule_thickness: fu(c.overbar_rule_thickness().value),
-            overbar_extra_ascender: fu(c.overbar_extra_ascender().value),
-            underbar_vertical_gap: fu(c.underbar_vertical_gap().value),
-            underbar_rule_thickness: fu(c.underbar_rule_thickness().value),
-            underbar_extra_descender: fu(c.underbar_extra_descender().value),
-            upper_limit_gap_min: fu(c.upper_limit_gap_min().value),
-            upper_limit_baseline_rise_min: fu(c.upper_limit_baseline_rise_min().value),
-            lower_limit_gap_min: fu(c.lower_limit_gap_min().value),
-            lower_limit_baseline_drop_min: fu(c.lower_limit_baseline_drop_min().value),
+            overbar_vertical_gap: fu(math_value_design_units(c.overbar_vertical_gap())),
+            overbar_rule_thickness: fu(math_value_design_units(c.overbar_rule_thickness())),
+            overbar_extra_ascender: fu(math_value_design_units(c.overbar_extra_ascender())),
+            underbar_vertical_gap: fu(math_value_design_units(c.underbar_vertical_gap())),
+            underbar_rule_thickness: fu(math_value_design_units(c.underbar_rule_thickness())),
+            underbar_extra_descender: fu(math_value_design_units(c.underbar_extra_descender())),
+            upper_limit_gap_min: fu(math_value_design_units(c.upper_limit_gap_min())),
+            upper_limit_baseline_rise_min: fu(math_value_design_units(
+                c.upper_limit_baseline_rise_min(),
+            )),
+            lower_limit_gap_min: fu(math_value_design_units(c.lower_limit_gap_min())),
+            lower_limit_baseline_drop_min: fu(math_value_design_units(
+                c.lower_limit_baseline_drop_min(),
+            )),
             display_operator_min_height: fu_u(c.display_operator_min_height()),
             script_percent_scale_down: c.script_percent_scale_down(),
             script_script_percent_scale_down: c.script_script_percent_scale_down(),
             units_per_em: upem.get(),
-        })
+        }
     }
 
     /// Scale factor for `style` (1, script%, or scriptscript%).
