@@ -1,0 +1,63 @@
+# Verification font profiles
+
+This document owns the committed verification-font census used by the multi-font smoke matrix. It records source-font capabilities, not TeXpose feature support. Engine support and degradation policy remain owned by [`MATH_COVERAGE.md`](MATH_COVERAGE.md).
+
+## E12 smoke contract
+
+`tests/multi_font_smoke.rs` runs one common corpus through every committed verification profile. No profile or corpus row is silently skipped. For each profile the test requires:
+
+- successful `MathFont` construction at the pinned face index;
+- successful parsing and layout for every corpus row;
+- no recoverable missing-glyph diagnostics in the common corpus;
+- valid exact `Dim` values throughout the returned box tree;
+- identical glyph-ID sequences across two independently constructed fonts/layouts;
+- exact deterministic `LayoutOutput` geometry across those independent runs.
+
+Semantic normalization remains private to the layout layer. The smoke test exercises it through the public boundary: `a+b` and `a\textstyle+b` in text style must produce identical output, proving that a non-spacing same-style control does not perturb binary-operator normalization or spacing. Exact semantic class rules remain owned by the focused tests in `src/layout/semantic.rs`.
+
+## Profile identity
+
+All current verification faces are standalone fonts at face index 0. Fixture replacement requires updating the corresponding `SOURCE.md` provenance/hash and rerunning the smoke matrix before the profile census can change.
+
+| Profile | Fixture | SHA-256 | Face index |
+| --- | --- | --- | ---: |
+| `stix` | `tests/fixtures/fonts/stix-two-math/STIXTwoMath-Regular.otf` | `f2076b9f1676438439dd41e23676f5ab99056e83d6b8f8c27841591ef2ccfa72` | 0 |
+| `libertinus` | `tests/fixtures/fonts/libertinus-math/LibertinusMath-Regular.otf` | `e81bd44acbb7119c8f00128b36fecc5d980e10d2450a226ba52402ccf4da9d32` | 0 |
+| `fira` | `tests/fixtures/fonts/fira-math/FiraMath-Regular.otf` | `2028cbd3dd4d8c0cf1608520eb4759956a83a67931d7b6d8e7c313520186e35b` | 0 |
+| `dejavu` | `tests/fixtures/fonts/dejavu-math/DejaVuMathTeXGyre.ttf` | `f7a5e6bcc7747e7488634c8b94684a71596b1b3bc1d39f3c4600fc7677458f9e` | 0 |
+
+The provenance hashes are enforced by the existing font-fixture/static-font contract tests; E12 does not create a second hash authority.
+
+## Common corpus
+
+| Family | Input | Root style |
+| --- | --- | --- |
+| ordinary symbols | `x+y=\alpha` | text |
+| math alphabets | `\mathrm{x}+\mathbf{x}+\mathit{x}` | text |
+| scripts | `x_i^2+y_{j_k}` | text |
+| fractions | `\frac{a+b}{c+d}` | display |
+| radicals | `\sqrt[3]{x^2+y^2}` | display |
+| delimiters | `\left(\frac{a+b}{c+d}\right)` | display |
+| operators | `\sum_{i=1}^{n}i^2` | display |
+| integrals | `\int_0^1 x^2\,dx` | display |
+| accents | `\widehat{xyz}` | text |
+| matrices | `\begin{pmatrix}a&b\\c&d\end{pmatrix}` | display |
+| aligned | `\begin{aligned}a&=b+c\\d&=e-f\end{aligned}` | display |
+| spacing | `a+b\,c\!d\quad e` | text |
+
+The corpus is intentionally a smoke matrix rather than an external geometry oracle. Primitive geometry remains protected by focused tests and, where required by the roadmap, the LuaLaTeX differential oracle.
+
+## Source-font capability census
+
+The table below is a physical-font census for capabilities relevant to the current math engine. `Present` means the committed fixture physically exposes the table/feature. `Missing` means the fixture does not expose it through the indicated OpenType path; it does not mean TeXpose should synthesize a substitute.
+
+GSUB entries refer specifically to features reachable from `ScriptList["math"]` / `DefaultLangSys`, matching TeXpose's E8 contract. Math construction/assembly counts come from the committed `MATH` table. The profile hash above pins these observations to exact bytes.
+
+| Profile | MathKernInfo | active `ssty` | active `flac` | active `dtls` | vertical constructions / assemblies | horizontal constructions / assemblies |
+| --- | --- | --- | --- | --- | ---: | ---: |
+| `stix` | Present | Present | Present | Present | 118 / 32 | 47 / 37 |
+| `libertinus` | **Missing** | Present | **Missing** | **Missing** | 59 / 15 | 27 / 22 |
+| `fira` | **Missing** | Present | **Missing** | Present | 40 / 18 | 6 / 6 |
+| `dejavu` | **Missing** | Present | **Missing** | Present | 95 / 47 | 86 / 71 |
+
+Profile-specific absence is data, not a test exemption. The common E12 corpus must still construct, parse, normalize, and lay out deterministically for every profile. When a future corpus row genuinely depends on a capability that a profile lacks, the exclusion/degradation must be named in this census and asserted explicitly rather than implemented as a silent skip.
