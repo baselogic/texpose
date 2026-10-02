@@ -7,7 +7,7 @@ use crate::atoms::symbol_atom_kind;
 use crate::color::Color;
 use crate::dim::Dim;
 use crate::error::{Error, NumericError};
-use crate::font::{math_value_design_units, MathFont, MathFontView};
+use crate::font::{math_value_design_units, MathFont, MathFontView, MathGsubContext};
 use crate::layout::metrics::MathParams;
 use crate::layout::numbering::NumberingState;
 use crate::layout::semantic::{
@@ -607,47 +607,44 @@ impl<'font, 'state> Engine<'font, 'state> {
     }
 
     fn glyph(&self, ch: char, style: MathStyle) -> Result<MathBox, Error> {
+        self.glyph_with_context(ch, style, MathGsubContext::None)
+    }
+
+    fn glyph_with_context(
+        &self,
+        ch: char,
+        style: MathStyle,
+        context: MathGsubContext,
+    ) -> Result<MathBox, Error> {
         let base = self.font.glyph(ch)?;
-        let glyph_id = self
-            .font
-            .script_alternate_glyph_id(base.glyph_id, style.script_level())
-            .unwrap_or(base.glyph_id);
-
-        let g = if glyph_id == base.glyph_id {
-            base
-        } else {
-            self.font.glyph_id(ch, glyph_id)?
-        };
-
-        let s = self.params.scale(style);
-        let italic = self.font.italic_correction(glyph_id);
-
-        Ok(MathBox {
-            width: g.advance.checked_mul(&s)?,
-            height: g.height.checked_mul(&s)?,
-            depth: g.depth.checked_mul(&s)?,
-            italic: italic.checked_mul(&s)?,
-            shift: Dim::zero(),
-            content: BoxContent::glyph(ch, glyph_id, s),
-        })
+        self.glyph_id_with_context(ch, base.glyph_id, style, context)
     }
 
     fn glyph_id(&self, ch: char, gid: u16, style: MathStyle) -> Result<MathBox, Error> {
+        self.glyph_id_with_context(ch, gid, style, MathGsubContext::None)
+    }
+
+    fn glyph_id_with_context(
+        &self,
+        ch: char,
+        gid: u16,
+        style: MathStyle,
+        context: MathGsubContext,
+    ) -> Result<MathBox, Error> {
         let glyph_id = self
             .font
-            .script_alternate_glyph_id(gid, style.script_level())
-            .unwrap_or(gid);
+            .math_gsub_glyph_id(gid, style.script_level(), context);
         let g = self.font.glyph_id(ch, glyph_id)?;
-        let s = self.params.scale(style);
+        let scale = self.params.scale(style);
         let italic = self.font.italic_correction(glyph_id);
 
         Ok(MathBox {
-            width: g.advance.checked_mul(&s)?,
-            height: g.height.checked_mul(&s)?,
-            depth: g.depth.checked_mul(&s)?,
-            italic: italic.checked_mul(&s)?,
+            width: g.advance.checked_mul(&scale)?,
+            height: g.height.checked_mul(&scale)?,
+            depth: g.depth.checked_mul(&scale)?,
+            italic: italic.checked_mul(&scale)?,
             shift: Dim::zero(),
-            content: BoxContent::glyph(ch, glyph_id, s),
+            content: BoxContent::glyph(ch, glyph_id, scale),
         })
     }
 
@@ -1910,7 +1907,11 @@ impl<'font, 'state> Engine<'font, 'state> {
         } else {
             style
         };
-        let b = self.layout(base, nucleus_style)?;
+        let b = if uses_dotless_accent_base(kind) {
+            self.accent_nucleus(base, nucleus_style)?
+        } else {
+            self.layout(base, nucleus_style)?
+        };
         if kind == AccentKind::Not {
             return self.not_overlay(base, b, style);
         }
@@ -1941,12 +1942,23 @@ impl<'font, 'state> Engine<'font, 'state> {
         if matches!(kind, AccentKind::Overline | AccentKind::Underline) {
             return self.bar_rule(b, kind == AccentKind::Underline, style);
         }
-        let mut acc = self.accent_glyph(kind, style)?;
+        let flatten = is_diacritic_accent(kind)
+            && b.height
+                > self
+                    .params
+                    .flattened_accent_base_height
+                    .checked_mul(&self.params.scale(nucleus_style))?;
+        let accent_context = if flatten {
+            MathGsubContext::FlattenedAccent
+        } else {
+            MathGsubContext::None
+        };
+        let mut acc = self.accent_glyph(kind, style, accent_context)?;
         let stretchy = is_stretchy_accent(kind);
         let hat_tilde = is_hat_tilde_accent(kind);
 
         if matches!(kind, AccentKind::WideHat | AccentKind::WideTilde) {
-            acc = self.wide_hat_tilde_glyph(acc, &b.width, kind, style)?;
+            acc = self.wide_hat_tilde_glyph(acc, &b.width, kind, style, accent_context)?;
         } else if stretchy {
             acc = self.stretch_h(acc, &b.width, style)?;
         }
@@ -1989,9 +2001,41 @@ impl<'font, 'state> Engine<'font, 'state> {
         })
     }
 
-    fn accent_glyph(&self, kind: AccentKind, style: MathStyle) -> Result<MathBox, Error> {
+    fn accent_nucleus(&self, base: &MathNode, style: MathStyle) -> Result<MathBox, Error> {
+        match base {
+            MathNode::Atom(c, _) => self.glyph_with_context(
+                math_italic(math_char(*c)),
+                style,
+                MathGsubContext::DotlessAccentBase,
+            ),
+            MathNode::Symbol(name) => self.glyph_with_context(
+                math_italic(symbol_char(name)?),
+                style,
+                MathGsubContext::DotlessAccentBase,
+            ),
+            MathNode::MathAlphabet(text, text_style) if *text_style != TextStyle::Pmb => {
+                let mut chars = text.chars();
+                match (chars.next(), chars.next()) {
+                    (Some(ch), None) if ch != ' ' => self.glyph_with_context(
+                        styled_char(ch, *text_style),
+                        style,
+                        MathGsubContext::DotlessAccentBase,
+                    ),
+                    _ => self.layout(base, style),
+                }
+            }
+            _ => self.layout(base, style),
+        }
+    }
+
+    fn accent_glyph(
+        &self,
+        kind: AccentKind,
+        style: MathStyle,
+        context: MathGsubContext,
+    ) -> Result<MathBox, Error> {
         for &ch in accent_candidates(kind) {
-            if let Ok(bx) = self.glyph(ch, style) {
+            if let Ok(bx) = self.glyph_with_context(ch, style, context) {
                 return Ok(bx);
             }
         }
@@ -2010,6 +2054,7 @@ impl<'font, 'state> Engine<'font, 'state> {
         target_width: &Dim,
         kind: AccentKind,
         style: MathStyle,
+        context: MathGsubContext,
     ) -> Result<MathBox, Error> {
         let seed_ch = match kind {
             AccentKind::WideHat => '\u{0302}',
@@ -2027,7 +2072,7 @@ impl<'font, 'state> Engine<'font, 'state> {
                 continue;
             }
 
-            let candidate = self.glyph_id(seed_ch, glyph_id, style)?;
+            let candidate = self.glyph_id_with_context(seed_ch, glyph_id, style, context)?;
 
             if candidate.width.is_zero() {
                 continue;
@@ -3271,6 +3316,22 @@ fn first_glyph_id(b: &MathBox) -> Option<u16> {
         | BoxContent::Frame { inner, .. } => first_glyph_id(inner),
         _ => None,
     }
+}
+
+fn uses_dotless_accent_base(kind: AccentKind) -> bool {
+    !matches!(
+        kind,
+        AccentKind::Not
+            | AccentKind::Boxed
+            | AccentKind::Cancel
+            | AccentKind::BCancel
+            | AccentKind::XCancel
+            | AccentKind::Underline
+            | AccentKind::Underleftarrow
+            | AccentKind::Underrightarrow
+            | AccentKind::Underleftrightarrow
+            | AccentKind::Underbrace
+    )
 }
 
 fn is_tex_accent(kind: AccentKind) -> bool {

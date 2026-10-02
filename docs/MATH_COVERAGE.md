@@ -21,3 +21,17 @@ After successful construction, the layout engine may rely on a MATH 1.0 table wi
 For every supported `MathValueRecord`, TeXpose uses only the signed design-unit `Value` field. The optional Device table is deliberately ignored in the first stable core.
 
 This makes mathematical layout independent of pixels-per-em, display DPI, and pixel-grid hinting. A future policy that applies Device or VariationIndex corrections would be a semantic layout change and must update this document and its contract tests.
+
+## Mathematical GSUB features
+
+TeXpose resolves mathematical GSUB substitutions only through the `math` Script table and its `DefaultLangSys`. A feature that exists in the GSUB FeatureList but is not referenced by that language system is not active for math layout, and the generic `DFLT` script is not used as a substitute for the required `math` script.
+
+The selected language system contributes both its `requiredFeatureIndex`, when present, and its ordinary feature indices. When more than one active mathematical feature references lookups for the same glyph, the selected lookup set is applied in LookupList order.
+
+The first stable core supports:
+
+- `ssty`: script level 1 and 2 through Alternate Substitution; Single Substitution is accepted as the fallback form when one script form serves both levels.
+- `flac`: Single Substitution for over-accent glyphs when the laid-out base exceeds `flattenedAccentBaseHeight`.
+- `dtls`: Single Substitution for a single mathematical glyph used as an over-accent base. Multi-glyph accent nuclei are left unchanged by `dtls`.
+
+Other substitution formats for these three features are ignored. Variable-feature substitutions are outside this core because functional variable fonts are rejected during `MathFont` construction.

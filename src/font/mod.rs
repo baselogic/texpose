@@ -1,6 +1,7 @@
 //! OpenType math font metrics. Integer font units → [`Dim`](crate::Dim).
 
 use core::num::NonZeroU16;
+use std::cell::OnceCell;
 use std::sync::Arc;
 
 use ttf_parser::{Face, FaceParsingError, RawFace, Tag};
@@ -72,6 +73,7 @@ struct MathFontInner {
 
 pub(crate) struct MathFontView<'a> {
     face: Face<'a>,
+    math_gsub_plan: OnceCell<MathGsubPlan>,
 }
 
 impl MathFont {
@@ -132,6 +134,7 @@ impl MathFont {
     pub(crate) fn operation_view(&self) -> MathFontView<'_> {
         MathFontView {
             face: self.parse_face(),
+            math_gsub_plan: OnceCell::new(),
         }
     }
 
@@ -419,8 +422,21 @@ impl<'a> MathFontView<'a> {
         out
     }
 
-    pub(crate) fn script_alternate_glyph_id(&self, glyph_id: u16, script_level: u8) -> Option<u16> {
-        ssty_alternate_glyph_id(&self.face, glyph_id, script_level)
+    #[inline]
+    pub(crate) fn math_gsub_glyph_id(
+        &self,
+        glyph_id: u16,
+        script_level: u8,
+        context: MathGsubContext,
+    ) -> u16 {
+        if !matches!(script_level, 1 | 2) && context == MathGsubContext::None {
+            return glyph_id;
+        }
+
+        let plan = self
+            .math_gsub_plan
+            .get_or_init(|| MathGsubPlan::from_face(&self.face));
+        apply_math_gsub_plan(&self.face, plan, glyph_id, script_level, context)
     }
 }
 
@@ -539,44 +555,171 @@ fn raw_face_has_variable_axes(raw_face: &RawFace<'_>) -> Result<bool, FontError>
     Ok(true)
 }
 
-fn ssty_alternate_glyph_id(face: &Face<'_>, glyph_id: u16, script_level: u8) -> Option<u16> {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum MathGsubContext {
+    None,
+    FlattenedAccent,
+    DotlessAccentBase,
+}
+
+const MATH_GSUB_SSTY: u8 = 1 << 0;
+const MATH_GSUB_FLAC: u8 = 1 << 1;
+const MATH_GSUB_DTLS: u8 = 1 << 2;
+
+#[derive(Default)]
+struct MathGsubPlan {
+    lookup_features: Vec<u8>,
+}
+
+impl MathGsubPlan {
+    fn from_face(face: &Face<'_>) -> Self {
+        let Some(gsub) = face.tables().gsub else {
+            return Self::default();
+        };
+        let Some(math_script) = gsub.scripts.find(Tag::from_bytes(b"math")) else {
+            return Self::default();
+        };
+        let Some(language) = math_script.default_language else {
+            return Self::default();
+        };
+
+        let lookup_count = usize::from(gsub.lookups.len());
+        let mut lookup_features = Vec::new();
+        if let Some(feature_index) = language.required_feature {
+            mark_math_gsub_feature(&gsub, feature_index, lookup_count, &mut lookup_features);
+        }
+        for feature_index in language.feature_indices {
+            mark_math_gsub_feature(&gsub, feature_index, lookup_count, &mut lookup_features);
+        }
+
+        if lookup_features.iter().all(|features| *features == 0) {
+            return Self::default();
+        }
+
+        Self { lookup_features }
+    }
+}
+
+fn mark_math_gsub_feature(
+    gsub: &ttf_parser::opentype_layout::LayoutTable<'_>,
+    feature_index: u16,
+    lookup_count: usize,
+    lookup_features: &mut Vec<u8>,
+) {
+    let Some(feature) = gsub.features.get(feature_index) else {
+        return;
+    };
+    let feature_flag = if feature.tag == Tag::from_bytes(b"ssty") {
+        MATH_GSUB_SSTY
+    } else if feature.tag == Tag::from_bytes(b"flac") {
+        MATH_GSUB_FLAC
+    } else if feature.tag == Tag::from_bytes(b"dtls") {
+        MATH_GSUB_DTLS
+    } else {
+        return;
+    };
+
+    if lookup_features.is_empty() {
+        lookup_features.resize(lookup_count, 0);
+    }
+    for lookup_index in feature.lookup_indices {
+        if let Some(flags) = lookup_features.get_mut(usize::from(lookup_index)) {
+            *flags |= feature_flag;
+        }
+    }
+}
+
+fn apply_math_gsub_plan(
+    face: &Face<'_>,
+    plan: &MathGsubPlan,
+    glyph_id: u16,
+    script_level: u8,
+    context: MathGsubContext,
+) -> u16 {
+    if plan.lookup_features.is_empty() {
+        return glyph_id;
+    }
+
+    let Some(gsub) = face.tables().gsub else {
+        return glyph_id;
+    };
+    let context_flag = match context {
+        MathGsubContext::None => 0,
+        MathGsubContext::FlattenedAccent => MATH_GSUB_FLAC,
+        MathGsubContext::DotlessAccentBase => MATH_GSUB_DTLS,
+    };
+
+    let mut glyph = ttf_parser::GlyphId(glyph_id);
+    for lookup_index in 0..gsub.lookups.len() {
+        let features = plan
+            .lookup_features
+            .get(usize::from(lookup_index))
+            .copied()
+            .unwrap_or(0);
+        let ssty = matches!(script_level, 1 | 2) && features & MATH_GSUB_SSTY != 0;
+        let contextual = context_flag != 0 && features & context_flag != 0;
+        if !ssty && !contextual {
+            continue;
+        }
+
+        let Some(lookup) = gsub.lookups.get(lookup_index) else {
+            continue;
+        };
+        for subtable in lookup
+            .subtables
+            .into_iter::<ttf_parser::gsub::SubstitutionSubtable<'_>>()
+        {
+            let substituted = match subtable {
+                ttf_parser::gsub::SubstitutionSubtable::Single(single) => {
+                    single_substitution_glyph(single, glyph)
+                }
+                ttf_parser::gsub::SubstitutionSubtable::Alternate(alternate) if ssty => {
+                    ssty_alternate_glyph(alternate, glyph, script_level)
+                }
+                _ => None,
+            };
+            if let Some(next) = substituted {
+                glyph = next;
+                break;
+            }
+        }
+    }
+
+    glyph.0
+}
+
+fn single_substitution_glyph(
+    single: ttf_parser::gsub::SingleSubstitution<'_>,
+    glyph: ttf_parser::GlyphId,
+) -> Option<ttf_parser::GlyphId> {
+    match single {
+        ttf_parser::gsub::SingleSubstitution::Format1 { coverage, delta } => {
+            coverage.get(glyph)?;
+            Some(ttf_parser::GlyphId(glyph.0.wrapping_add_signed(delta)))
+        }
+        ttf_parser::gsub::SingleSubstitution::Format2 {
+            coverage,
+            substitutes,
+        } => {
+            let coverage_index = coverage.get(glyph)?;
+            substitutes.get(coverage_index)
+        }
+    }
+}
+
+fn ssty_alternate_glyph(
+    alternate: ttf_parser::gsub::AlternateSubstitution<'_>,
+    glyph: ttf_parser::GlyphId,
+    script_level: u8,
+) -> Option<ttf_parser::GlyphId> {
     let alternate_index = match script_level {
         1 => 0,
         2 => 1,
         _ => return None,
     };
-
-    let gsub = face.tables().gsub?;
-    let feature = gsub.features.find(ttf_parser::Tag::from_bytes(b"ssty"))?;
-
-    for lookup_index in feature.lookup_indices {
-        let Some(lookup) = gsub.lookups.get(lookup_index) else {
-            continue;
-        };
-
-        for subtable in lookup
-            .subtables
-            .into_iter::<ttf_parser::gsub::SubstitutionSubtable<'_>>()
-        {
-            let ttf_parser::gsub::SubstitutionSubtable::Alternate(alternate) = subtable else {
-                continue;
-            };
-
-            let Some(coverage_index) = alternate.coverage.get(ttf_parser::GlyphId(glyph_id)) else {
-                continue;
-            };
-
-            let Some(set) = alternate.alternate_sets.get(coverage_index) else {
-                continue;
-            };
-
-            if let Some(selected) = set.alternates.get(alternate_index) {
-                return Some(selected.0);
-            }
-        }
-    }
-
-    None
+    let coverage_index = alternate.coverage.get(glyph)?;
+    let set = alternate.alternate_sets.get(coverage_index)?;
+    set.alternates.get(alternate_index)
 }
 
 fn hex_byte(b: u8) -> String {
