@@ -119,6 +119,145 @@ the text-style italic-x glyph `3354` through `ssty` alternates including `4699`,
 which was observed in the 6pt reference control. Treating that substitution as a
 face mismatch would be a false failure.
 
+## Positioned primitive trace evidence
+
+F8 adds an exact positioned trace on both sides. TeXpose flattens the `MathBox`
+tree into glyph/rule primitives in exact `Dim` coordinates. LuaTeX walks the
+final hlist/vlist, resolves the selected glyph index, and reports coordinates in
+scaled points normalized by the independently measured root math em. Paint order
+is the trace index. A primitive-count or primitive-kind difference is a kind-topology
+mismatch. Matching kinds alone do not establish glyph correspondence: paint-order
+and glyph-selection differences remain first-class trace evidence. Exact paint-index
+geometry is compared when glyph identity/order agrees. A glyph-only pure reorder can
+also compare x/baseline/scale after realigning unique glyph IDs; the paint-order
+mismatch itself remains contractual. Selection changes, duplicate glyph IDs, and
+reordered mixed glyph/rule traces remain non-comparable rather than inventing a
+coordinate or rule-rectangle pairing.
+
+The 2026-10-02 canonical measurement on the pinned MiKTeX reference environment
+produced:
+
+| Profile | Kind topology | Glyph identity/order aligned | p50 | p90 | p95 | p99 | max |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| STIX Two Math | 21/21 | 14/21 | 0.000012 | 0.010000 | 0.014000 | 0.014000 | 0.014000 |
+| Libertinus Math | 21/21 | 14/21 | 0.000013 | 0.081000 | 0.081000 | 0.081000 | 0.081000 |
+| Fira Math | 21/21 | 14/21 | 0.000012 | 0.040000 | 0.040000 | 0.040000 | 0.040000 |
+
+The table percentile/max columns are the original identity/order-aligned measurement.
+The current verifier additionally reports realigned glyph geometry for a pure reorder
+only when every primitive is a glyph and every glyph ID is unique. Those cases enter
+the runtime geometry tolerance gate without erasing their paint-order mismatch. A
+selection change, duplicate glyph ID, or reordered mixed glyph/rule trace contributes
+no fabricated numeric geometry. Geometry ambiguity by itself does not fail a canonical
+profile whose exact mismatch signature is already documented; a new, repaired, or
+changed signature still fails. The exact mismatch signatures remain contractual. A
+diagnostic glyph pair is always written as `TeXpose/reference`.
+
+The same seven canonical cases are currently not glyph identity/order aligned for
+all three profiles:
+
+```text
+display-sum-limits
+display-sum
+accent-hat-j
+accent-widehat-j
+accent-widehat-xyz
+accent-widetilde-xyz
+accent-widehat-script
+```
+
+These are Phase G work inventory, not assertions that either paint order or glyph
+selection is already correct. Contractual canonical runs pin the exact typed mismatch
+signature for each profile as `(paint index, TeXpose glyph ID, reference glyph
+ID)`. A new case, repaired case, added/removed mismatch within an existing case,
+or changed glyph pair fails until the profile baseline is reviewed explicitly.
+The three measured profiles currently contain 18 glyph/order mismatch positions
+across the same seven case names. Under those exact signatures, STIX and Libertinus
+each have four cases with the same glyph multiset in a different paint order and
+three cases where glyph selection differs; Fira has seven paint-order-only cases.
+This is intentionally more discriminating than a case-name allowlist while avoiding
+an opaque whole-trace hash.
+
+For every geometry-comparable canonical trace the normal `0.050em` tolerance
+applies. A pure reorder is geometry-comparable only under the strict glyph-only,
+unique-ID rule above. A positioned ceiling may overlap a documented glyph/order
+mismatch only when the runtime comparison proves such an identity-realigned reorder.
+Selection changes and ambiguous reorders remain non-comparable, cannot consume a
+ceiling, and therefore make any ceiling on that case fail as stale.
+Libertinus has these bounded positioned deviations measured before Phase G:
+
+| Case | Observed maximum | Contract ceiling |
+| --- | ---: | ---: |
+| `display-nested-fraction` | 0.062399em | 0.062500em |
+| `radical-index` | 0.081000em | 0.081100em |
+| `radical-index-compound` | 0.081000em | 0.081100em |
+| `radical-plain` | 0.081000em | 0.081100em |
+| `text-scripts` | 0.080999em | 0.081100em |
+
+Fira has one bounded positioned deviation exposed by identity realignment:
+
+| Case | Observed maximum | Contract ceiling | Rationale |
+| --- | ---: | ---: | --- |
+| `accent-widehat-script` | 0.127001em | 0.127100em | Same script-style accent divergence already bounded in aggregate canonical geometry; Phase G owns the repair. |
+
+A ceiling that is exceeded fails. A ceiling that is no longer needed also fails
+as stale, forcing its removal instead of preserving historical tolerance.
+
+Stress remains diagnostic and deliberately has no large positioned-trace
+allowlist. The same measurement produced:
+
+| Profile | Kind topology | Glyph identity/order aligned | p50 | p90 | p95 | p99 | max |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| STIX Two Math | 75/89 | 46/75 | 0.000020 | 0.145026 | 0.299701 | 0.781701 | 0.781701 |
+| Libertinus Math | 80/89 | 60/80 | 0.000047 | 0.167500 | 0.390833 | 0.822900 | 0.822900 |
+| Fira Math | 82/89 | 60/82 | 0.000041 | 0.128500 | 0.422560 | 0.935500 | 0.935500 |
+
+The large stress topology, identity, and placement deltas remain discriminating
+evidence for the primitive-by-primitive repairs in Phase G.
+
+## Evidence parser hardening
+
+F9 `self-test` owns the machine-evidence grammar and exact canonical mismatch signatures. It rejects malformed,
+duplicate, missing, unexpected, and non-finite records; invalid exact `Dim` and
+LuaTeX dimensions; wrong font hash, face, profile, census, or alias census; an
+unknown pinned reference fingerprint; truncated or duplicate Lua results; and
+invalid/nonsequential positioned traces. The positioned comparator regression also
+proves that multiple glyph/order mismatches in one case are all retained, that pure
+paint-order differences are distinguished from glyph-selection differences, that
+glyph-only unique-ID reorders are realigned by glyph identity, and that duplicate-ID
+or mixed glyph/rule reorders remain non-comparable instead of fabricating geometry.
+
+## Gate separation
+
+F10 keeps three evidence levels distinct:
+
+Fast PR gate:
+
+```powershell
+cargo fmt --check
+cargo test
+cargo clippy --all-targets -- -D warnings
+```
+
+Canonical external gate for semantic math, font handling, layout, or oracle
+changes:
+
+```powershell
+uv run --script tools\verify.py self-test
+uv run --script tools\verify.py math --profile stix --fail-on-delta
+uv run --script tools\verify.py math --profile libertinus --fail-on-delta
+uv run --script tools\verify.py math --profile fira --fail-on-delta
+```
+
+Stress (`--stress`) remains investigation/nightly/release-candidate evidence and
+does not acquire a blanket allowlist merely to make the current Phase G backlog
+green.
+
+The verifier-side environment identity is pinned, but repository CI provisioning
+of the roadmap-required pinned TeX Live reference environment is still open. The
+current Windows evidence is MiKTeX 26.5; it must not be represented as completion
+of that TeX Live/CI requirement.
+
 ## Contractual commands
 
 Canonical profile runs are:
@@ -131,5 +270,5 @@ uv run --script tools\verify.py math --profile fira --fail-on-delta
 ```
 
 Stress can be run with `--stress`; its current deltas are intentionally left
-visible rather than blanket-approved. F8 positioned primitive traces and F9
-parser hardening build on this profile/fingerprint contract.
+visible rather than blanket-approved. Positioned traces are now part of the
+canonical contractual gate as described above, while stress remains diagnostic.

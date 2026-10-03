@@ -379,6 +379,121 @@ fn box_stats(math_box: &MathBox) -> BoxStats {
     stats
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum TracePrimitive {
+    Glyph {
+        glyph_id: u16,
+        x: Dim,
+        baseline: Dim,
+        scale: Dim,
+    },
+    Rule {
+        x: Dim,
+        bottom: Dim,
+        width: Dim,
+        height: Dim,
+    },
+}
+
+fn trace_math_box(
+    math_box: &MathBox,
+    x: &Dim,
+    parent_baseline: &Dim,
+    out: &mut Vec<TracePrimitive>,
+) -> Result<(), texpose::NumericError> {
+    let baseline = parent_baseline.checked_add(&math_box.shift)?;
+    match &math_box.content {
+        BoxContent::Empty | BoxContent::Kern(_) | BoxContent::Line { .. } => {}
+        BoxContent::Glyph {
+            glyph_id, scale, ..
+        } => out.push(TracePrimitive::Glyph {
+            glyph_id: *glyph_id,
+            x: x.clone(),
+            baseline,
+            scale: scale.clone(),
+        }),
+        BoxContent::Rule => {
+            let rule_height = math_box.height.checked_add(&math_box.depth)?;
+            if math_box.width > Dim::zero() && rule_height > Dim::zero() {
+                out.push(TracePrimitive::Rule {
+                    x: x.clone(),
+                    bottom: baseline.checked_sub(&math_box.depth)?,
+                    width: math_box.width.clone(),
+                    height: rule_height,
+                });
+            }
+        }
+        BoxContent::HList(children) => {
+            let mut child_x = x.clone();
+            for child in children {
+                trace_math_box(child, &child_x, &baseline, out)?;
+                child_x = child_x.checked_add(&child.width)?;
+            }
+        }
+        BoxContent::VList(children) => {
+            if let Some((first, rest)) = children.split_first() {
+                let mut child_baseline = baseline.clone();
+                trace_math_box(first, x, &child_baseline, out)?;
+                child_baseline = child_baseline.checked_sub(&first.depth)?;
+                for child in rest {
+                    child_baseline = child_baseline.checked_sub(&child.height)?;
+                    trace_math_box(child, x, &child_baseline, out)?;
+                    child_baseline = child_baseline.checked_sub(&child.depth)?;
+                }
+            }
+        }
+        BoxContent::Overlap(children) => {
+            for child in children {
+                trace_math_box(child, x, &baseline, out)?;
+            }
+        }
+        BoxContent::Color(_, inner)
+        | BoxContent::BackColor(_, inner)
+        | BoxContent::Frame { inner, .. } => trace_math_box(inner, x, &baseline, out)?,
+    }
+    Ok(())
+}
+
+fn dim_ratio_text(value: &Dim) -> String {
+    let (num, den) = value.as_ratio();
+    format!("{num}/{den}")
+}
+
+fn print_trace(case: &str, trace: &[TracePrimitive]) {
+    for (index, primitive) in trace.iter().enumerate() {
+        match primitive {
+            TracePrimitive::Glyph {
+                glyph_id,
+                x,
+                baseline,
+                scale,
+            } => println!(
+                "TEXPOSE_MATH_TRACE case={} index={} kind=glyph glyph_id={} x={} baseline={} scale={}",
+                case,
+                index,
+                glyph_id,
+                dim_ratio_text(x),
+                dim_ratio_text(baseline),
+                dim_ratio_text(scale),
+            ),
+            TracePrimitive::Rule {
+                x,
+                bottom,
+                width,
+                height,
+            } => println!(
+                "TEXPOSE_MATH_TRACE case={} index={} kind=rule x={} bottom={} width={} height={}",
+                case,
+                index,
+                dim_ratio_text(x),
+                dim_ratio_text(bottom),
+                dim_ratio_text(width),
+                dim_ratio_text(height),
+            ),
+        }
+    }
+}
+
 fn fraction_step(rem: u128, den: u128) -> (u32, u128) {
     let complement = den - rem;
     if rem >= complement {
@@ -577,11 +692,14 @@ fn lualatex_math_comparison_probe() {
         assert!(descent.is_finite() && descent >= 0.0);
 
         let stats = box_stats(&layout);
+        let mut trace = Vec::new();
+        trace_math_box(&layout, &Dim::zero(), &Dim::zero(), &mut trace)
+            .expect("oracle trace coordinates must stay representable");
         let style_name = if case.display { "display" } else { "text" };
 
         println!(
             "TEXPOSE_MATH_COMPARE case={} family={} aliases={} style={} size_pt={} source_utf8_hex={} \
-             width_em={:.9} ascent_em={:.9} descent_em={:.9} glyphs={} rules={} ops={}",
+             width_em={:.9} ascent_em={:.9} descent_em={:.9} glyphs={} rules={} ops={} trace_primitives={}",
             case.name,
             measurement
                 .families
@@ -599,6 +717,8 @@ fn lualatex_math_comparison_probe() {
             stats.glyphs,
             stats.rules,
             stats.ops,
+            trace.len(),
         );
+        print_trace(case.name, &trace);
     }
 }
