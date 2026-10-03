@@ -26,9 +26,9 @@ and alias census are validated independently on every run.
 
 A named profile rejects a different reference-environment hash. This makes an
 engine/package update a reviewed baseline change instead of silently changing
-the oracle. Repository CI provisioning of this pinned environment is still an
-F10 release-gate task; the current evidence establishes the verifier-side pin,
-not a claim that CI provisioning already exists.
+the oracle. The current evidence establishes the verifier-side environment pin.
+Repository CI provisioning of that pinned reference environment is owned by
+Phase K3, not Phase F10.
 
 ## Profiles and corpus ownership
 
@@ -253,10 +253,9 @@ Stress (`--stress`) remains investigation/nightly/release-candidate evidence and
 does not acquire a blanket allowlist merely to make the current Phase G backlog
 green.
 
-The verifier-side environment identity is pinned, but repository CI provisioning
-of the roadmap-required pinned TeX Live reference environment is still open. The
-current Windows evidence is MiKTeX 26.5; it must not be represented as completion
-of that TeX Live/CI requirement.
+The verifier-side environment identity is pinned. Repository CI provisioning of
+the pinned reference environment is a Phase K3 task. The current Windows evidence
+is MiKTeX 26.5 and must not be represented as completion of K3.
 
 ## Contractual commands
 
