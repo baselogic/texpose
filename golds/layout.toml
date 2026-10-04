@@ -112,21 +112,21 @@ name = "sqrt-x-text"
 kind = "dims"
 style = "text"
 input = "\\sqrt{x}"
-expect = "w=1.353 h=0.9825 d=0.2825"
+expect = "w=1.363 h=0.9825 d=0.2825"
 
 [[gold]]
 name = "sqrt-x-display"
 kind = "dims"
 style = "display"
 input = "\\sqrt{x}"
-expect = "w=1.353 h=1.025 d=0.24"
+expect = "w=1.363 h=1.025 d=0.24"
 
 [[gold]]
 name = "sqrt-n-x"
 kind = "dims"
 style = "text"
 input = "\\sqrt[3]{x}"
-expect = "w=1.39155 h=0.9825 d=0.2825"
+expect = "w=1.40155 h=0.9825 d=0.2825"
 
 [[gold]]
 name = "sup-x2-text"

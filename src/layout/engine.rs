@@ -1224,6 +1224,12 @@ impl<'font, 'state> Engine<'font, 'state> {
         style: MathStyle,
     ) -> Result<Item, Error> {
         let rad_b = self.layout(rad, style.cramp())?;
+        // A direct math-character radicand retains its MATH italic correction
+        // in `MathBox::italic`, while row packing materializes the same terminal
+        // correction as an explicit kern and clears the packed box italic. The
+        // radical boundary needs the complete horizontal extent exactly once so
+        // the overbar and outer width agree for both representations.
+        let radicand_width = rad_b.width.checked_add(&rad_b.italic)?;
         let s = self.params.scale(style);
         let thick = self.params.radical_rule_thickness.checked_mul(&s)?;
         let extra = self.params.radical_extra_ascender.checked_mul(&s)?;
@@ -1259,10 +1265,10 @@ impl<'font, 'state> Engine<'font, 'state> {
         let surd_descent = surd_span.checked_sub(&inner_ascent)?.clamp_nonneg();
         surd.shift = inner_ascent.checked_sub(&surd.height)?;
 
-        let bar = MathBox::rule(rad_b.width.clone(), thick.clone(), Dim::zero())
+        let bar = MathBox::rule(radicand_width.clone(), thick.clone(), Dim::zero())
             .with_shift(rad_b.height.checked_add(&gap)?);
         let rad_col = MathBox {
-            width: rad_b.width.clone(),
+            width: radicand_width,
             height: inner_ascent.checked_add(&extra)?,
             depth: rad_b.depth.clone(),
             italic: Dim::zero(),
@@ -1276,7 +1282,12 @@ impl<'font, 'state> Engine<'font, 'state> {
         if let Some(d) = deg {
             let db = self.layout(d, MathStyle::ScriptScript)?;
             let before = self.params.radical_kern_before_degree.checked_mul(&s)?;
-            let after = self.params.radical_kern_after_degree.checked_mul(&s)?;
+            let configured_after = self.params.radical_kern_after_degree.checked_mul(&s)?;
+            // LuaTeX clamps a negative after-degree kern so a narrow degree can
+            // never pull the radical sign left of the degree origin. Express the
+            // same constraint directly: before + degree + after >= 0.
+            let minimum_after = -before.checked_add(&db.width)?;
+            let after = configured_after.max_ref(&minimum_after);
             let pct = Dim::from_i64(i64::from(self.params.radical_degree_bottom_raise_percent))
                 .checked_div(&Dim::from_i64(100))?;
 

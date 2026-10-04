@@ -292,49 +292,10 @@ PROFILES: dict[str, MathProfile] = {
                     ),
                 ),
             ),
-            (
-                "radical-index",
-                Deviation(
-                    geometry_ceiling=0.0811,
-                    allow_structure=False,
-                    note=(
-                        "MiKTeX 26.5 reference measured 0.081000em width delta; "
-                        "Phase G owns radical geometry. The ceiling freezes the "
-                        "observed divergence rather than accepting it as correct."
-                    ),
-                ),
-            ),
-            (
-                "radical-index-compound",
-                Deviation(
-                    geometry_ceiling=0.0811,
-                    allow_structure=False,
-                    note=(
-                        "MiKTeX 26.5 reference measured 0.081001em width delta; "
-                        "Phase G owns radical geometry. The ceiling freezes the "
-                        "observed divergence rather than accepting it as correct."
-                    ),
-                ),
-            ),
-            (
-                "radical-plain",
-                Deviation(
-                    geometry_ceiling=0.0811,
-                    allow_structure=False,
-                    note=(
-                        "MiKTeX 26.5 reference measured 0.081001em width delta; "
-                        "Phase G owns radical geometry. The ceiling freezes the "
-                        "observed divergence rather than accepting it as correct."
-                    ),
-                ),
-            ),
         ),
         canonical_trace_glyph_mismatches=LIBERTINUS_CANONICAL_TRACE_GLYPH_MISMATCHES,
         canonical_trace_deviations=(
             ("display-nested-fraction", 0.0625),
-            ("radical-index", 0.0811),
-            ("radical-index-compound", 0.0811),
-            ("radical-plain", 0.0811),
             ("text-scripts", 0.0811),
         ),
         reference_environment_sha256=REFERENCE_ENVIRONMENT_SHA256,

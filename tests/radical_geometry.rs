@@ -1,6 +1,9 @@
 mod common;
 
-use texpose::{layout, parse, BoxContent, Dim, MathBox, MathParams, MathStyle};
+use texpose::{
+    layout, layout_with_em_size_pt_and_diagnostics, parse, BoxContent, Dim, MathBox, MathParams,
+    MathStyle,
+};
 
 fn add(a: &Dim, b: &Dim) -> Dim {
     a.checked_add(b).unwrap()
@@ -26,18 +29,28 @@ fn radical_parts(tree: &MathBox) -> RadicalParts<'_> {
     let BoxContent::HList(children) = &tree.content else {
         panic!("expected radical HList");
     };
-    let (surd_index, surd) = children
+    let column_index = children
         .iter()
-        .enumerate()
-        .find(|(_, child)| matches!(child.content, BoxContent::Glyph { ch: '\u{221a}', .. }))
-        .expect("radical glyph");
-    let BoxContent::Overlap(column) = &children[surd_index + 1].content else {
-        panic!("expected radical overlap column");
+        .position(|child| {
+            let BoxContent::Overlap(column) = &child.content else {
+                return false;
+            };
+            matches!(
+                column.first().map(|part| &part.content),
+                Some(BoxContent::Rule)
+            )
+        })
+        .expect("radical rule/radicand column");
+    let surd_index = column_index
+        .checked_sub(1)
+        .expect("surd before radical column");
+    let surd = &children[surd_index];
+    let BoxContent::Overlap(column) = &children[column_index].content else {
+        unreachable!();
     };
     let [rule, radicand] = column.as_slice() else {
         panic!("expected radical rule and radicand");
     };
-    assert!(matches!(rule.content, BoxContent::Rule));
     RadicalParts {
         surd_index,
         surd,
@@ -131,4 +144,114 @@ fn radical_degree_uses_bottom_of_corrected_surd_span() {
         children[2].width,
         mul(&params.radical_kern_after_degree, &params.scale(style))
     );
+}
+
+#[test]
+fn radical_bar_preserves_direct_radicand_italic_extent_once() {
+    let font = common::stix_two_math().expect("STIX Two Math");
+    let style = MathStyle::Display;
+    let tree = layout(&parse(r"\sqrt{x}").expect("radical"), &font, style).expect("radical layout");
+    let parts = radical_parts(&tree);
+
+    assert!(
+        parts.radicand.italic > Dim::zero(),
+        "fixture must expose a nonzero terminal MATH italic correction"
+    );
+    let expected_rule_width = parts
+        .radicand
+        .width
+        .checked_add(&parts.radicand.italic)
+        .unwrap();
+    assert_eq!(parts.rule.width, expected_rule_width);
+    assert_eq!(
+        tree.width,
+        parts.surd.width.checked_add(&expected_rule_width).unwrap()
+    );
+}
+
+#[test]
+fn narrow_degree_clamps_negative_after_kern_before_the_surd_origin() {
+    let font = common::stix_two_math().expect("STIX Two Math");
+    let params = MathParams::from_font(&font).expect("MATH constants");
+    let style = MathStyle::Display;
+    let tree = layout(
+        &parse(r"\sqrt[i]{x}").expect("indexed radical"),
+        &font,
+        style,
+    )
+    .expect("indexed radical layout");
+    let BoxContent::HList(children) = &tree.content else {
+        panic!("expected indexed radical HList");
+    };
+    let parts = radical_parts(&tree);
+    assert_eq!(parts.surd_index, 3, "expected degree/before/after topology");
+
+    let before = &children[0];
+    let degree = &children[1];
+    let after = &children[2];
+    let configured_after = params
+        .radical_kern_after_degree
+        .checked_mul(&params.scale(style))
+        .unwrap();
+    let prefix = before.width.checked_add(&degree.width).unwrap();
+    let minimum_after = -prefix.clone();
+    assert!(
+        configured_after < minimum_after,
+        "fixture must require the LuaTeX narrow-degree clamp"
+    );
+    assert_eq!(after.width, minimum_after);
+    assert_eq!(
+        before
+            .width
+            .checked_add(&degree.width)
+            .unwrap()
+            .checked_add(&after.width)
+            .unwrap(),
+        Dim::zero(),
+        "degree prefix must not pull the radical sign left of its origin"
+    );
+}
+
+#[test]
+fn radical_surd_and_rule_geometry_is_root_em_invariant_across_required_sweep() {
+    let font = common::stix_two_math().expect("STIX Two Math");
+    let ast = parse(r"\sqrt[\frac{1+\alpha}{2}]{\rule{0pt}{5em}x}").expect("tall indexed radical");
+    let mut baseline = None;
+
+    for size in [6, 10, 20, 40] {
+        let output = layout_with_em_size_pt_and_diagnostics(
+            &ast,
+            &font,
+            MathStyle::Display,
+            &Dim::from_i64(size),
+        )
+        .expect("radical sweep layout");
+        assert!(
+            output.diagnostics.is_empty(),
+            "valid radical construction must not degrade at {size}pt: {:?}",
+            output.diagnostics
+        );
+        let parts = radical_parts(&output.math_box);
+        assert!(
+            matches!(parts.surd.content, BoxContent::Overlap(_)),
+            "fixture must exercise a vertical radical assembly at {size}pt"
+        );
+        let geometry = (
+            parts.surd.width.clone(),
+            parts.surd.height.clone(),
+            parts.surd.depth.clone(),
+            parts.surd.shift.clone(),
+            parts.rule.width.clone(),
+            parts.rule.height.clone(),
+            parts.rule.shift.clone(),
+        );
+        if let Some(expected) = &baseline {
+            assert_eq!(
+                &geometry, expected,
+                "normalized radical geometry at {size}pt"
+            );
+        } else {
+            baseline = Some(geometry);
+        }
+    }
 }

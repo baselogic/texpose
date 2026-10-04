@@ -54,12 +54,13 @@ Measured on the reference environment above:
 
 | Profile | Raw cases <= 0.050em | p50 | p90 | p95 | p99 | max |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| STIX Two Math | 21/21 | 0.000011 | 0.010000 | 0.013287 | 0.020001 | 0.020001 |
-| Libertinus Math | 17/21 | 0.000013 | 0.081000 | 0.081001 | 0.081001 | 0.081001 |
-| Fira Math | 20/21 | 0.000011 | 0.040000 | 0.040001 | 0.127001 | 0.127001 |
+| STIX Two Math | 21/21 | 0.000002 | 0.000013 | 0.013287 | 0.020001 | 0.020001 |
+| Libertinus Math | 20/21 | 0.000010 | 0.029001 | 0.029001 | 0.062386 | 0.062386 |
+| Fira Math | 20/21 | 0.000001 | 0.000013 | 0.035988 | 0.127001 | 0.127001 |
 
 The raw count remains visible even when a bounded deviation is documented. A
-profile exemption therefore cannot turn `17/21` into a misleading `21/21`.
+profile exemption therefore cannot turn an out-of-tolerance raw case into a
+misleading all-green count.
 
 ### Bounded canonical deviations
 
@@ -70,9 +71,6 @@ that TeXpose is already correct.
 | Profile | Case | Observed maximum | Contract ceiling | Phase G owner |
 | --- | --- | ---: | ---: | --- |
 | Libertinus | `display-nested-fraction` | 0.062386em | 0.062500em | fraction geometry |
-| Libertinus | `radical-index` | 0.081000em | 0.081100em | radical geometry |
-| Libertinus | `radical-index-compound` | 0.081001em | 0.081100em | radical geometry |
-| Libertinus | `radical-plain` | 0.081001em | 0.081100em | radical geometry |
 | Fira | `accent-widehat-script` | 0.127001em | 0.127100em | script-style accent geometry |
 
 No canonical structural mismatch is documented for these cases. A new glyph- or
@@ -89,9 +87,9 @@ large profile exemptions:
 
 | Profile | Raw cases <= 0.050em | p50 | p90 | p95 | p99 | max | structural mismatches |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| STIX Two Math | 62/89 | 0.000045 | 0.325402 | 0.489101 | 0.838115 | 0.838115 | 12 |
-| Libertinus Math | 62/89 | 0.000026 | 0.224717 | 0.447999 | 0.591483 | 0.591483 | 7 |
-| Fira Math | 68/89 | 0.000013 | 0.196001 | 0.405520 | 0.677298 | 0.677298 | 5 |
+| STIX Two Math | 64/89 | 0.000015 | 0.321701 | 0.331992 | 0.828115 | 0.828115 | 4 |
+| Libertinus Math | 65/89 | 0.000014 | 0.207251 | 0.302000 | 0.513599 | 0.513599 | 3 |
+| Fira Math | 69/89 | 0.000012 | 0.196001 | 0.332061 | 0.588081 | 0.588081 | 3 |
 
 The large stress deltas are work inventory for Phase G, not justification to
 raise the global tolerance. In particular, 6pt indexed radicals, brace/underbrace
@@ -134,19 +132,18 @@ mismatch itself remains contractual. Selection changes, duplicate glyph IDs, and
 reordered mixed glyph/rule traces remain non-comparable rather than inventing a
 coordinate or rule-rectangle pairing.
 
-The 2026-10-02 canonical measurement on the pinned MiKTeX reference environment
+The 2026-10-04 canonical measurement on the pinned MiKTeX reference environment
 produced:
 
-| Profile | Kind topology | Glyph identity/order aligned | p50 | p90 | p95 | p99 | max |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| STIX Two Math | 21/21 | 14/21 | 0.000012 | 0.010000 | 0.014000 | 0.014000 | 0.014000 |
-| Libertinus Math | 21/21 | 14/21 | 0.000013 | 0.081000 | 0.081000 | 0.081000 | 0.081000 |
-| Fira Math | 21/21 | 14/21 | 0.000012 | 0.040000 | 0.040000 | 0.040000 | 0.040000 |
+| Profile | Kind topology | Glyph identity/order aligned | Geometry comparable | p50 | p90 | p95 | p99 | max |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| STIX Two Math | 21/21 | 14/21 | 18/21 | 0.000011 | 0.010000 | 0.014000 | 0.014000 | 0.014000 |
+| Libertinus Math | 21/21 | 14/21 | 17/21 | 0.000011 | 0.062399 | 0.080999 | 0.080999 | 0.080999 |
+| Fira Math | 21/21 | 14/21 | 20/21 | 0.000011 | 0.036000 | 0.040000 | 0.127001 | 0.127001 |
 
-The table percentile/max columns are the original identity/order-aligned measurement.
-The current verifier additionally reports realigned glyph geometry for a pure reorder
-only when every primitive is a glyph and every glyph ID is unique. Those cases enter
-the runtime geometry tolerance gate without erasing their paint-order mismatch. A
+The percentile/max columns cover geometry-comparable traces after the verifier's
+strict unique-glyph realignment for pure reorders. Realignment does not erase the
+paint-order mismatch itself. A
 selection change, duplicate glyph ID, or reordered mixed glyph/rule trace contributes
 no fabricated numeric geometry. Geometry ambiguity by itself does not fail a canonical
 profile whose exact mismatch signature is already documented; a new, repaired, or
@@ -184,14 +181,11 @@ unique-ID rule above. A positioned ceiling may overlap a documented glyph/order
 mismatch only when the runtime comparison proves such an identity-realigned reorder.
 Selection changes and ambiguous reorders remain non-comparable, cannot consume a
 ceiling, and therefore make any ceiling on that case fail as stale.
-Libertinus has these bounded positioned deviations measured before Phase G:
+Libertinus has these remaining bounded positioned deviations after G4:
 
 | Case | Observed maximum | Contract ceiling |
 | --- | ---: | ---: |
 | `display-nested-fraction` | 0.062399em | 0.062500em |
-| `radical-index` | 0.081000em | 0.081100em |
-| `radical-index-compound` | 0.081000em | 0.081100em |
-| `radical-plain` | 0.081000em | 0.081100em |
 | `text-scripts` | 0.080999em | 0.081100em |
 
 Fira has one bounded positioned deviation exposed by identity realignment:
@@ -206,11 +200,11 @@ as stale, forcing its removal instead of preserving historical tolerance.
 Stress remains diagnostic and deliberately has no large positioned-trace
 allowlist. The same measurement produced:
 
-| Profile | Kind topology | Glyph identity/order aligned | p50 | p90 | p95 | p99 | max |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| STIX Two Math | 75/89 | 46/75 | 0.000020 | 0.145026 | 0.299701 | 0.781701 | 0.781701 |
-| Libertinus Math | 80/89 | 60/80 | 0.000047 | 0.167500 | 0.390833 | 0.822900 | 0.822900 |
-| Fira Math | 82/89 | 60/82 | 0.000041 | 0.128500 | 0.422560 | 0.935500 | 0.935500 |
+| Profile | Kind topology | Glyph identity/order aligned | Geometry comparable | p50 | p90 | p95 | p99 | max |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| STIX Two Math | 82/89 | 52/82 | 59/82 | 0.000020 | 0.636498 | 1.032257 | 1.032257 | 1.032257 |
+| Libertinus Math | 83/89 | 62/83 | 68/83 | 0.000014 | 0.167502 | 0.513599 | 0.822900 | 0.822900 |
+| Fira Math | 83/89 | 62/83 | 71/83 | 0.000013 | 0.128500 | 0.508940 | 0.935500 | 0.935500 |
 
 The large stress topology, identity, and placement deltas remain discriminating
 evidence for the primitive-by-primitive repairs in Phase G.
