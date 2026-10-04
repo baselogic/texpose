@@ -33,8 +33,8 @@ G1 normalizes construction records at the font boundary: ready-made variants car
 | OpenType field/table | TeXpose construct | Status | Default / degradation policy | Primary test | Oracle family |
 | --- | --- | --- | --- | --- | --- |
 | MATH header + `mathConstantsOffset` | all math layout | Construction invariant | MATH 1.0 and the fixed MathConstants payload must be present and parseable; construction fails otherwise. Optional glyph-info/variants offsets may be absent. | `tests/font_math_contract.rs` | font construction / all families |
-| `scriptPercentScaleDown` | level-1 scripts | Implemented | Required MathConstants scalar; scales script style. | `tests/script_scale.rs` | scripts |
-| `scriptScriptPercentScaleDown` | level-2 scripts | Implemented | Required MathConstants scalar; scales scriptscript style. | `tests/script_scale.rs` | scripts |
+| `scriptPercentScaleDown` | level-1 scripts | Implemented | Required MathConstants scalar; scales the final level-1 glyph after `ssty` selection. | `tests/script_scale.rs`, `tests/script_style_alternates.rs` | scripts |
+| `scriptScriptPercentScaleDown` | level-2 scripts | Implemented | Required MathConstants scalar; scales the final level-2 glyph after `ssty` selection. | `tests/script_scale.rs`, `tests/script_style_alternates.rs` | scripts |
 | `delimitedSubFormulaMinHeight` | `\left...\right`, named/character delimiters | Not consumed | Delimiter target is computed from TeX delimiter factor/shortfall and body geometry; this MATH minimum is not applied. | `tests/delimiter_sizing.rs` (current sizing policy) | delimiters |
 | `displayOperatorMinHeight` | display large operators and integrals | Implemented | Select the tightest available vertical variant meeting the requested display minimum; if none meets it, retain the largest available/base glyph. | `tests/large_operator_limits.rs`, `tests/integral_scripts.rs` | operators, integrals |
 | `mathLeading` | inter-line mathematical leading | Not consumed | No global MATH leading is added. Matrices/aligned/substack use their explicit TeX/AMSmath spacing rules instead. | `tests/amsmath_grid.rs`, `tests/amsmath_substack.rs` (current spacing policy) | matrices, aligned, operators |
@@ -85,7 +85,7 @@ The selected language system contributes both its `requiredFeatureIndex`, when p
 
 The first stable core supports:
 
-- `ssty`: script level 1 and 2 through Alternate Substitution; Single Substitution is accepted as the fallback form when one script form serves both levels.
+- `ssty`: script level 1 and 2 through Alternate Substitution; Single Substitution is accepted as the fallback form when one script form serves both levels. Substitution occurs before final glyph metrics and italic correction are consumed; an uncovered glyph retains its original glyph ID and still receives the style scale.
 - `flac`: Single Substitution for over-accent glyphs when the laid-out base exceeds `flattenedAccentBaseHeight`.
 - `dtls`: Single Substitution for a single mathematical glyph used as an over-accent base. Multi-glyph accent nuclei are left unchanged by `dtls`.
 

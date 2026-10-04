@@ -44,6 +44,8 @@ Math glyph substitutions are not selected by globally searching the GSUB Feature
 
 Script and scriptscript glyphs activate `ssty`; over-accent glyphs activate `flac` only when their base is above `flattenedAccentBaseHeight`; and a single mathematical glyph used as an over-accent base activates `dtls`. These contextual features are combined with `ssty` before lookup-order application rather than being applied as independent post-processing passes.
 
+For `ssty`, level 1 selects the first Alternate Substitution form and level 2 selects the second. A Single Substitution is the documented fallback when one script form serves both levels. Glyphs outside active `ssty` coverage retain their original glyph ID. In all cases TeXpose resolves the substitution before reading the final glyph advance, bounding box, and italic correction, then applies `scriptPercentScaleDown` or `scriptScriptPercentScaleDown` to those selected-glyph metrics.
+
 ## Missing-glyph degradation
 
 A missing cmap entry for a Unicode scalar required by ordinary math or literal-text layout is recoverable. The diagnostic-aware entry points return `LayoutDiagnostic::MissingGlyph { ch }` in deterministic traversal order and continue layout. The existing convenience entry points (`layout`, `layout_with_em_size_pt`, numbering variants, and `layout_with_max_depth`) preserve their `MathBox` return type and deliberately discard recoverable diagnostics; callers that need to surface degradation must use the corresponding `*_with_diagnostics` entry point.
