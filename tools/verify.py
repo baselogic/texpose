@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Iterable
 
 ROOT = Path(__file__).resolve().parent.parent
-PROFILE_REVISION = "oracle-v8"
+PROFILE_REVISION = "oracle-v9"
 CANONICAL_CENSUS_SHA256 = "d1d1e356e5a4f426ebf603ed6be5cb134dca3bebe9be7f6b49938ed5ada4ddf1"
 STRESS_CENSUS_SHA256 = "383828f9f734c65e67ce7b9a4f12f501fc2951825ed8ffd1ff6fca945b5e29b4"
 CANONICAL_ALIAS_CENSUS_SHA256 = CANONICAL_CENSUS_SHA256
@@ -871,6 +871,9 @@ def build_math_tex(
         r"\edef\TexposeFontspecVersion{\csname ver@fontspec.sty\endcsname}",
         r"\edef\TexposeAmsmathVersion{\csname ver@amsmath.sty\endcsname}",
         r"\begin{document}",
+        r"\makeatletter",
+        r"\@ifpackageloaded{microtype}{\errmessage{TeXpose math oracle forbids microtype}}{}",
+        r"\makeatother",
         r"\directlua{texpose_write_fingerprint("
         r'"\luaescapestring{\fmtversion}",',
         r'"\luaescapestring{\TexposeUnicodeMathVersion}",',
@@ -1797,6 +1800,30 @@ def self_test() -> None:
         contractual_profile=False,
         collection=False,
     )
+
+    oracle_source = build_math_tex(
+        {
+            "case-1": {
+                "name": "case-1",
+                "source": "x",
+                "style": "text",
+                "size": 10,
+            }
+        },
+        "result.tsv",
+        "STIXTwoMath-Regular.otf",
+        spec,
+    )
+    if r"\usepackage{microtype}" in oracle_source:
+        fail("self-test math oracle unexpectedly loads microtype")
+    guard_marker = r"\@ifpackageloaded{microtype}"
+    if guard_marker not in oracle_source:
+        fail("self-test math oracle lost the microtype exclusion guard")
+    begin_index = oracle_source.index(r"\begin{document}")
+    guard_index = oracle_source.index(guard_marker)
+    fingerprint_index = oracle_source.index(r"\directlua{texpose_write_fingerprint(")
+    if not begin_index < guard_index < fingerprint_index:
+        fail("self-test microtype guard must run after begin-document hooks and before evidence")
 
     cases, parsed_meta = parse_math_probe([meta, census, alias_census, *rows], spec)
     if len(cases) != 21 or parsed_meta.face_index != 0:
