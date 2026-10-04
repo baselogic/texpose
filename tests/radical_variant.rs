@@ -1,49 +1,8 @@
 mod common;
+#[path = "common/vertical_variants.rs"]
+mod vertical_variants;
 
-use std::cmp::Ordering;
-
-use texpose::{layout, parse, BoxContent, Dim, MathFont, MathParams, MathStyle};
-
-fn selected_radical_glyph(font: &MathFont, target: &Dim, scale: &Dim) -> u16 {
-    let base = font.glyph('√').expect("radical glyph");
-    let mut best_fitting: Option<(u16, Dim)> = None;
-    let mut tallest_short: Option<(u16, Dim)> = None;
-
-    for glyph_id in font.vertical_variants(base.glyph_id) {
-        let metrics = font
-            .glyph_id('√', glyph_id)
-            .expect("radical variant metrics");
-        let span = metrics
-            .height
-            .checked_add(&metrics.depth)
-            .unwrap()
-            .checked_mul(scale)
-            .unwrap();
-        match span.cmp(target) {
-            Ordering::Equal | Ordering::Greater => {
-                let tighter = best_fitting
-                    .as_ref()
-                    .map_or(true, |(_, best_span)| span.cmp(best_span) == Ordering::Less);
-                if tighter {
-                    best_fitting = Some((glyph_id, span));
-                }
-            }
-            Ordering::Less => {
-                let taller = tallest_short.as_ref().map_or(true, |(_, best_span)| {
-                    span.cmp(best_span) == Ordering::Greater
-                });
-                if taller {
-                    tallest_short = Some((glyph_id, span));
-                }
-            }
-        }
-    }
-
-    best_fitting
-        .or(tallest_short)
-        .expect("at least the base radical glyph")
-        .0
-}
+use texpose::{layout, parse, BoxContent, MathParams, MathStyle};
 
 fn radical_glyph_id(tree: &texpose::MathBox) -> u16 {
     let BoxContent::HList(children) = &tree.content else {
@@ -86,8 +45,8 @@ fn radical_variant_selection_excludes_extra_ascender_from_minimum_span() {
         .checked_add(&thickness)
         .unwrap();
     let inflated_needed = needed.checked_add(&extra).unwrap();
-    let expected = selected_radical_glyph(&font, &needed, &scale);
-    let defective = selected_radical_glyph(&font, &inflated_needed, &scale);
+    let expected = vertical_variants::select_by_advance(&font, '√', &needed, &scale);
+    let defective = vertical_variants::select_by_advance(&font, '√', &inflated_needed, &scale);
     assert_ne!(
         expected, defective,
         "fixture must cross a radical variant boundary only because of RadicalExtraAscender"

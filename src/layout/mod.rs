@@ -1,5 +1,6 @@
 //! TeX-faithful math box model. Dimensions are [`Dim`](crate::Dim).
 
+mod assembly;
 mod engine;
 mod metrics;
 mod numbering;
@@ -36,6 +37,12 @@ pub enum LayoutDiagnostic {
     /// advance, otherwise with the deterministic missing-glyph fallback box.
     MissingGlyph {
         /// Unicode scalar that could not be resolved through cmap.
+        ch: char,
+    },
+    /// OpenType MATH assembly data could not be used safely for a requested
+    /// extension, so layout retained the largest valid ready-made variant.
+    ExtensibleFallback {
+        /// Unicode scalar whose extensible construction degraded.
         ch: char,
     },
 }

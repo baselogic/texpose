@@ -7,7 +7,8 @@ use crate::atoms::symbol_atom_kind;
 use crate::color::Color;
 use crate::dim::Dim;
 use crate::error::{Error, FontError, NumericError};
-use crate::font::{math_value_design_units, MathFont, MathFontView, MathGsubContext};
+use crate::font::{MathFont, MathFontView, MathGsubContext};
+use crate::layout::assembly::{solve_glyph_assembly, AssemblySolution};
 use crate::layout::metrics::MathParams;
 use crate::layout::numbering::NumberingState;
 use crate::layout::semantic::{
@@ -81,8 +82,10 @@ pub fn layout(node: &MathNode, font: &MathFont, style: MathStyle) -> Result<Math
 ///
 /// A required Unicode scalar missing from cmap produces
 /// [`LayoutDiagnostic::MissingGlyph`] and a deterministic substitute box while
-/// layout continues. Construct-specific source glyph failures retain their
-/// construct degradation policy instead of being converted into this diagnostic.
+/// layout continues. An unusable OpenType MATH glyph assembly produces
+/// [`LayoutDiagnostic::ExtensibleFallback`] while retaining the largest valid
+/// ready-made construction candidate. Other construct-specific source glyph
+/// failures retain their documented degradation policy.
 ///
 /// # Errors
 ///
@@ -408,19 +411,15 @@ struct ScriptPlacementParams {
 impl ScriptPlacementParams {
     fn from_view(font: &MathFontView<'_>) -> Self {
         let constants = font.math_constants();
-        let units_per_em = font.units_per_em_nonzero();
-        let fu = |value| {
-            Dim::from_font_units_nonzero(i64::from(math_value_design_units(value)), units_per_em)
-        };
 
         Self {
-            subscript_top_max: fu(constants.subscript_top_max()),
-            subscript_baseline_drop_min: fu(constants.subscript_baseline_drop_min()),
-            superscript_bottom_min: fu(constants.superscript_bottom_min()),
-            superscript_bottom_max_with_subscript: fu(
-                constants.superscript_bottom_max_with_subscript()
-            ),
-            superscript_baseline_drop_max: fu(constants.superscript_baseline_drop_max()),
+            subscript_top_max: font.math_value(constants.subscript_top_max()),
+            subscript_baseline_drop_min: font.math_value(constants.subscript_baseline_drop_min()),
+            superscript_bottom_min: font.math_value(constants.superscript_bottom_min()),
+            superscript_bottom_max_with_subscript: font
+                .math_value(constants.superscript_bottom_max_with_subscript()),
+            superscript_baseline_drop_max: font
+                .math_value(constants.superscript_baseline_drop_max()),
         }
     }
 }
@@ -433,18 +432,11 @@ struct SubstackParams {
 impl SubstackParams {
     fn from_view(font: &MathFontView<'_>, params: &MathParams) -> Result<Self, Error> {
         let constants = font.math_constants();
-        let units_per_em = font.units_per_em_nonzero();
-        let fu = |value| {
-            Dim::from_font_units_nonzero(i64::from(math_value_design_units(value)), units_per_em)
-        };
-
         let script_scale = params.scale(MathStyle::Script);
 
-        let top = fu(constants.stack_top_shift_up());
-
-        let bottom = fu(constants.stack_bottom_shift_down());
-
-        let gap = fu(constants.stack_gap_min());
+        let top = font.math_value(constants.stack_top_shift_up());
+        let bottom = font.math_value(constants.stack_bottom_shift_down());
+        let gap = font.math_value(constants.stack_gap_min());
 
         Ok(Self {
             baseline_skip: top.checked_add(&bottom)?.checked_mul(&script_scale)?,
@@ -466,17 +458,14 @@ struct FractionStackParams {
 impl FractionStackParams {
     fn from_view(font: &MathFontView<'_>) -> Self {
         let constants = font.math_constants();
-        let units_per_em = font.units_per_em_nonzero();
-        let fu = |value| {
-            Dim::from_font_units_nonzero(i64::from(math_value_design_units(value)), units_per_em)
-        };
         Self {
-            top_shift_up: fu(constants.stack_top_shift_up()),
-            top_display_shift_up: fu(constants.stack_top_display_style_shift_up()),
-            bottom_shift_down: fu(constants.stack_bottom_shift_down()),
-            bottom_display_shift_down: fu(constants.stack_bottom_display_style_shift_down()),
-            gap_min: fu(constants.stack_gap_min()),
-            display_gap_min: fu(constants.stack_display_style_gap_min()),
+            top_shift_up: font.math_value(constants.stack_top_shift_up()),
+            top_display_shift_up: font.math_value(constants.stack_top_display_style_shift_up()),
+            bottom_shift_down: font.math_value(constants.stack_bottom_shift_down()),
+            bottom_display_shift_down: font
+                .math_value(constants.stack_bottom_display_style_shift_down()),
+            gap_min: font.math_value(constants.stack_gap_min()),
+            display_gap_min: font.math_value(constants.stack_display_style_gap_min()),
         }
     }
 
@@ -572,10 +561,20 @@ impl<'font, 'state> Engine<'font, 'state> {
             }),
             MathNode::Delimited(open, body, close) => self.delimited(open, body, close, style),
             MathNode::SizedDelim(d, size, k) => {
-                let needed = self.explicit_delim_span(*size, style)?;
+                // amsmath measures fixed-size delimiters in a fresh inline math
+                // formula, so their glyph size and axis are textstyle even when
+                // the surrounding formula is scriptstyle.
+                let delimiter_style = MathStyle::Text;
+                let needed = self.explicit_delim_target(*size)?;
+                let axis = self
+                    .params
+                    .axis_height
+                    .checked_mul(&self.params.scale(delimiter_style))?;
+                let bx =
+                    self.center_delimiter(self.delim_box(d, &needed, delimiter_style)?, &axis)?;
                 Ok(Item {
                     class: Some(*k),
-                    bx: self.delim_box(d, &needed, style)?,
+                    bx,
                 })
             }
             MathNode::Space(kind) => Ok(Item {
@@ -1490,7 +1489,10 @@ impl<'font, 'state> Engine<'font, 'state> {
     fn delimiter_target(&self, height: &Dim, depth: &Dim, axis: &Dim) -> Result<Dim, Error> {
         let above = height.checked_sub(axis)?.clamp_nonneg();
         let below = depth.checked_add(axis)?;
-        let max_distance = above.max_ref(&below);
+        self.delimiter_target_from_max_distance(&above.max_ref(&below))
+    }
+
+    fn delimiter_target_from_max_distance(&self, max_distance: &Dim) -> Result<Dim, Error> {
         let factor = Dim::ratio(TEX_DELIMITER_FACTOR_NUM, TEX_DELIMITER_FACTOR_DEN)?;
         let factor_target = max_distance.checked_mul(&factor)?;
         let shortfall_target = max_distance
@@ -1512,17 +1514,24 @@ impl<'font, 'state> Engine<'font, 'state> {
         Ok(bx)
     }
 
-    fn explicit_delim_span(&self, size: DelimSize, style: MathStyle) -> Result<Dim, Error> {
-        let em = self.params.em(style)?;
-        let n = match size {
-            DelimSize::Big => 12,
-            DelimSize::Big2 => 18,
-            DelimSize::Bigg => 24,
-            DelimSize::Bigg2 => 30,
+    fn explicit_delim_target(&self, size: DelimSize) -> Result<Dim, Error> {
+        // amsmath sets \big@size to 1.2 times the textstyle math
+        // parenthesis height+depth, then uses factors 1, 1.5, 2, and 2.5
+        // for \big, \Big, \bigg, and \Bigg. The resulting vcenter is
+        // fed through TeX's ordinary delimiter-factor/shortfall algorithm.
+        let paren = self.font.glyph('(')?;
+        let paren_span = paren.height.checked_add(&paren.depth)?;
+        let (numerator, denominator) = match size {
+            DelimSize::Big => (6, 5),
+            DelimSize::Big2 => (9, 5),
+            DelimSize::Bigg => (12, 5),
+            DelimSize::Bigg2 => (3, 1),
         };
-        Ok(em
-            .checked_mul(&Dim::from_i64(n))?
-            .checked_div(&Dim::from_i64(10))?)
+        let vcenter_extent = paren_span
+            .checked_mul(&Dim::from_i64(numerator))?
+            .checked_div(&Dim::from_i64(denominator))?;
+        let max_distance = vcenter_extent.checked_div(&Dim::from_i64(2))?;
+        self.delimiter_target_from_max_distance(&max_distance)
     }
 
     fn delim_box(&self, d: &Delimiter, needed: &Dim, style: MathStyle) -> Result<MathBox, Error> {
@@ -1543,19 +1552,46 @@ impl<'font, 'state> Engine<'font, 'state> {
             .ok_or(FontError::MissingGlyph { ch })?;
         let mut best = self.glyph_id(ch, base_glyph_id, style)?;
         let mut best_span = best.height.checked_add(&best.depth)?;
-        for gid in self.font.vertical_variants(base_glyph_id) {
-            let cand = self.glyph_id(ch, gid, style)?;
-            let span = cand.height.checked_add(&cand.depth)?;
-            let meets = span >= *needed;
-            let best_short = best_span < *needed;
-            let tighter = span < best_span;
-            let taller = span > best_span;
-            if (meets && (best_short || tighter)) || (best_short && taller) {
-                best_span = span;
-                best = cand;
+        let scale = self.params.scale(style);
+        for variant in self.font.vertical_variant_records(base_glyph_id) {
+            let candidate_span = variant.advance.checked_mul(&scale)?;
+            let candidate = match self.glyph_id(ch, variant.glyph_id, style) {
+                Ok(candidate) => candidate,
+                Err(Error::Font(FontError::MissingGlyph { .. })) => continue,
+                Err(error) => return Err(error),
+            };
+            if variant_measure_is_better(&best_span, &candidate_span, needed) {
+                best_span = candidate_span;
+                best = candidate;
             }
         }
-        Ok(best)
+        if best_span >= *needed {
+            return Ok(best);
+        }
+
+        let target = needed.checked_div(&scale)?;
+        let assembly = match self.font.vertical_assembly(base_glyph_id) {
+            Ok(Some(assembly)) => assembly,
+            Ok(None) => return Ok(best),
+            Err(_) => {
+                self.extensible_fallback(ch);
+                return Ok(best);
+            }
+        };
+        let solution = match solve_glyph_assembly(&assembly, &target) {
+            Ok(solution) => solution,
+            Err(_) => {
+                self.extensible_fallback(ch);
+                return Ok(best);
+            }
+        };
+        match self.render_vertical_assembly(ch, &solution, style)? {
+            Some(assembled) => Ok(assembled),
+            None => {
+                self.extensible_fallback(ch);
+                Ok(best)
+            }
+        }
     }
 
     fn stretch_h(&self, base: MathBox, needed: &Dim, style: MathStyle) -> Result<MathBox, Error> {
@@ -1567,89 +1603,125 @@ impl<'font, 'state> Engine<'font, 'state> {
         }
         let mut best = base;
         let mut best_w = best.width.clone();
-        for gid in self.font.horizontal_variants(glyph_id) {
-            let cand = self.glyph_id(ch, gid, style)?;
+        for variant in self.font.horizontal_variant_records(glyph_id) {
+            let candidate = match self.glyph_id(ch, variant.glyph_id, style) {
+                Ok(candidate) => candidate,
+                Err(Error::Font(FontError::MissingGlyph { .. })) => continue,
+                Err(error) => return Err(error),
+            };
             let wider_needed = best_w < *needed;
-            let fits = cand.width >= *needed;
-            let tighter = cand.width < best_w;
-            let longer = cand.width > best_w;
+            let fits = candidate.width >= *needed;
+            let tighter = candidate.width < best_w;
+            let longer = candidate.width > best_w;
             if (fits && (wider_needed || tighter)) || (wider_needed && longer) {
-                best_w = cand.width.clone();
-                best = cand;
+                best_w = candidate.width.clone();
+                best = candidate;
             }
         }
         if best_w >= *needed {
             return Ok(best);
         }
-        if let Some(asm) = self.assemble_h(ch, glyph_id, needed, style)? {
-            if asm.width > best_w {
-                return Ok(asm);
+
+        let scale = self.params.scale(style);
+        let target = needed.checked_div(&scale)?;
+        let assembly = match self.font.horizontal_assembly(glyph_id) {
+            Ok(Some(assembly)) => assembly,
+            Ok(None) => return Ok(best),
+            Err(_) => {
+                self.extensible_fallback(ch);
+                return Ok(best);
+            }
+        };
+        let solution = match solve_glyph_assembly(&assembly, &target) {
+            Ok(solution) => solution,
+            Err(_) => {
+                self.extensible_fallback(ch);
+                return Ok(best);
+            }
+        };
+        match self.render_horizontal_assembly(ch, &solution, style)? {
+            Some(assembled) if assembled.width > best_w => Ok(assembled),
+            Some(_) => Ok(best),
+            None => {
+                self.extensible_fallback(ch);
+                Ok(best)
             }
         }
-        Ok(best)
     }
 
-    fn assemble_h(
+    fn render_horizontal_assembly(
         &self,
         ch: char,
-        gid: u16,
-        needed: &Dim,
+        solution: &AssemblySolution,
         style: MathStyle,
     ) -> Result<Option<MathBox>, Error> {
-        let parts = self.font.horizontal_assembly_parts(gid);
-        if parts.is_empty() {
-            return Ok(None);
-        }
-        let s = self.params.scale(style);
-        let upem = self.font.units_per_em_nonzero();
-        let fu = |n: u16| Dim::from_font_units_nonzero(i64::from(n), upem).checked_mul(&s);
-        let sequence = |copies: u32| {
-            let mut v = Vec::new();
-            for &(id, start, end, adv, ext) in &parts {
-                if ext {
-                    for _ in 0..copies {
-                        v.push((id, start, end, adv));
-                    }
-                } else {
-                    v.push((id, start, end, adv));
-                }
-            }
-            v
-        };
-        let width_of = |seq: &[(u16, u16, u16, u16)]| -> Result<Dim, Error> {
-            if seq.is_empty() {
-                return Ok(Dim::zero());
-            }
-            let mut w = fu(seq[0].3)?;
-            for i in 1..seq.len() {
-                let overlap = seq[i - 1].2.min(seq[i].1);
-                w = w.checked_add(&fu(seq[i].3)?)?.checked_sub(&fu(overlap)?)?;
-            }
-            Ok(w)
-        };
-        let mut copies = 0u32;
-        while copies < 64 {
-            if width_of(&sequence(copies))? >= *needed {
-                break;
-            }
-            copies += 1;
-        }
-        let seq = sequence(copies);
-        if seq.is_empty() {
-            return Ok(None);
-        }
-        let mut kids = Vec::new();
-        for (i, &(id, start, _, _)) in seq.iter().enumerate() {
-            if i > 0 {
-                let overlap = seq[i - 1].2.min(start);
-                kids.push(MathBox::kern(-fu(overlap)?));
-            }
-            let Ok(glyph) = self.glyph_id(ch, id, style) else {
-                return Ok(None);
+        let scale = self.params.scale(style);
+        let mut children = Vec::with_capacity(solution.placements.len() * 2);
+        for placement in &solution.placements {
+            let glyph = match self.glyph_id(ch, placement.glyph_id, style) {
+                Ok(glyph) => glyph,
+                Err(Error::Font(FontError::MissingGlyph { .. })) => return Ok(None),
+                Err(error) => return Err(error),
             };
-            kids.push(glyph);
+            let desired_advance = placement.advance.checked_mul(&scale)?;
+            let adjustment = desired_advance.checked_sub(&glyph.width)?;
+            children.push(glyph);
+            if !adjustment.is_zero() {
+                children.push(MathBox::kern(adjustment));
+            }
         }
-        Ok(Some(MathBox::hpack(kids)?))
+
+        let mut result = MathBox::hpack(children)?;
+        result.width = solution.advance.checked_mul(&scale)?;
+        result.italic = solution.italic_correction.checked_mul(&scale)?;
+        Ok(Some(result))
+    }
+
+    fn render_vertical_assembly(
+        &self,
+        ch: char,
+        solution: &AssemblySolution,
+        style: MathStyle,
+    ) -> Result<Option<MathBox>, Error> {
+        let scale = self.params.scale(style);
+        let mut children = Vec::with_capacity(solution.placements.len());
+        let mut origin = Dim::zero();
+        let mut width = Dim::zero();
+
+        for placement in &solution.placements {
+            let mut glyph = match self.glyph_id(ch, placement.glyph_id, style) {
+                Ok(glyph) => glyph,
+                Err(Error::Font(FontError::MissingGlyph { .. })) => return Ok(None),
+                Err(error) => return Err(error),
+            };
+            width = width.max_ref(&glyph.width);
+            // Vertical MATH assembly parts are ordered bottom-to-top. Aligning
+            // each glyph's ink bottom with its part origin mirrors the vertical
+            // origin adjustment used by mature OpenType MATH clients and keeps
+            // the assembly's advance independent from incidental ink bounds.
+            glyph.shift = origin.checked_add(&glyph.depth)?;
+            children.push(glyph);
+            origin = origin.checked_add(&placement.advance.checked_mul(&scale)?)?;
+        }
+
+        let advance = solution.advance.checked_mul(&scale)?;
+        if origin != advance {
+            return Ok(None);
+        }
+        Ok(Some(MathBox {
+            width,
+            height: advance,
+            depth: Dim::zero(),
+            italic: solution.italic_correction.checked_mul(&scale)?,
+            shift: Dim::zero(),
+            content: BoxContent::Overlap(children),
+        }))
+    }
+
+    fn extensible_fallback(&self, ch: char) {
+        self.diagnostics
+            .borrow_mut()
+            .push(LayoutDiagnostic::ExtensibleFallback { ch });
     }
 
     fn large_op(
@@ -2221,12 +2293,9 @@ impl<'font, 'state> Engine<'font, 'state> {
         let mut selected = fixed;
         let mut selected_width = selected.width.clone();
 
-        for glyph_id in self.font.horizontal_variants(seed_glyph_id) {
-            if glyph_id == seed_glyph_id {
-                continue;
-            }
-
-            let candidate = self.glyph_id_with_context(seed_ch, glyph_id, style, context)?;
+        for variant in self.font.horizontal_variant_records(seed_glyph_id) {
+            let candidate =
+                self.glyph_id_with_context(seed_ch, variant.glyph_id, style, context)?;
 
             if candidate.width.is_zero() {
                 continue;
@@ -3524,6 +3593,15 @@ fn is_tex_accent(kind: AccentKind) -> bool {
     )
 }
 
+fn variant_measure_is_better(current: &Dim, candidate: &Dim, target: &Dim) -> bool {
+    match (current >= target, candidate >= target) {
+        (false, false) => candidate > current,
+        (false, true) => true,
+        (true, false) => false,
+        (true, true) => candidate < current,
+    }
+}
+
 fn is_hat_tilde_accent(kind: AccentKind) -> bool {
     matches!(
         kind,
@@ -3730,5 +3808,30 @@ fn matrix_delims(s: MatrixStyle) -> (Option<char>, Option<char>) {
         MatrixStyle::BBmatrix => (Some('{'), Some('}')),
         MatrixStyle::Cases => (Some('{'), None),
         _ => (None, None),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::variant_measure_is_better;
+    use crate::Dim;
+
+    #[test]
+    fn variant_measure_prefers_tightest_satisfying_or_largest_short_candidate() {
+        let target = Dim::one();
+        let short = Dim::ratio(4, 5).expect("static ratio");
+        let less_short = Dim::ratio(3, 4).expect("static ratio");
+        let more_short = Dim::ratio(9, 10).expect("static ratio");
+        let loose = Dim::ratio(6, 5).expect("static ratio");
+        let tight = Dim::ratio(11, 10).expect("static ratio");
+        let too_large = Dim::ratio(13, 10).expect("static ratio");
+
+        assert!(variant_measure_is_better(&short, &more_short, &target));
+        assert!(!variant_measure_is_better(&short, &less_short, &target));
+        assert!(variant_measure_is_better(&short, &target, &target));
+        assert!(!variant_measure_is_better(&target, &target, &target));
+        assert!(variant_measure_is_better(&short, &loose, &target));
+        assert!(variant_measure_is_better(&loose, &tight, &target));
+        assert!(!variant_measure_is_better(&tight, &too_large, &target));
     }
 }

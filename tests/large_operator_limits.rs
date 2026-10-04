@@ -1,4 +1,6 @@
 mod common;
+#[path = "common/vertical_variants.rs"]
+mod vertical_variants;
 
 use texpose::{layout, parse, BoxContent, Dim, MathBox, MathParams, MathStyle};
 
@@ -13,6 +15,30 @@ fn mul(a: &Dim, b: &Dim) -> Dim {
 }
 fn div(a: &Dim, b: &Dim) -> Dim {
     a.checked_div(b).unwrap()
+}
+
+fn centered_operator_glyph_id(base: &MathBox, expected_ch: char) -> u16 {
+    match &base.content {
+        BoxContent::Glyph { ch, glyph_id, .. } => {
+            assert_eq!(*ch, expected_ch);
+            *glyph_id
+        }
+        BoxContent::HList(children) => {
+            let mut glyphs = children.iter().filter_map(|child| match &child.content {
+                BoxContent::Glyph { ch, glyph_id, .. } => Some((*ch, *glyph_id)),
+                BoxContent::Kern(_) => None,
+                _ => panic!("unexpected centered large-operator child"),
+            });
+            let (ch, glyph_id) = glyphs.next().expect("centered large-operator glyph");
+            assert_eq!(ch, expected_ch);
+            assert!(
+                glyphs.next().is_none(),
+                "centered operator must contain one glyph"
+            );
+            glyph_id
+        }
+        _ => panic!("unexpected large-operator base content"),
+    }
 }
 
 fn limit_branches(tree: &MathBox) -> (&MathBox, &MathBox, &MathBox) {
@@ -36,6 +62,10 @@ fn display_large_operator_uses_math_axis_and_independent_limit_constraints() {
     let ast = parse(r"\sum_{i=1}^{n}").expect("display sum");
     let tree = layout(&ast, &font, style).expect("display sum layout");
     let (base, upper, lower) = limit_branches(&tree);
+
+    let target = mul(&params.display_operator_min_height, &scale);
+    let expected_glyph = vertical_variants::select_by_advance(&font, '∑', &target, &scale);
+    assert_eq!(centered_operator_glyph_id(base, '∑'), expected_glyph);
 
     let raw_center = div(&sub(&base.height, &base.depth), &Dim::from_i64(2));
     let expected_base_shift = sub(&axis, &raw_center);

@@ -196,28 +196,28 @@ name = "big-paren"
 kind = "dims"
 style = "text"
 input = "\\big("
-expect = "w=0.404 h=0.983 d=0.443"
+expect = "w=0.381 h=0.863 d=0.323"
 
 [[gold]]
 name = "Big-paren"
 kind = "dims"
 style = "text"
 input = "\\Big("
-expect = "w=0.45 h=1.223 d=0.683"
+expect = "w=0.427 h=1.103 d=0.563"
 
 [[gold]]
 name = "bigg-paren"
 kind = "dims"
 style = "text"
 input = "\\bigg("
-expect = "w=0.519 h=1.582 d=1.042"
+expect = "w=0.473 h=1.342 d=0.802"
 
 [[gold]]
 name = "Bigg-paren"
 kind = "dims"
 style = "text"
 input = "\\Bigg("
-expect = "w=0.564 h=1.82 d=1.28"
+expect = "w=0.519 h=1.582 d=1.042"
 
 [[gold]]
 name = "sum-limits-display"

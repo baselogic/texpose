@@ -1,4 +1,6 @@
 mod common;
+#[path = "common/vertical_variants.rs"]
+mod vertical_variants;
 
 use core::cmp::Ordering;
 
@@ -60,6 +62,24 @@ fn script_constants(font: &MathFont) -> ScriptConstants {
     }
 }
 
+fn assert_display_variant(
+    font: &MathFont,
+    params: &MathParams,
+    ch: char,
+    scale: &Dim,
+    base: &MathBox,
+) {
+    let target = params
+        .display_operator_min_height
+        .checked_mul(scale)
+        .expect("scaled display operator target");
+    let expected = vertical_variants::select_by_advance(font, ch, &target, scale);
+    assert!(matches!(
+        &base.content,
+        BoxContent::Glyph { glyph_id, .. } if *glyph_id == expected
+    ));
+}
+
 fn integral_attachment_parts(tree: &MathBox, expected: char) -> (&MathBox, &MathBox, &MathBox) {
     let BoxContent::HList(children) = &tree.content else {
         panic!("scripted display integral must be an HList");
@@ -103,6 +123,7 @@ fn display_contour_integral_uses_axis_baseline_drop_and_nolimits_width() {
     let tree = layout_source(r"\oint_\Gamma", style, &font);
 
     let (base, italic_kern, slot) = integral_attachment_parts(&tree, '∮');
+    assert_display_variant(&font, &params, '∮', &scale, base);
 
     assert!(
         !base.italic.is_zero(),
@@ -172,6 +193,7 @@ fn display_integral_offsets_only_superscript_by_math_italic_correction() {
     let tree = layout_source(r"\int_0^1", style, &font);
 
     let (base, italic_kern, slot) = integral_attachment_parts(&tree, '∫');
+    assert_display_variant(&font, &params, '∫', &scale, base);
 
     assert!(
         !base.italic.is_zero(),
