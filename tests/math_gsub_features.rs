@@ -386,7 +386,7 @@ fn lookup_shared_by_ssty_and_dtls_is_applied_once() {
 #[test]
 fn flac_is_single_substitution_selected_only_above_flattened_accent_base_height() {
     let base = MathFont::from_bytes(STIX).expect("STIX fixture");
-    let accent_source = ['ˆ', '\u{0302}']
+    let accent_source = ['\u{0302}', 'ˆ']
         .into_iter()
         .find_map(|ch| base.glyph(ch).ok().map(|glyph| glyph.glyph_id))
         .expect("STIX hat accent glyph");

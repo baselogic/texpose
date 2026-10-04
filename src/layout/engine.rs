@@ -1320,6 +1320,36 @@ impl<'font, 'state> Engine<'font, 'state> {
     }
 
     fn scripts(&self, semantics: ScriptSemantics<'_>) -> Result<Item, Error> {
+        // LuaTeX attaches scripts to a direct character nucleus before closing
+        // the accent noad. Keep the accent target/attachment anchored to that
+        // original character while the scripted body owns the final width.
+        if let MathNode::Accent(base, kind) = semantics.base {
+            if is_scripted_character_accent(*kind) {
+                let nucleus_style = semantics.style.cramp();
+                if let Some(nucleus) = self.direct_accent_nucleus(base, *kind, nucleus_style)? {
+                    let scripted = self.attach_scripts_to_box(
+                        nucleus.clone(),
+                        noad_class(base),
+                        semantics.sub,
+                        semantics.sup,
+                        semantics.style,
+                        (semantics.sub_style, semantics.sup_style),
+                    )?;
+                    let width = scripted.bx.width.clone();
+                    return Ok(Item {
+                        class: Some(AtomKind::Ord),
+                        bx: self.math_accent_box(
+                            nucleus,
+                            scripted.bx,
+                            *kind,
+                            semantics.style,
+                            width,
+                        )?,
+                    });
+                }
+            }
+        }
+
         let base_it = self.item(semantics.base, semantics.style)?;
         self.attach_scripts_to_box(
             base_it.bx,
@@ -1606,36 +1636,44 @@ impl<'font, 'state> Engine<'font, 'state> {
     }
 
     fn stretch_h(&self, base: MathBox, needed: &Dim, style: MathStyle) -> Result<MathBox, Error> {
-        let BoxContent::Glyph { ch, glyph_id, .. } = base.content else {
-            return Ok(base);
+        let (ch, glyph_id) = match &base.content {
+            BoxContent::Glyph { ch, glyph_id, .. } => (*ch, *glyph_id),
+            _ => return Ok(base),
         };
-        if self.font.glyph_index(ch).is_none() {
-            return Ok(base);
-        }
+        self.stretch_h_from_construction(base, ch, glyph_id, needed, style, MathGsubContext::None)
+    }
+
+    fn stretch_h_from_construction(
+        &self,
+        base: MathBox,
+        ch: char,
+        construction_glyph_id: u16,
+        needed: &Dim,
+        style: MathStyle,
+        context: MathGsubContext,
+    ) -> Result<MathBox, Error> {
+        let scale = self.params.scale(style);
         let mut best = base;
-        let mut best_w = best.width.clone();
-        for variant in self.font.horizontal_variant_records(glyph_id) {
-            let candidate = match self.glyph_id(ch, variant.glyph_id, style) {
+        let mut best_extent = best.width.clone();
+
+        for variant in self.font.horizontal_variant_records(construction_glyph_id) {
+            let candidate_extent = variant.advance.checked_mul(&scale)?;
+            let candidate = match self.glyph_id_with_context(ch, variant.glyph_id, style, context) {
                 Ok(candidate) => candidate,
                 Err(Error::Font(FontError::MissingGlyph { .. })) => continue,
                 Err(error) => return Err(error),
             };
-            let wider_needed = best_w < *needed;
-            let fits = candidate.width >= *needed;
-            let tighter = candidate.width < best_w;
-            let longer = candidate.width > best_w;
-            if (fits && (wider_needed || tighter)) || (wider_needed && longer) {
-                best_w = candidate.width.clone();
+            if variant_measure_is_better(&best_extent, &candidate_extent, needed) {
+                best_extent = candidate_extent;
                 best = candidate;
             }
         }
-        if best_w >= *needed {
+        if best_extent >= *needed {
             return Ok(best);
         }
 
-        let scale = self.params.scale(style);
         let target = needed.checked_div(&scale)?;
-        let assembly = match self.font.horizontal_assembly(glyph_id) {
+        let assembly = match self.font.horizontal_assembly(construction_glyph_id) {
             Ok(Some(assembly)) => assembly,
             Ok(None) => return Ok(best),
             Err(_) => {
@@ -1650,8 +1688,9 @@ impl<'font, 'state> Engine<'font, 'state> {
                 return Ok(best);
             }
         };
-        match self.render_horizontal_assembly(ch, &solution, style)? {
-            Some(assembled) if assembled.width > best_w => Ok(assembled),
+        let assembled_extent = solution.advance.checked_mul(&scale)?;
+        match self.render_horizontal_assembly(ch, &solution, style, context)? {
+            Some(assembled) if assembled_extent > best_extent => Ok(assembled),
             Some(_) => Ok(best),
             None => {
                 self.extensible_fallback(ch);
@@ -1665,11 +1704,12 @@ impl<'font, 'state> Engine<'font, 'state> {
         ch: char,
         solution: &AssemblySolution,
         style: MathStyle,
+        context: MathGsubContext,
     ) -> Result<Option<MathBox>, Error> {
         let scale = self.params.scale(style);
         let mut children = Vec::with_capacity(solution.placements.len() * 2);
         for placement in &solution.placements {
-            let glyph = match self.glyph_id(ch, placement.glyph_id, style) {
+            let glyph = match self.glyph_id_with_context(ch, placement.glyph_id, style, context) {
                 Ok(glyph) => glyph,
                 Err(Error::Font(FontError::MissingGlyph { .. })) => return Ok(None),
                 Err(error) => return Err(error),
@@ -2143,7 +2183,7 @@ impl<'font, 'state> Engine<'font, 'state> {
             style
         };
         let b = if uses_dotless_accent_base(kind) {
-            self.accent_nucleus(base, nucleus_style)?
+            self.accent_nucleus(base, kind, nucleus_style)?
         } else {
             self.layout(base, nucleus_style)?
         };
@@ -2177,8 +2217,25 @@ impl<'font, 'state> Engine<'font, 'state> {
         if matches!(kind, AccentKind::Overline | AccentKind::Underline) {
             return self.bar_rule(b, kind == AccentKind::Underline, style);
         }
+
+        let width = accent_nucleus_width(&b)?;
+        Ok(Item {
+            class: Some(AtomKind::Ord),
+            bx: self.math_accent_box(b.clone(), b, kind, style, width)?,
+        })
+    }
+
+    fn math_accent_box(
+        &self,
+        anchor: MathBox,
+        body: MathBox,
+        kind: AccentKind,
+        style: MathStyle,
+        width: Dim,
+    ) -> Result<MathBox, Error> {
+        let nucleus_style = style.cramp();
         let flatten = is_diacritic_accent(kind)
-            && b.height
+            && anchor.height
                 > self
                     .params
                     .flattened_accent_base_height
@@ -2188,78 +2245,90 @@ impl<'font, 'state> Engine<'font, 'state> {
         } else {
             MathGsubContext::None
         };
-        let mut acc = self.accent_glyph(kind, style, accent_context)?;
-        let stretchy = is_stretchy_accent(kind);
-        let hat_tilde = is_hat_tilde_accent(kind);
+        let (mut acc, construction_glyph_id) = self.accent_glyph(kind, style, accent_context)?;
 
-        if matches!(kind, AccentKind::WideHat | AccentKind::WideTilde) {
-            acc = self.wide_hat_tilde_glyph(acc, &b.width, kind, style, accent_context)?;
-        } else if stretchy {
-            acc = self.stretch_h(acc, &b.width, style)?;
+        if is_stretchy_accent(kind) {
+            let (ch, _) = single_glyph_source(&acc).ok_or_else(|| Error::Malformed {
+                what: "accent source must be a single glyph before stretching".into(),
+            })?;
+            let target = accent_nucleus_width(&anchor)?;
+            acc = self.stretch_h_from_construction(
+                acc,
+                ch,
+                construction_glyph_id,
+                &target,
+                style,
+                accent_context,
+            )?;
         }
 
+        let x_off = self.accent_x_off(&anchor, &acc, style)?;
         if is_under_accent(kind) {
-            return Ok(Item {
-                class: Some(AtomKind::Ord),
-                bx: self.place_under(b, acc, style)?,
+            return place_under_accent(body, acc, x_off, width);
+        }
+
+        let raise = self.accent_raise(&anchor, style)?;
+        overlay_accent(body, acc, x_off, raise, width)
+    }
+
+    fn direct_accent_nucleus(
+        &self,
+        base: &MathNode,
+        kind: AccentKind,
+        style: MathStyle,
+    ) -> Result<Option<MathBox>, Error> {
+        if !uses_dotless_accent_base(kind) {
+            return Ok(match base {
+                MathNode::Atom(c, _) => Some(self.glyph(math_italic(math_char(*c)), style)?),
+                MathNode::Symbol(name) => Some(self.glyph(math_italic(symbol_char(name)?), style)?),
+                MathNode::MathAlphabet(text, text_style) if *text_style != TextStyle::Pmb => {
+                    let mut chars = text.chars();
+                    match (chars.next(), chars.next()) {
+                        (Some(ch), None) if ch != ' ' => {
+                            Some(self.glyph(styled_char(ch, *text_style), style)?)
+                        }
+                        _ => None,
+                    }
+                }
+                _ => None,
             });
         }
 
-        let nucleus_width = hat_tilde_nucleus_width(&b, kind)?;
-        let x_off = if hat_tilde {
-            self.hat_tilde_accent_x_off(&b, &acc, style)?
-        } else if stretchy {
-            b.width
-                .checked_sub(&acc.width)?
-                .checked_div(&Dim::from_i64(2))?
-        } else {
-            self.accent_x_off(&b, &acc, kind)?
-        };
-
-        // Hat/tilde compatibility keeps AccentBaseHeight even when
-        // the recursively laid-out nucleus is cramped. The generic
-        // path retains the 2.x flattened-height rule for other accents.
-        let raise = if hat_tilde {
-            self.hat_tilde_accent_raise(&b, style)?
-        } else {
-            self.accent_raise(&b, kind, style)?
-        };
-
-        let mut placed = overlay_accent(b, acc, x_off, raise)?;
-        if let Some(width) = nucleus_width {
-            placed.width = width;
-        }
-
-        Ok(Item {
-            class: Some(AtomKind::Ord),
-            bx: placed,
-        })
-    }
-
-    fn accent_nucleus(&self, base: &MathNode, style: MathStyle) -> Result<MathBox, Error> {
-        match base {
-            MathNode::Atom(c, _) => self.glyph_with_context(
+        Ok(match base {
+            MathNode::Atom(c, _) => Some(self.glyph_with_context(
                 math_italic(math_char(*c)),
                 style,
                 MathGsubContext::DotlessAccentBase,
-            ),
-            MathNode::Symbol(name) => self.glyph_with_context(
+            )?),
+            MathNode::Symbol(name) => Some(self.glyph_with_context(
                 math_italic(symbol_char(name)?),
                 style,
                 MathGsubContext::DotlessAccentBase,
-            ),
+            )?),
             MathNode::MathAlphabet(text, text_style) if *text_style != TextStyle::Pmb => {
                 let mut chars = text.chars();
                 match (chars.next(), chars.next()) {
-                    (Some(ch), None) if ch != ' ' => self.glyph_with_context(
+                    (Some(ch), None) if ch != ' ' => Some(self.glyph_with_context(
                         styled_char(ch, *text_style),
                         style,
                         MathGsubContext::DotlessAccentBase,
-                    ),
-                    _ => self.layout(base, style),
+                    )?),
+                    _ => None,
                 }
             }
-            _ => self.layout(base, style),
+            _ => None,
+        })
+    }
+
+    fn accent_nucleus(
+        &self,
+        base: &MathNode,
+        kind: AccentKind,
+        style: MathStyle,
+    ) -> Result<MathBox, Error> {
+        match self.direct_accent_nucleus(base, kind, style)? {
+            Some(nucleus) => Ok(nucleus),
+            None => self.layout(base, style),
         }
     }
 
@@ -2268,10 +2337,27 @@ impl<'font, 'state> Engine<'font, 'state> {
         kind: AccentKind,
         style: MathStyle,
         context: MathGsubContext,
-    ) -> Result<MathBox, Error> {
+    ) -> Result<(MathBox, u16), Error> {
+        if accent_prefers_math_construction(kind) {
+            for &ch in accent_candidates(kind) {
+                let Some(glyph_id) = self.font.glyph_index(ch) else {
+                    continue;
+                };
+                if !self.has_horizontal_math_construction(glyph_id) {
+                    continue;
+                }
+                if let Ok(bx) = self.glyph_id_with_context(ch, glyph_id, style, context) {
+                    return Ok((bx, glyph_id));
+                }
+            }
+        }
+
         for &ch in accent_candidates(kind) {
-            if let Ok(bx) = self.strict_glyph_with_context(ch, style, context) {
-                return Ok(bx);
+            let Some(glyph_id) = self.font.glyph_index(ch) else {
+                continue;
+            };
+            if let Ok(bx) = self.glyph_id_with_context(ch, glyph_id, style, context) {
+                return Ok((bx, glyph_id));
             }
         }
         Err(Error::Unsupported {
@@ -2279,85 +2365,40 @@ impl<'font, 'state> Engine<'font, 'state> {
         })
     }
 
-    // Some OpenType math fonts expose wide hat/tilde variants from
-    // the combining U+0302/U+0303 constructions, not from the spacing
-    // glyph used for the fixed accent. Keep the fixed glyph as the
-    // smallest fallback and choose the widest font variant that fits.
-    fn wide_hat_tilde_glyph(
-        &self,
-        fixed: MathBox,
-        target_width: &Dim,
-        kind: AccentKind,
-        style: MathStyle,
-        context: MathGsubContext,
-    ) -> Result<MathBox, Error> {
-        let seed_ch = match kind {
-            AccentKind::WideHat => '\u{0302}',
-            AccentKind::WideTilde => '\u{0303}',
-            _ => return Ok(fixed),
-        };
-
-        let Some(seed_glyph_id) = self.font.glyph_index(seed_ch) else {
-            return Ok(fixed);
-        };
-
-        let mut selected = fixed;
-        let mut selected_width = selected.width.clone();
-
-        for variant in self.font.horizontal_variant_records(seed_glyph_id) {
-            let candidate =
-                self.glyph_id_with_context(seed_ch, variant.glyph_id, style, context)?;
-
-            if candidate.width.is_zero() {
-                continue;
-            }
-
-            let fits = candidate.width.cmp(target_width) != Ordering::Greater;
-            let wider = candidate.width.cmp(&selected_width) == Ordering::Greater;
-
-            if fits && wider {
-                selected_width = candidate.width.clone();
-
-                selected = candidate;
-            }
+    // Source candidates are semantic alternatives. Prefer a candidate that
+    // actually participates in MathVariants before falling back to a merely
+    // renderable spacing glyph.
+    fn has_horizontal_math_construction(&self, glyph_id: u16) -> bool {
+        if !self.font.horizontal_variant_records(glyph_id).is_empty() {
+            return true;
         }
-
-        Ok(selected)
+        matches!(self.font.horizontal_assembly(glyph_id), Ok(Some(_)))
     }
 
-    // MATH TopAccentAttachment is expressed in font em. Box
-    // coordinates are already scaled to the current math style,
-    // therefore the attachment coordinate must use the same scale.
-    fn hat_tilde_accent_x_off(
-        &self,
-        base: &MathBox,
-        acc: &MathBox,
-        style: MathStyle,
-    ) -> Result<Dim, Error> {
+    // MathTopAccentAttachment is in design-space em units. If either side has
+    // no single-glyph attachment, OpenType defines the advance-width center as
+    // the geometric fallback. Assemblies therefore center by solved width.
+    fn accent_x_off(&self, base: &MathBox, acc: &MathBox, style: MathStyle) -> Result<Dim, Error> {
         let scale = self.params.scale(style);
         let two = Dim::from_i64(2);
-
         let base_att = match single_glyph_source(base)
-            .and_then(|(ch, glyph_id)| self.font.glyph_index(ch).map(|_| glyph_id))
-            .and_then(|glyph_id| self.font.top_accent_attachment(glyph_id))
+            .and_then(|(_, glyph_id)| self.font.top_accent_attachment(glyph_id))
         {
             Some(value) => value.checked_mul(&scale)?,
             None => base.width.checked_div(&two)?,
         };
         let acc_att = match single_glyph_source(acc)
-            .and_then(|(ch, glyph_id)| self.font.glyph_index(ch).map(|_| glyph_id))
-            .and_then(|glyph_id| self.font.top_accent_attachment(glyph_id))
+            .and_then(|(_, glyph_id)| self.font.top_accent_attachment(glyph_id))
         {
             Some(value) => value.checked_mul(&scale)?,
             None => acc.width.checked_div(&two)?,
         };
-        Ok(base_att.checked_sub(&acc_att)?)
+        base_att.checked_sub(&acc_att).map_err(Error::from)
     }
 
-    // AccentBaseHeight is the largest base ink height that needs no
-    // vertical raise. Hat/tilde keep this rule for nested cramped
-    // nuclei instead of switching to FlattenedAccentBaseHeight.
-    fn hat_tilde_accent_raise(&self, base: &MathBox, style: MathStyle) -> Result<Dim, Error> {
+    // AccentBaseHeight controls placement. FlattenedAccentBaseHeight only
+    // selects the `flac` shape and must not become a second placement rule.
+    fn accent_raise(&self, base: &MathBox, style: MathStyle) -> Result<Dim, Error> {
         let base_height = self
             .params
             .accent_base_height
@@ -2404,6 +2445,7 @@ impl<'font, 'state> Engine<'font, 'state> {
     }
 
     fn bar_rule(&self, b: MathBox, under: bool, style: MathStyle) -> Result<Item, Error> {
+        let width = accent_nucleus_width(&b)?;
         let s = self.params.scale(style);
         let gap = if under {
             self.params.underbar_vertical_gap.checked_mul(&s)?
@@ -2428,19 +2470,19 @@ impl<'font, 'state> Engine<'font, 'state> {
                 .checked_add(&thick)?
                 .checked_add(&extra)?;
             let shift = b.depth.checked_add(&gap)?;
-            MathBox::rule(b.width.clone(), thick, Dim::zero()).with_shift(-shift)
+            MathBox::rule(width.clone(), thick, Dim::zero()).with_shift(-shift)
         } else {
             height = height
                 .checked_add(&gap)?
                 .checked_add(&thick)?
                 .checked_add(&extra)?;
             let shift = b.height.checked_add(&gap)?;
-            MathBox::rule(b.width.clone(), thick, Dim::zero()).with_shift(shift)
+            MathBox::rule(width.clone(), thick, Dim::zero()).with_shift(shift)
         };
         Ok(Item {
             class: Some(AtomKind::Ord),
             bx: MathBox {
-                width: b.width.clone(),
+                width,
                 height,
                 depth,
                 italic: Dim::zero(),
@@ -2485,89 +2527,6 @@ impl<'font, 'state> Engine<'font, 'state> {
                 mk(Dim::zero(), h.clone(), w.clone(), -d.clone()),
             ],
             _ => Vec::new(),
-        })
-    }
-
-    fn accent_x_off(&self, base: &MathBox, acc: &MathBox, kind: AccentKind) -> Result<Dim, Error> {
-        let two = Dim::from_i64(2);
-        let base_att = match first_glyph_source(base)
-            .and_then(|(ch, glyph_id)| self.font.glyph_index(ch).map(|_| glyph_id))
-            .and_then(|glyph_id| self.font.top_accent_attachment(glyph_id))
-        {
-            Some(value) => value,
-            None => base.width.checked_add(&base.italic)?.checked_div(&two)?,
-        };
-        let acc_att = match first_glyph_source(acc)
-            .and_then(|(ch, glyph_id)| self.font.glyph_index(ch).map(|_| glyph_id))
-            .and_then(|glyph_id| self.font.top_accent_attachment(glyph_id))
-        {
-            Some(value) => value,
-            None => acc.width.checked_div(&two)?,
-        };
-        let offset = match kind {
-            AccentKind::Vec | AccentKind::Overrightarrow | AccentKind::Underrightarrow => base
-                .width
-                .checked_add(&base.italic)?
-                .checked_sub(&acc.width)?,
-            AccentKind::Acute => base_att
-                .checked_sub(&acc_att)?
-                .checked_add(&acc.width.checked_div(&Dim::from_i64(4))?)?,
-            AccentKind::Grave => base_att
-                .checked_sub(&acc_att)?
-                .checked_sub(&acc.width.checked_div(&Dim::from_i64(4))?)?,
-            _ => base_att.checked_sub(&acc_att)?,
-        };
-        Ok(offset)
-    }
-
-    /// Vertical shift of an over-accent glyph.
-    ///
-    /// Diacritic glyphs are drawn to sit on a base of `AccentBaseHeight`, so
-    /// TeX's rule applies: lift only by how far the base rises above that
-    /// height. Arrow and brace glyphs sit on the baseline and clear the base.
-    /// The branch is chosen by kind, not glyph advance: font spacing
-    /// diacritics (`ˆ`, `˙`, ...) have non-zero advance.
-    fn accent_raise(
-        &self,
-        base: &MathBox,
-        kind: AccentKind,
-        style: MathStyle,
-    ) -> Result<Dim, Error> {
-        let s = self.params.scale(style);
-        let abh = if style.is_cramped() {
-            self.params.flattened_accent_base_height.checked_mul(&s)?
-        } else {
-            self.params.accent_base_height.checked_mul(&s)?
-        };
-        if is_diacritic_accent(kind) {
-            Ok(base.height.checked_sub(&abh)?.clamp_nonneg())
-        } else {
-            Ok(base.height.max_ref(&abh))
-        }
-    }
-
-    fn place_under(&self, base: MathBox, acc: MathBox, style: MathStyle) -> Result<MathBox, Error> {
-        let s = self.params.scale(style);
-        let gap = self.params.underbar_vertical_gap.checked_mul(&s)?;
-        let extra = self.params.underbar_extra_descender.checked_mul(&s)?;
-        let raise = -base.depth.checked_add(&gap)?.checked_add(&acc.height)?;
-        let width = base.width.max_ref(&acc.width);
-        let depth = base
-            .depth
-            .checked_add(&gap)?
-            .checked_add(&acc.height)?
-            .checked_add(&acc.depth)?
-            .checked_add(&extra)?;
-        Ok(MathBox {
-            width: width.clone(),
-            height: base.height.clone(),
-            depth,
-            italic: Dim::zero(),
-            shift: Dim::zero(),
-            content: BoxContent::Overlap(vec![
-                center_in(base, &width)?,
-                center_in(acc, &width)?.with_shift(raise),
-            ]),
         })
     }
 
@@ -3492,27 +3451,47 @@ fn shift_x(inner: MathBox, x: Dim) -> Result<MathBox, Error> {
     })
 }
 
-fn overlay_accent(base: MathBox, acc: MathBox, x_off: Dim, raise: Dim) -> Result<MathBox, Error> {
-    let origin = (-x_off.clone()).clamp_nonneg();
-    let base_x = origin.clone();
-    let acc_x = origin.checked_add(&x_off)?;
-    let width = base_x
-        .checked_add(&base.width)?
-        .max_ref(&acc_x.checked_add(&acc.width)?);
+fn overlay_accent(
+    base: MathBox,
+    acc: MathBox,
+    x_off: Dim,
+    raise: Dim,
+    width: Dim,
+) -> Result<MathBox, Error> {
     let acc_top = acc.height.checked_add(&raise)?;
     let acc_bot = raise.checked_sub(&acc.depth)?;
     let height = base.height.max_ref(&acc_top);
     let depth = base.depth.max_ref(&(-acc_bot).clamp_nonneg());
+    let italic = acc.italic.clone();
     Ok(MathBox {
         width,
         height,
         depth,
-        italic: Dim::zero(),
+        italic,
         shift: Dim::zero(),
-        content: BoxContent::Overlap(vec![
-            shift_x(base, base_x)?,
-            shift_x(acc, acc_x)?.with_shift(raise),
-        ]),
+        content: BoxContent::Overlap(vec![base, shift_x(acc, x_off)?.with_shift(raise)]),
+    })
+}
+
+fn place_under_accent(
+    base: MathBox,
+    acc: MathBox,
+    x_off: Dim,
+    width: Dim,
+) -> Result<MathBox, Error> {
+    let raise = -base.depth.checked_add(&acc.height)?;
+    let depth = base
+        .depth
+        .checked_add(&acc.height)?
+        .checked_add(&acc.depth)?;
+    let italic = acc.italic.clone();
+    Ok(MathBox {
+        width,
+        height: base.height.clone(),
+        depth,
+        italic,
+        shift: Dim::zero(),
+        content: BoxContent::Overlap(vec![base, shift_x(acc, x_off)?.with_shift(raise)]),
     })
 }
 
@@ -3542,19 +3521,6 @@ fn single_glyph_source(b: &MathBox) -> Option<(char, u16)> {
         | BoxContent::BackColor(_, inner)
         | BoxContent::Frame { inner, .. } => single_glyph_source(inner),
 
-        _ => None,
-    }
-}
-
-fn first_glyph_source(b: &MathBox) -> Option<(char, u16)> {
-    match &b.content {
-        BoxContent::Glyph { ch, glyph_id, .. } => Some((*ch, *glyph_id)),
-        BoxContent::HList(v) | BoxContent::VList(v) | BoxContent::Overlap(v) => {
-            v.iter().find_map(first_glyph_source)
-        }
-        BoxContent::Color(_, inner)
-        | BoxContent::BackColor(_, inner)
-        | BoxContent::Frame { inner, .. } => first_glyph_source(inner),
         _ => None,
     }
 }
@@ -3613,28 +3579,34 @@ fn variant_measure_is_better(current: &Dim, candidate: &Dim, target: &Dim) -> bo
     }
 }
 
-fn is_hat_tilde_accent(kind: AccentKind) -> bool {
+fn accent_nucleus_width(base: &MathBox) -> Result<Dim, Error> {
+    match &base.content {
+        BoxContent::Glyph { .. } => base.width.checked_add(&base.italic).map_err(Error::from),
+        _ => Ok(base.width.clone()),
+    }
+}
+
+fn accent_prefers_math_construction(kind: AccentKind) -> bool {
     matches!(
         kind,
-        AccentKind::Hat | AccentKind::WideHat | AccentKind::Tilde | AccentKind::WideTilde
+        AccentKind::Hat
+            | AccentKind::WideHat
+            | AccentKind::Tilde
+            | AccentKind::WideTilde
+            | AccentKind::Vec
+            | AccentKind::Overleftarrow
+            | AccentKind::Overrightarrow
+            | AccentKind::Overleftrightarrow
+            | AccentKind::Underleftarrow
+            | AccentKind::Underrightarrow
+            | AccentKind::Underleftrightarrow
+            | AccentKind::Overbrace
+            | AccentKind::Underbrace
     )
 }
 
-// TeX gives hat/tilde accent noads the horizontal width of their
-// nucleus and lets the accent overhang. A direct math-character
-// nucleus includes its MATH italic correction.
-fn hat_tilde_nucleus_width(base: &MathBox, kind: AccentKind) -> Result<Option<Dim>, Error> {
-    if !matches!(
-        kind,
-        AccentKind::Hat | AccentKind::WideHat | AccentKind::Tilde | AccentKind::WideTilde
-    ) {
-        return Ok(None);
-    }
-
-    Ok(Some(match &base.content {
-        BoxContent::Glyph { .. } => base.width.checked_add(&base.italic)?,
-        _ => base.width.clone(),
-    }))
+fn is_scripted_character_accent(kind: AccentKind) -> bool {
+    is_tex_accent(kind) && !matches!(kind, AccentKind::Overbrace | AccentKind::Underbrace)
 }
 
 fn is_stretchy_accent(kind: AccentKind) -> bool {
@@ -3685,22 +3657,24 @@ fn is_under_accent(kind: AccentKind) -> bool {
 
 fn accent_candidates(kind: AccentKind) -> &'static [char] {
     match kind {
-        AccentKind::Hat | AccentKind::WideHat => &['ˆ', '\u{0302}'],
+        AccentKind::Hat | AccentKind::WideHat => &['\u{0302}', 'ˆ'],
         AccentKind::Check => &['ˇ', '\u{030C}'],
         AccentKind::Breve => &['˘', '\u{0306}'],
         AccentKind::Acute => &['´', '\u{0301}'],
         AccentKind::Grave => &['`', '\u{0300}'],
-        AccentKind::Tilde | AccentKind::WideTilde => &['˜', '\u{0303}'],
+        AccentKind::Tilde | AccentKind::WideTilde => &['\u{0303}', '˜'],
         AccentKind::Bar => &['¯', '\u{0304}'],
-        AccentKind::Vec => &['→', '\u{20D7}'],
+        AccentKind::Vec | AccentKind::Overrightarrow => &['\u{20D7}', '→', '\u{27F6}'],
+        AccentKind::Overleftarrow => &['\u{20D6}', '←', '\u{27F5}'],
+        AccentKind::Overleftrightarrow => &['\u{20E1}', '↔', '\u{27F7}'],
+        AccentKind::Underleftarrow => &['\u{20EE}', '←', '\u{27F5}'],
+        AccentKind::Underrightarrow => &['\u{20EF}', '→', '\u{27F6}'],
+        AccentKind::Underleftrightarrow => &['\u{034D}', '↔', '\u{27F7}'],
         AccentKind::Dot => &['˙', '\u{0307}'],
         AccentKind::Ddot => &['¨', '\u{0308}'],
         AccentKind::Dddot => &['\u{20DB}'],
         AccentKind::Ddddot => &['\u{20DC}'],
         AccentKind::Ring => &['˚', '\u{030A}'],
-        AccentKind::Overleftarrow | AccentKind::Underleftarrow => &['←', '\u{27F5}'],
-        AccentKind::Overrightarrow | AccentKind::Underrightarrow => &['→', '\u{27F6}'],
-        AccentKind::Overleftrightarrow | AccentKind::Underleftrightarrow => &['↔', '\u{27F7}'],
         AccentKind::Overbrace => &['⏞'],
         AccentKind::Underbrace => &['⏟'],
         AccentKind::Not

@@ -3,7 +3,7 @@ mod common;
 use texpose::{layout, parse, styled_char, MathStyle, TextStyle};
 
 #[test]
-fn hat_tilde_accents_keep_the_direct_nucleus_italic_advance() {
+fn math_accents_and_bars_keep_the_direct_nucleus_italic_advance() {
     let font = common::stix_two_math().expect("STIX Two Math fixture");
 
     let italic_j = font
@@ -19,7 +19,19 @@ fn hat_tilde_accents_keep_the_direct_nucleus_italic_advance() {
 
     let expected = italic_j.advance.checked_add(&italic).expect("accent width");
 
-    for source in [r"\hat{J}", r"\tilde{J}", r"\widehat{J}", r"\widetilde{J}"] {
+    for source in [
+        r"\hat{J}",
+        r"\tilde{J}",
+        r"\widehat{J}",
+        r"\widetilde{J}",
+        r"\vec{J}",
+        r"\overrightarrow{J}",
+        r"\underleftarrow{J}",
+        r"\overbrace{J}",
+        r"\underbrace{J}",
+        r"\overline{J}",
+        r"\underline{J}",
+    ] {
         let ast = parse(source).expect("parse accent nucleus width case");
 
         let laid = layout(&ast, &font, MathStyle::Text).expect("layout accent nucleus width case");

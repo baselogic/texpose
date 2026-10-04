@@ -67,6 +67,73 @@ fn set_math_min_connector_overlap(font: &[u8], value: u16) -> Vec<u8> {
     out
 }
 
+fn set_horizontal_assembly_italic_correction(font: &[u8], glyph_id: u16, value: i16) -> Vec<u8> {
+    fn read_u16(bytes: &[u8], offset: usize) -> u16 {
+        u16::from_be_bytes([bytes[offset], bytes[offset + 1]])
+    }
+    fn read_u32(bytes: &[u8], offset: usize) -> u32 {
+        u32::from_be_bytes([
+            bytes[offset],
+            bytes[offset + 1],
+            bytes[offset + 2],
+            bytes[offset + 3],
+        ])
+    }
+    fn coverage_index(table: &[u8], offset: usize, glyph_id: u16) -> Option<usize> {
+        let coverage = &table[offset..];
+        match read_u16(coverage, 0) {
+            1 => {
+                let count = usize::from(read_u16(coverage, 2));
+                (0..count).find(|index| read_u16(coverage, 4 + index * 2) == glyph_id)
+            }
+            2 => {
+                let count = usize::from(read_u16(coverage, 2));
+                for index in 0..count {
+                    let record = 4 + index * 6;
+                    let start = read_u16(coverage, record);
+                    let end = read_u16(coverage, record + 2);
+                    if (start..=end).contains(&glyph_id) {
+                        let base = usize::from(read_u16(coverage, record + 4));
+                        return Some(base + usize::from(glyph_id - start));
+                    }
+                }
+                None
+            }
+            format => panic!("unsupported coverage format {format}"),
+        }
+    }
+
+    let mut out = font.to_vec();
+    let table_count = usize::from(read_u16(&out, 4));
+    let math_offset = (0..table_count)
+        .find_map(|index| {
+            let record = 12 + index * 16;
+            (&out[record..record + 4] == b"MATH")
+                .then(|| usize::try_from(read_u32(&out, record + 8)).unwrap())
+        })
+        .expect("fixture MATH table");
+    let variants_offset = usize::from(read_u16(&out, math_offset + 8));
+    let variants_start = math_offset + variants_offset;
+    let variants = &out[variants_start..];
+    let horizontal_coverage = usize::from(read_u16(variants, 4));
+    let vertical_count = usize::from(read_u16(variants, 6));
+    let horizontal_count = usize::from(read_u16(variants, 8));
+    let coverage_index = coverage_index(variants, horizontal_coverage, glyph_id)
+        .expect("glyph must have a horizontal construction");
+    assert!(coverage_index < horizontal_count);
+    let construction_offsets = 10 + vertical_count * 2;
+    let construction_offset = usize::from(read_u16(
+        variants,
+        construction_offsets + coverage_index * 2,
+    ));
+    let construction = &variants[construction_offset..];
+    let assembly_offset = usize::from(read_u16(construction, 0));
+    assert_ne!(assembly_offset, 0, "fixture horizontal assembly");
+    let value_offset = variants_start + construction_offset + assembly_offset;
+    out[value_offset..value_offset + 2].copy_from_slice(&value.to_be_bytes());
+    out
+}
+
 #[test]
 fn vertical_delimiter_assembly_grows_beyond_prebuilt_variants() {
     let font = common::stix_two_math().expect("STIX Two Math");
@@ -104,23 +171,44 @@ fn horizontal_overbrace_assembly_uses_repeated_parts_without_degradation() {
 }
 
 #[test]
-fn stix_horizontal_arrows_respect_connector_overlap_and_degrade_invalid_recipes() {
+fn horizontal_assembly_italic_correction_survives_the_accent_wrapper() {
+    let base_font = common::stix_two_math().expect("STIX Two Math");
+    let overbrace = base_font.glyph('⏞').expect("overbrace glyph");
+    let bytes = set_horizontal_assembly_italic_correction(
+        common::STIX_TWO_MATH_OTF,
+        overbrace.glyph_id,
+        321,
+    );
+    let face = ttf_parser::Face::parse(&bytes, 0).expect("mutated fixture face");
+    let expected =
+        texpose::Dim::from_font_units(321, face.units_per_em()).expect("italic em value");
+    let font = MathFont::from_bytes(&bytes).expect("mutated MATH font");
+    let output = layout_with_diagnostics(
+        &parse(r"\overbrace{abcdefghijklmnopqrstuvwxyz}").expect("assembly source"),
+        &font,
+        MathStyle::Display,
+    )
+    .expect("horizontal assembly layout");
+
+    assert!(output.diagnostics.is_empty());
+    assert_eq!(output.math_box.italic, expected);
+}
+
+#[test]
+fn stretchy_arrows_select_valid_combining_math_constructions_before_spacing_fallbacks() {
     let font = common::stix_two_math().expect("STIX Two Math");
+    let nucleus_source = "ABCDEFGHIJK";
     let base = layout_with_diagnostics(
-        &parse("AB").expect("plain arrow nucleus"),
+        &parse(nucleus_source).expect("plain arrow nucleus"),
         &font,
         MathStyle::Text,
     )
     .expect("plain arrow nucleus layout");
     assert!(base.diagnostics.is_empty());
 
-    for (source, ch, degrades) in [
-        (r"\overleftarrow{AB}", '←', false),
-        (r"\underleftarrow{AB}", '←', false),
-        (r"\overrightarrow{AB}", '→', true),
-        (r"\underrightarrow{AB}", '→', true),
-        (r"\overleftrightarrow{AB}", '↔', true),
-        (r"\underleftrightarrow{AB}", '↔', true),
+    for (source, construction_ch) in [
+        (r"\overrightarrow{ABCDEFGHIJK}", '\u{20D7}'),
+        (r"\underleftarrow{ABCDEFGHIJK}", '\u{20EE}'),
     ] {
         let output = layout_with_diagnostics(
             &parse(source).expect("stretchy arrow source"),
@@ -133,28 +221,15 @@ fn stix_horizontal_arrows_respect_connector_overlap_and_degrade_invalid_recipes(
             output.math_box.width, base.math_box.width,
             "stretchy arrow must preserve the nucleus width: {source}"
         );
-        if degrades {
-            assert_eq!(
-                output.diagnostics,
-                vec![LayoutDiagnostic::ExtensibleFallback { ch }],
-                "invalid STIX arrow assembly must degrade: {source}"
-            );
-            assert_eq!(
-                glyph_count(&output.math_box, ch),
-                1,
-                "fallback must keep one prebuilt arrow glyph: {source}"
-            );
-        } else {
-            assert!(
-                output.diagnostics.is_empty(),
-                "valid STIX arrow assembly must not degrade: {source}: {:?}",
-                output.diagnostics
-            );
-            assert!(
-                glyph_count(&output.math_box, ch) > 1,
-                "valid STIX left-arrow assembly must materialize repeated parts: {source}"
-            );
-        }
+        assert!(
+            output.diagnostics.is_empty(),
+            "a valid combining-arrow construction must not degrade: {source}: {:?}",
+            output.diagnostics
+        );
+        assert!(
+            glyph_count(&output.math_box, construction_ch) > 1,
+            "wide arrow must materialize the selected combining MATH assembly: {source}"
+        );
     }
 }
 

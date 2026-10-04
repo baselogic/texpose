@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Iterable
 
 ROOT = Path(__file__).resolve().parent.parent
-PROFILE_REVISION = "oracle-v7"
+PROFILE_REVISION = "oracle-v8"
 CANONICAL_CENSUS_SHA256 = "d1d1e356e5a4f426ebf603ed6be5cb134dca3bebe9be7f6b49938ed5ada4ddf1"
 STRESS_CENSUS_SHA256 = "383828f9f734c65e67ce7b9a4f12f501fc2951825ed8ffd1ff6fca945b5e29b4"
 CANONICAL_ALIAS_CENSUS_SHA256 = CANONICAL_CENSUS_SHA256
@@ -29,33 +29,39 @@ REFERENCE_ENVIRONMENT_SHA256 = "b621bc874d9749432eca9f8a66a8bc8ffd72afda0ef8de86
 STIX_CANONICAL_TRACE_GLYPH_MISMATCHES = (
     ("display-sum-limits", ((0, 1647, 4437), (1, 4437, 1647))),
     ("display-sum", ((0, 1647, 4437), (1, 4437, 1647))),
-    ("accent-hat-j", ((0, 3309, 732), (1, 691, 3309))),
-    ("accent-widehat-j", ((0, 3309, 732), (1, 691, 3309))),
+    ("accent-hat-j", ((0, 3309, 732), (1, 4800, 3309))),
+    ("accent-widehat-j", ((0, 3309, 732), (1, 1395, 3309))),
     (
         "accent-widehat-xyz",
-        ((0, 3323, 1398), (1, 3324, 3323), (2, 3325, 3324), (3, 1398, 3325)),
+        ((0, 3323, 1398), (1, 3324, 3323), (2, 3325, 3324), (3, 1399, 3325)),
     ),
     (
         "accent-widetilde-xyz",
-        ((0, 3323, 1408), (1, 3324, 3323), (2, 3325, 3324), (3, 1408, 3325)),
+        ((0, 3323, 1408), (1, 3324, 3323), (2, 3325, 3324), (3, 1409, 3325)),
     ),
-    ("accent-widehat-script", ((0, 3354, 732), (1, 691, 3354))),
+    (
+        "accent-widehat-script",
+        ((0, 3354, 732), (1, 4275, 3354), (2, 4430, 4275), (3, 1395, 4430)),
+    ),
 )
 
 LIBERTINUS_CANONICAL_TRACE_GLYPH_MISMATCHES = (
     ("display-sum-limits", ((0, 3985, 2758), (1, 2758, 3985))),
     ("display-sum", ((0, 3985, 2758), (1, 2758, 3985))),
-    ("accent-hat-j", ((0, 2729, 701), (1, 646, 2729))),
-    ("accent-widehat-j", ((0, 2729, 701), (1, 646, 2729))),
+    ("accent-hat-j", ((0, 2729, 701), (1, 701, 2729))),
+    ("accent-widehat-j", ((0, 2729, 701), (1, 4071, 2729))),
     (
         "accent-widehat-xyz",
-        ((0, 2743, 4074), (1, 2744, 2743), (2, 2745, 2744), (3, 4074, 2745)),
+        ((0, 2743, 4074), (1, 2744, 2743), (2, 2745, 2744), (3, 4075, 2745)),
     ),
     (
         "accent-widetilde-xyz",
-        ((0, 2743, 4216), (1, 2744, 2743), (2, 2745, 2744), (3, 4216, 2745)),
+        ((0, 2743, 4216), (1, 2744, 2743), (2, 2745, 2744), (3, 4217, 2745)),
     ),
-    ("accent-widehat-script", ((0, 2768, 701), (1, 646, 2768))),
+    (
+        "accent-widehat-script",
+        ((0, 2768, 701), (1, 19, 2768), (2, 2753, 19), (3, 4071, 2753)),
+    ),
 )
 
 FIRA_CANONICAL_TRACE_GLYPH_MISMATCHES = (
@@ -71,7 +77,10 @@ FIRA_CANONICAL_TRACE_GLYPH_MISMATCHES = (
         "accent-widetilde-xyz",
         ((0, 1201, 286), (1, 1202, 1201), (2, 1203, 1202), (3, 286, 1203)),
     ),
-    ("accent-widehat-script", ((0, 1226, 285), (1, 285, 1226))),
+    (
+        "accent-widehat-script",
+        ((0, 1226, 285), (1, 19, 1226), (2, 1211, 19), (3, 285, 1211)),
+    ),
 )
 
 
@@ -257,7 +266,21 @@ PROFILES: dict[str, MathProfile] = {
         stress_census_sha256=STRESS_CENSUS_SHA256,
         stress_alias_census_sha256=STRESS_ALIAS_CENSUS_SHA256,
         stress_tolerance=0.05,
-        documented_deviations=(),
+        documented_deviations=(
+            (
+                "accent-widehat-j",
+                Deviation(
+                    geometry_ceiling=0.0801,
+                    allow_structure=False,
+                    note=(
+                        "MiKTeX 26.5 reference measured 0.079999em ascent delta because "
+                        "LuaLaTeX retains the base circumflex while G5 follows the MATH "
+                        "advanceMeasurement construction. The ceiling freezes that external "
+                        "difference without weakening horizontal-variant selection."
+                    ),
+                ),
+            ),
+        ),
         canonical_trace_glyph_mismatches=STIX_CANONICAL_TRACE_GLYPH_MISMATCHES,
         canonical_trace_deviations=(),
         reference_environment_sha256=REFERENCE_ENVIRONMENT_SHA256,
@@ -292,6 +315,19 @@ PROFILES: dict[str, MathProfile] = {
                     ),
                 ),
             ),
+            (
+                "accent-widehat-j",
+                Deviation(
+                    geometry_ceiling=0.0571,
+                    allow_structure=False,
+                    note=(
+                        "MiKTeX 26.5 reference measured 0.056999em ascent delta because "
+                        "LuaLaTeX retains the base circumflex while G5 follows the MATH "
+                        "advanceMeasurement construction. The ceiling freezes that external "
+                        "difference without weakening horizontal-variant selection."
+                    ),
+                ),
+            ),
         ),
         canonical_trace_glyph_mismatches=LIBERTINUS_CANONICAL_TRACE_GLYPH_MISMATCHES,
         canonical_trace_deviations=(
@@ -317,23 +353,9 @@ PROFILES: dict[str, MathProfile] = {
         stress_census_sha256=STRESS_CENSUS_SHA256,
         stress_alias_census_sha256=STRESS_ALIAS_CENSUS_SHA256,
         stress_tolerance=0.05,
-        documented_deviations=(
-            (
-                "accent-widehat-script",
-                Deviation(
-                    geometry_ceiling=0.1271,
-                    allow_structure=False,
-                    note=(
-                        "MiKTeX 26.5 reference measured 0.127001em descent delta; "
-                        "Phase G owns script-style accent geometry. The ceiling "
-                        "freezes the observed divergence rather than accepting it "
-                        "as correct."
-                    ),
-                ),
-            ),
-        ),
+        documented_deviations=(),
         canonical_trace_glyph_mismatches=FIRA_CANONICAL_TRACE_GLYPH_MISMATCHES,
-        canonical_trace_deviations=(("accent-widehat-script", 0.1271),),
+        canonical_trace_deviations=(),
         reference_environment_sha256=REFERENCE_ENVIRONMENT_SHA256,
     ),
 }

@@ -18,31 +18,31 @@ expect = "w=0.569 h=0.674 d=0.01"
 name = "hat-f-italic"
 kind = "dims"
 input = "\\hat{f}"
-expect = "w=0.597 h=0.905 d=0.225"
+expect = "w=0.597 h=0.89 d=0.225"
 
 [[gold]]
 name = "check-x"
 kind = "dims"
 input = "\\check{x}"
-expect = "w=0.559 h=0.678 d=0.01"
+expect = "w=0.569 h=0.678 d=0.01"
 
 [[gold]]
 name = "breve-x"
 kind = "dims"
 input = "\\breve{x}"
-expect = "w=0.559 h=0.683 d=0.01"
+expect = "w=0.569 h=0.683 d=0.01"
 
 [[gold]]
 name = "acute-x"
 kind = "dims"
 input = "\\acute{x}"
-expect = "w=0.559 h=0.674 d=0.01"
+expect = "w=0.569 h=0.674 d=0.01"
 
 [[gold]]
 name = "grave-x"
 kind = "dims"
 input = "\\grave{x}"
-expect = "w=0.559 h=0.674 d=0.01"
+expect = "w=0.569 h=0.674 d=0.01"
 
 [[gold]]
 name = "tilde-x"
@@ -54,43 +54,43 @@ expect = "w=0.569 h=0.642 d=0.01"
 name = "bar-x"
 kind = "dims"
 input = "\\bar{x}"
-expect = "w=0.559 h=0.61 d=0.01"
+expect = "w=0.569 h=0.61 d=0.01"
 
 [[gold]]
 name = "vec-v"
 kind = "dims"
 input = "\\vec{v}"
-expect = "w=0.948 h=0.939 d=0.009"
+expect = "w=0.519 h=0.843 d=0.009"
 
 [[gold]]
 name = "dot-x"
 kind = "dims"
 input = "\\dot{x}"
-expect = "w=0.559 h=0.673 d=0.01"
+expect = "w=0.569 h=0.673 d=0.01"
 
 [[gold]]
 name = "ddot-x"
 kind = "dims"
 input = "\\ddot{x}"
-expect = "w=0.559 h=0.672 d=0.01"
+expect = "w=0.569 h=0.672 d=0.01"
 
 [[gold]]
 name = "dddot-x"
 kind = "dims"
 input = "\\dddot{x}"
-expect = "w=0.575 h=0.637 d=0.01"
+expect = "w=0.569 h=0.637 d=0.01"
 
 [[gold]]
 name = "ddddot-x"
 kind = "dims"
 input = "\\ddddot{x}"
-expect = "w=0.575 h=0.637 d=0.01"
+expect = "w=0.569 h=0.637 d=0.01"
 
 [[gold]]
 name = "mathring-x"
 kind = "dims"
 input = "\\mathring{x}"
-expect = "w=0.559 h=0.729 d=0.01"
+expect = "w=0.569 h=0.729 d=0.01"
 
 [[gold]]
 name = "widehat-xyz"
@@ -102,7 +102,7 @@ expect = "w=3.925888888888888888888888 h=0.834 d=0.22"
 name = "widetilde-xyz"
 kind = "dims"
 input = "\\widetilde{xyz}"
-expect = "w=1.597 h=0.763 d=0.22"
+expect = "w=1.597 h=0.76 d=0.22"
 
 [[gold]]
 name = "overline-xy"
@@ -120,37 +120,37 @@ expect = "w=1.492 h=0.705 d=0.323"
 name = "overrightarrow-AB"
 kind = "dims"
 input = "\\overrightarrow{AB}"
-expect = "w=1.304 h=1.12 d=0.0"
+expect = "w=1.304 h=1.024 d=0.0"
 
 [[gold]]
 name = "overleftarrow-AB"
 kind = "dims"
 input = "\\overleftarrow{AB}"
-expect = "w=1.304 h=1.121 d=0.0"
+expect = "w=1.304 h=1.024 d=0.0"
 
 [[gold]]
 name = "overleftrightarrow-AB"
 kind = "dims"
 input = "\\overleftrightarrow{AB}"
-expect = "w=1.304 h=1.121 d=0.0"
+expect = "w=1.304 h=1.024 d=0.0"
 
 [[gold]]
 name = "underleftarrow-AB"
 kind = "dims"
 input = "\\underleftarrow{AB}"
-expect = "w=1.304 h=0.661 d=0.703"
+expect = "w=1.304 h=0.661 d=0.285"
 
 [[gold]]
 name = "underrightarrow-AB"
 kind = "dims"
 input = "\\underrightarrow{AB}"
-expect = "w=1.304 h=0.661 d=0.702"
+expect = "w=1.304 h=0.661 d=0.285"
 
 [[gold]]
 name = "underleftrightarrow-AB"
 kind = "dims"
 input = "\\underleftrightarrow{AB}"
-expect = "w=1.304 h=0.661 d=0.703"
+expect = "w=1.304 h=0.661 d=0.46"
 
 [[gold]]
 name = "xleftarrow-n-infty"
@@ -168,13 +168,13 @@ expect = "w=1.612 h=1.1317 d=1.2013"
 name = "overbrace-abc-n"
 kind = "dims"
 input = "\\overbrace{a+b+c}^{n}"
-expect = "w=3.820888888888888888888888 h=2.3439 d=0.04"
+expect = "w=3.820888888888888888888888 h=1.8639 d=0.04"
 
 [[gold]]
 name = "underbrace-x1-x2"
 kind = "dims"
 input = "\\underbrace{x_1 + x_2}_{n=2}"
-expect = "w=3.159 h=0.558 d=2.0397"
+expect = "w=3.085544444444444444444444 h=0.558 d=1.7967"
 
 [[gold]]
 name = "overset-bang-eq"

@@ -60,4 +60,6 @@ GSUB entries refer specifically to features reachable from `ScriptList["math"]` 
 | `fira` | **Missing** | Present | **Missing** | Present | 40 / 18 | 6 / 6 |
 | `dejavu` | **Missing** | Present | **Missing** | Present | 95 / 47 | 86 / 71 |
 
+For the G5 circumflex/tilde contract, the pinned `stix`, `libertinus`, and `dejavu` fixtures expose horizontal MATH constructions for combining U+0302/U+0303, while their spacing U+02C6/U+02DC candidates do not. The pinned `fira` fixture exposes neither U+0302 nor U+0303 as a horizontal construction; its six horizontal constructions are U+23B4, U+23B5, and U+23DC–U+23DF. G5 therefore uses Fira to prove deterministic base-glyph fallback rather than synthetic stretching.
+
 Profile-specific absence is data, not a test exemption. The common E12 corpus must still construct, parse, normalize, and lay out deterministically for every profile. When a future corpus row genuinely depends on a capability that a profile lacks, the exclusion/degradation must be named in this census and asserted explicitly rather than implemented as a silent skip.

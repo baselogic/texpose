@@ -54,9 +54,9 @@ Measured on the reference environment above:
 
 | Profile | Raw cases <= 0.050em | p50 | p90 | p95 | p99 | max |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| STIX Two Math | 21/21 | 0.000002 | 0.000013 | 0.013287 | 0.020001 | 0.020001 |
-| Libertinus Math | 20/21 | 0.000010 | 0.029001 | 0.029001 | 0.062386 | 0.062386 |
-| Fira Math | 20/21 | 0.000001 | 0.000013 | 0.035988 | 0.127001 | 0.127001 |
+| STIX Two Math | 20/21 | 0.000011 | 0.013287 | 0.015001 | 0.079999 | 0.079999 |
+| Libertinus Math | 19/21 | 0.000006 | 0.001001 | 0.056999 | 0.062386 | 0.062386 |
+| Fira Math | 21/21 | 0.000001 | 0.000013 | 0.000013 | 0.035988 | 0.035988 |
 
 The raw count remains visible even when a bounded deviation is documented. A
 profile exemption therefore cannot turn an out-of-tolerance raw case into a
@@ -64,14 +64,20 @@ misleading all-green count.
 
 ### Bounded canonical deviations
 
-These entries freeze existing cross-engine differences so Phase F can detect new
-regressions while Phase G owns the mathematical repair. They are not assertions
-that TeXpose is already correct.
+These entries freeze bounded cross-engine differences so the contractual oracle can
+detect new regressions without overriding stronger external evidence. Most remain
+Phase G repair inventory. The G5 `accent-widehat-j` entries are different: OpenType
+MATH defines horizontal variant extent by `MathGlyphVariantRecord.advanceMeasurement`,
+and the pinned fonts expose a combining-circumflex construction that the current
+LuaLaTeX reference does not select for this one-character case. Those ceilings record
+the resulting reference-engine divergence; they do not weaken TeXpose's MATH variant
+selection contract.
 
 | Profile | Case | Observed maximum | Contract ceiling | Phase G owner |
 | --- | --- | ---: | ---: | --- |
+| STIX | `accent-widehat-j` | 0.079999em | 0.080100em | G5 horizontal accent variants |
+| Libertinus | `accent-widehat-j` | 0.056999em | 0.057100em | G5 horizontal accent variants |
 | Libertinus | `display-nested-fraction` | 0.062386em | 0.062500em | fraction geometry |
-| Fira | `accent-widehat-script` | 0.127001em | 0.127100em | script-style accent geometry |
 
 No canonical structural mismatch is documented for these cases. A new glyph- or
 rule-count mismatch still fails. A documented geometry case also fails if it
@@ -87,9 +93,9 @@ large profile exemptions:
 
 | Profile | Raw cases <= 0.050em | p50 | p90 | p95 | p99 | max | structural mismatches |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| STIX Two Math | 64/89 | 0.000015 | 0.321701 | 0.331992 | 0.828115 | 0.828115 | 4 |
-| Libertinus Math | 65/89 | 0.000014 | 0.207251 | 0.302000 | 0.513599 | 0.513599 | 3 |
-| Fira Math | 69/89 | 0.000012 | 0.196001 | 0.332061 | 0.588081 | 0.588081 | 3 |
+| STIX Two Math | 65/89 | 0.000027 | 0.304690 | 0.331991 | 0.828115 | 0.828115 | 2 |
+| Libertinus Math | 67/89 | 0.000014 | 0.167502 | 0.296401 | 0.447400 | 0.447400 | 2 |
+| Fira Math | 72/89 | 0.000012 | 0.133440 | 0.258639 | 0.422560 | 0.422560 | 2 |
 
 The large stress deltas are work inventory for Phase G, not justification to
 raise the global tolerance. In particular, 6pt indexed radicals, brace/underbrace
@@ -137,9 +143,9 @@ produced:
 
 | Profile | Kind topology | Glyph identity/order aligned | Geometry comparable | p50 | p90 | p95 | p99 | max |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| STIX Two Math | 21/21 | 14/21 | 18/21 | 0.000011 | 0.010000 | 0.014000 | 0.014000 | 0.014000 |
-| Libertinus Math | 21/21 | 14/21 | 17/21 | 0.000011 | 0.062399 | 0.080999 | 0.080999 | 0.080999 |
-| Fira Math | 21/21 | 14/21 | 20/21 | 0.000011 | 0.036000 | 0.040000 | 0.127001 | 0.127001 |
+| STIX Two Math | 21/21 | 14/21 | 16/21 | 0.000011 | 0.010000 | 0.014000 | 0.014000 | 0.014000 |
+| Libertinus Math | 21/21 | 14/21 | 16/21 | 0.000011 | 0.062399 | 0.080999 | 0.080999 | 0.080999 |
+| Fira Math | 21/21 | 14/21 | 20/21 | 0.000011 | 0.036000 | 0.040000 | 0.040000 | 0.040000 |
 
 The percentile/max columns cover geometry-comparable traces after the verifier's
 strict unique-glyph realignment for pure reorders. Realignment does not erase the
@@ -168,10 +174,11 @@ selection is already correct. Contractual canonical runs pin the exact typed mis
 signature for each profile as `(paint index, TeXpose glyph ID, reference glyph
 ID)`. A new case, repaired case, added/removed mismatch within an existing case,
 or changed glyph pair fails until the profile baseline is reviewed explicitly.
-The three measured profiles currently contain 18 glyph/order mismatch positions
-across the same seven case names. Under those exact signatures, STIX and Libertinus
-each have four cases with the same glyph multiset in a different paint order and
-three cases where glyph selection differs; Fira has seven paint-order-only cases.
+STIX, Libertinus, and Fira now contain 20 glyph/order mismatch positions each
+across the same seven case names. Under those exact signatures,
+STIX has two paint-order-only cases and five glyph-selection cases; Libertinus has
+three paint-order-only cases and four glyph-selection cases; Fira has seven
+paint-order-only cases.
 This is intentionally more discriminating than a case-name allowlist while avoiding
 an opaque whole-trace hash.
 
@@ -188,11 +195,10 @@ Libertinus has these remaining bounded positioned deviations after G4:
 | `display-nested-fraction` | 0.062399em | 0.062500em |
 | `text-scripts` | 0.080999em | 0.081100em |
 
-Fira has one bounded positioned deviation exposed by identity realignment:
-
-| Case | Observed maximum | Contract ceiling | Rationale |
-| --- | ---: | ---: | --- |
-| `accent-widehat-script` | 0.127001em | 0.127100em | Same script-style accent divergence already bounded in aggregate canonical geometry; Phase G owns the repair. |
+Fira has no bounded positioned deviation in the current canonical measurement.
+The former `accent-widehat-script` ceiling is removed because G5 reduced the
+identity-realigned maximum to `0.040000em`; retaining that exception would make the
+profile stale.
 
 A ceiling that is exceeded fails. A ceiling that is no longer needed also fails
 as stale, forcing its removal instead of preserving historical tolerance.
@@ -202,9 +208,9 @@ allowlist. The same measurement produced:
 
 | Profile | Kind topology | Glyph identity/order aligned | Geometry comparable | p50 | p90 | p95 | p99 | max |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| STIX Two Math | 82/89 | 52/82 | 59/82 | 0.000020 | 0.636498 | 1.032257 | 1.032257 | 1.032257 |
-| Libertinus Math | 83/89 | 62/83 | 68/83 | 0.000014 | 0.167502 | 0.513599 | 0.822900 | 0.822900 |
-| Fira Math | 83/89 | 62/83 | 71/83 | 0.000013 | 0.128500 | 0.508940 | 0.935500 | 0.935500 |
+| STIX Two Math | 84/89 | 52/84 | 56/84 | 0.000020 | 0.636498 | 1.032257 | 1.032257 | 1.032257 |
+| Libertinus Math | 84/89 | 62/84 | 66/84 | 0.000014 | 0.167502 | 0.390833 | 0.822900 | 0.822900 |
+| Fira Math | 84/89 | 62/84 | 72/84 | 0.000012 | 0.128500 | 0.422560 | 0.935500 | 0.935500 |
 
 The large stress topology, identity, and placement deltas remain discriminating
 evidence for the primitive-by-primitive repairs in Phase G.
