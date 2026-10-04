@@ -1,6 +1,7 @@
 # Gold tests — Milestone 6 accents and decorations
-# Contract: code must match these values. Do not edit golds to hide a bug.
-# `expect` for kind=dims is MathBox::dim_gold() (STIX Two Math).
+# Contract: deterministic TeXpose regression values. Do not edit golds to hide a bug.
+# `expect` for kind=dims is MathBox::dim_gold() on the pinned STIX Two Math fixture.
+# External TeX compatibility requires the applicable specification plus independent oracle evidence.
 
 [[gold]]
 name = "hat-x-ast"

@@ -193,7 +193,7 @@ expect = "f2076b9f1676438439dd41e23676f5ab99056e83d6b8f8c27841591ef2ccfa72"
 name = "font_missing"
 kind = "font"
 op = "missing"
-input = "\u{0378}"
+input = "\u0378"
 expect = "missing glyph"
 
 [[gold]]

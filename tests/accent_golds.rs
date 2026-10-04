@@ -1,86 +1,44 @@
 //! Gold runner: `golds/accents.toml` is the accent/decoration contract.
 
 mod common;
+#[path = "support/golds.rs"]
+mod gold_support;
 
 use texpose::{layout, parse, BoxContent, MathBox, MathFont, MathStyle, ParseError};
 
-#[derive(Default)]
 struct Rec {
     name: String,
     kind: String,
     style: String,
     input: String,
     expect: String,
-    lines: String,
     error: String,
 }
 
-fn unescape(s: &str) -> String {
-    let mut out = String::new();
-    let mut chars = s.chars();
-    while let Some(c) = chars.next() {
-        if c == '\\' {
-            match chars.next() {
-                Some('\\') => out.push('\\'),
-                Some('n') => out.push('\n'),
-                Some('t') => out.push('\t'),
-                Some('"') => out.push('"'),
-                Some(other) => out.push(other),
-                None => break,
-            }
-        } else {
-            out.push(c);
-        }
-    }
-    out
-}
-
-fn parse_value(raw: &str) -> String {
-    let t = raw.trim();
-    if let Some(s) = t.strip_prefix('"').and_then(|s| s.strip_suffix('"')) {
-        unescape(s)
-    } else {
-        t.to_string()
-    }
-}
-
 fn load_golds() -> Vec<Rec> {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/golds/accents.toml");
-    let text = std::fs::read_to_string(path).expect("accents.toml");
-    let mut recs = Vec::new();
-    let mut rec = Rec::default();
-    for line in text.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
-            continue;
-        }
-        if line == "[[gold]]" {
-            if !rec.name.is_empty() {
-                recs.push(rec);
+    gold_support::load("golds/accents.toml")
+        .into_iter()
+        .map(|gold| {
+            match gold.kind() {
+                "ast" => gold.expect_fields(&["name", "kind", "input", "expect"], &[]),
+                "dims" | "lines" => {
+                    gold.expect_fields(&["name", "kind", "input", "expect"], &["style"]);
+                }
+                "err" => {
+                    gold.expect_fields(&["name", "kind", "input", "expect", "error"], &[]);
+                }
+                other => panic!("{}: unknown kind {other}", gold.name()),
             }
-            rec = Rec::default();
-            continue;
-        }
-        let Some((k, v)) = line.split_once('=') else {
-            continue;
-        };
-        let k = k.trim();
-        let v = parse_value(v);
-        match k {
-            "name" => rec.name = v,
-            "kind" => rec.kind = v,
-            "style" => rec.style = v,
-            "input" => rec.input = v,
-            "expect" => rec.expect = v,
-            "lines" => rec.lines = v,
-            "error" => rec.error = v,
-            _ => panic!("unknown gold field {k}"),
-        }
-    }
-    if !rec.name.is_empty() {
-        recs.push(rec);
-    }
-    recs
+            Rec {
+                name: gold.name().to_string(),
+                kind: gold.kind().to_string(),
+                style: gold.optional("style").unwrap_or("").to_string(),
+                input: gold.required("input").to_string(),
+                expect: gold.required("expect").to_string(),
+                error: gold.optional("error").unwrap_or("").to_string(),
+            }
+        })
+        .collect()
 }
 
 fn parse_style(s: &str) -> MathStyle {

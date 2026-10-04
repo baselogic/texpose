@@ -1,13 +1,14 @@
 //! Gold runner: `golds/envs.toml` is the Milestone 7 environment contract.
 
 mod common;
+#[path = "support/golds.rs"]
+mod gold_support;
 
 use texpose::{
     layout, layout_with_numbering, parse, BoxContent, MathBox, MathStyle, NumberingState,
     ParseError,
 };
 
-#[derive(Default)]
 struct Rec {
     name: String,
     kind: String,
@@ -18,72 +19,34 @@ struct Rec {
     key: String,
 }
 
-fn unescape(s: &str) -> String {
-    let mut out = String::new();
-    let mut chars = s.chars();
-    while let Some(c) = chars.next() {
-        if c == '\\' {
-            match chars.next() {
-                Some('\\') => out.push('\\'),
-                Some('n') => out.push('\n'),
-                Some('t') => out.push('\t'),
-                Some('"') => out.push('"'),
-                Some(other) => out.push(other),
-                None => break,
-            }
-        } else {
-            out.push(c);
-        }
-    }
-    out
-}
-
-fn parse_value(raw: &str) -> String {
-    let t = raw.trim();
-    if let Some(s) = t.strip_prefix('"').and_then(|s| s.strip_suffix('"')) {
-        unescape(s)
-    } else {
-        t.to_string()
-    }
-}
-
 fn load_golds() -> Vec<Rec> {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/golds/envs.toml");
-    let text = std::fs::read_to_string(path).expect("envs.toml");
-    let mut recs = Vec::new();
-    let mut rec = Rec::default();
-    for line in text.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
-            continue;
-        }
-        if line == "[[gold]]" {
-            if !rec.name.is_empty() {
-                recs.push(rec);
+    gold_support::load("golds/envs.toml")
+        .into_iter()
+        .map(|gold| {
+            match gold.kind() {
+                "ast" => gold.expect_fields(&["name", "kind", "input", "expect"], &[]),
+                "dims" | "eq_x" => {
+                    gold.expect_fields(&["name", "kind", "input", "expect"], &["style"]);
+                }
+                "err" => {
+                    gold.expect_fields(&["name", "kind", "input", "expect", "error"], &[]);
+                }
+                "label" => {
+                    gold.expect_fields(&["name", "kind", "input", "expect", "key"], &["style"]);
+                }
+                other => panic!("{}: unknown kind {other}", gold.name()),
             }
-            rec = Rec::default();
-            continue;
-        }
-        let Some((k, v)) = line.split_once('=') else {
-            continue;
-        };
-        let k = k.trim();
-        let v = parse_value(v);
-        match k {
-            "name" => rec.name = v,
-            "kind" => rec.kind = v,
-            "style" => rec.style = v,
-            "input" => rec.input = v,
-            "expect" => rec.expect = v,
-            "error" => rec.error = v,
-            "key" => rec.key = v,
-            _ => panic!("unknown gold field {k}"),
-        }
-    }
-    if !rec.name.is_empty() {
-        recs.push(rec);
-    }
-    recs
+            Rec {
+                name: gold.name().to_string(),
+                kind: gold.kind().to_string(),
+                style: gold.optional("style").unwrap_or("").to_string(),
+                input: gold.required("input").to_string(),
+                expect: gold.required("expect").to_string(),
+                error: gold.optional("error").unwrap_or("").to_string(),
+                key: gold.optional("key").unwrap_or("").to_string(),
+            }
+        })
+        .collect()
 }
 
 fn parse_style(s: &str) -> MathStyle {
@@ -168,7 +131,14 @@ fn env_golds() {
                 let ast = parse(&rec.input).unwrap_or_else(|e| panic!("{}: parse {e}", rec.name));
                 let bx = layout(&ast, &font, parse_style(&rec.style))
                     .unwrap_or_else(|e| panic!("{}: layout {e}", rec.name));
-                let ch = rec.expect.chars().next().expect("eq_x char");
+                let mut expected_chars = rec.expect.chars();
+                let ch = expected_chars.next().expect("eq_x char");
+                assert!(
+                    expected_chars.next().is_none(),
+                    "{}: eq_x expect must be exactly one character, got {:?}",
+                    rec.name,
+                    rec.expect
+                );
                 let mut xs = Vec::new();
                 glyph_xs(&bx, texpose::Dim::zero(), ch, &mut xs);
                 assert!(

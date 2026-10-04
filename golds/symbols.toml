@@ -1,6 +1,6 @@
 # Gold tests — Milestone 5 symbol coverage
 # Contract: code must match these values. Do not edit golds to hide a bug.
-# `expect` is the Unicode glyph locked in the box tree (and the catalog).
+# For kind=glyph, `expect` is the exact Unicode glyph sequence in the box tree.
 
 [[gold]]
 name = "greek_alpha"
@@ -335,7 +335,7 @@ class = "Rel"
 name = "not_leq"
 kind = "not"
 input = "\\not\\leq"
-expect = "≤"
+expect = "≤\u0338"
 class = "Rel"
 
 [[gold]]
@@ -481,12 +481,13 @@ class = "Ord"
 name = "op_sin"
 kind = "glyph"
 input = "\\sin"
-expect = "s"
+expect = "sin"
+class = "Op"
 
 [[gold]]
 name = "missing_glyph"
 kind = "missing_glyph"
-input = "\u{0378}"
+input = "\u0378"
 
 [[gold]]
 name = "unknown_font_style"
@@ -498,4 +499,4 @@ expect = "unsupported: font style mathfoo"
 name = "math_minus_a_b"
 kind = "glyph"
 input = "a-b"
-expect = "−"
+expect = "𝑎−𝑏"

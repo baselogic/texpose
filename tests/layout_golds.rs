@@ -1,10 +1,11 @@
 //! Gold runner: `golds/layout.toml` is the layout-dimension contract.
 
 mod common;
+#[path = "support/golds.rs"]
+mod gold_support;
 
 use texpose::{layout, parse, BoxContent, Color, MathBox, MathFont, MathStyle};
 
-#[derive(Default)]
 struct Rec {
     name: String,
     kind: String,
@@ -13,70 +14,28 @@ struct Rec {
     expect: String,
 }
 
-fn unescape(s: &str) -> String {
-    let mut out = String::new();
-    let mut chars = s.chars();
-    while let Some(c) = chars.next() {
-        if c == '\\' {
-            match chars.next() {
-                Some('\\') => out.push('\\'),
-                Some('n') => out.push('\n'),
-                Some('t') => out.push('\t'),
-                Some('"') => out.push('"'),
-                Some(other) => out.push(other),
-                None => break,
-            }
-        } else {
-            out.push(c);
-        }
-    }
-    out
-}
-
-fn parse_value(raw: &str) -> String {
-    let t = raw.trim();
-    if let Some(s) = t.strip_prefix('"').and_then(|s| s.strip_suffix('"')) {
-        unescape(s)
-    } else {
-        t.to_string()
-    }
-}
-
 fn load_golds() -> Vec<Rec> {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/golds/layout.toml");
-    let text = std::fs::read_to_string(path).expect("layout.toml");
-    let mut recs = Vec::new();
-    let mut rec = Rec::default();
-    for line in text.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
-            continue;
-        }
-        if line == "[[gold]]" {
-            if !rec.name.is_empty() {
-                recs.push(rec);
+    gold_support::load("golds/layout.toml")
+        .into_iter()
+        .map(|gold| {
+            match gold.kind() {
+                "dims" | "color" | "back_color" | "frame_stroke" | "color_nested" | "err" => {
+                    gold.expect_fields(&["name", "kind", "input", "expect"], &["style"]);
+                }
+                "style_frac" => {
+                    gold.expect_fields(&["name", "kind", "style", "expect"], &[]);
+                }
+                other => panic!("{}: unknown kind {other}", gold.name()),
             }
-            rec = Rec::default();
-            continue;
-        }
-        let Some((k, v)) = line.split_once('=') else {
-            continue;
-        };
-        let k = k.trim();
-        let v = parse_value(v);
-        match k {
-            "name" => rec.name = v,
-            "kind" => rec.kind = v,
-            "style" => rec.style = v,
-            "input" => rec.input = v,
-            "expect" => rec.expect = v,
-            _ => panic!("unknown gold field {k}"),
-        }
-    }
-    if !rec.name.is_empty() {
-        recs.push(rec);
-    }
-    recs
+            Rec {
+                name: gold.name().to_string(),
+                kind: gold.kind().to_string(),
+                style: gold.optional("style").unwrap_or("").to_string(),
+                input: gold.optional("input").unwrap_or("").to_string(),
+                expect: gold.required("expect").to_string(),
+            }
+        })
+        .collect()
 }
 
 fn parse_style(s: &str) -> MathStyle {
@@ -140,6 +99,26 @@ fn has_nested_color(b: &MathBox, outer: Color, inner: Color) -> bool {
     }
 }
 
+fn parse_expected_hex_color(value: &str, name: &str) -> Color {
+    let hex = value
+        .strip_prefix('#')
+        .filter(|hex| hex.len() == 6)
+        .unwrap_or_else(|| panic!("{name}: expected #rrggbb color, got {value:?}"));
+    let rgb = u32::from_str_radix(hex, 16)
+        .unwrap_or_else(|_| panic!("{name}: invalid #rrggbb color {value:?}"));
+    Color::rgb((rgb >> 16) as u8, (rgb >> 8) as u8, rgb as u8)
+}
+
+fn expected_nested_colors(expect: &str, name: &str) -> (Color, Color) {
+    let (outer, inner) = expect.split_once("-then-").unwrap_or_else(|| {
+        panic!("{name}: expected color pair #rrggbb-then-#rrggbb, got {expect:?}")
+    });
+    (
+        parse_expected_hex_color(outer, name),
+        parse_expected_hex_color(inner, name),
+    )
+}
+
 fn lay(font: &MathFont, rec: &Rec) -> MathBox {
     let ast = parse(&rec.input).unwrap_or_else(|e| panic!("{}: parse {e}", rec.name));
     let style = if rec.style.is_empty() {
@@ -180,12 +159,12 @@ fn layout_golds() {
             }
             "color_nested" => {
                 let bx = lay(&font, &rec);
-                let outer = Color::rgb(0xff, 0x00, 0x00);
-                let inner = Color::rgb(0x00, 0x00, 0xff);
+                let (outer, inner) = expected_nested_colors(&rec.expect, &rec.name);
                 assert!(
                     has_nested_color(&bx, outer, inner),
-                    "{}: nested color not found",
-                    rec.name
+                    "{}: nested color {} not found",
+                    rec.name,
+                    rec.expect
                 );
             }
             "err" => {

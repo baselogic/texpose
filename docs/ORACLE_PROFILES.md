@@ -227,6 +227,28 @@ paint-order differences are distinguished from glyph-selection differences, that
 glyph-only unique-ID reorders are realigned by glyph identity, and that duplicate-ID
 or mixed glyph/rule reorders remain non-comparable instead of fabricating geometry.
 
+## Goldens versus the external oracle
+
+The repository gold files and the LuaLaTeX oracle have different authority.
+Goldens are deterministic regression contracts for TeXpose on the pinned font
+fixtures. They detect unintended changes precisely, but a stored `w/h/d` value is
+not independent evidence that the layout matches TeX, LuaTeX, or OpenType MATH.
+External compatibility requires the applicable TeX/OpenType contract plus genuinely
+independent evidence such as the pinned LuaLaTeX reference.
+
+Do not resolve an oracle disagreement by regenerating a golden from current
+TeXpose output, and do not treat LuaLaTeX as stronger than an applicable external
+specification. First identify the owning rule and evidence: font facts from the
+pinned font, TeX/OpenType layout semantics, and the pinned LuaLaTeX reference where
+applicable. A deliberately retained divergence may remain a regression golden, but
+it must not be described as proof of external correctness.
+
+The generated LuaLaTeX probe deliberately does not load `microtype` and contains a
+hard failure if `microtype` is already loaded after begin-document hooks. The oracle
+measures natural math boxes; microtypographic protrusion/expansion is outside that
+contract and must not become an ambient input. This exclusion is part of profile
+protocol `oracle-v9`.
+
 ## Gate separation
 
 F10 keeps three evidence levels distinct:

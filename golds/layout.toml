@@ -1,26 +1,24 @@
 # Gold tests — Milestone 3 layout engine
-# Contract: code must match these values. Do not edit golds to hide a bug.
-# `expect` for kind=dims is MathBox::dim_gold() (STIX Two Math).
+# Contract: deterministic TeXpose regression values. Do not edit golds to hide a bug.
+# `expect` for kind=dims is MathBox::dim_gold() on the pinned STIX Two Math fixture.
+# External TeX compatibility requires the applicable specification plus independent oracle evidence.
 
 [[gold]]
 name = "frac-num-den-display"
 kind = "style_frac"
 style = "display"
-input = "\\frac{1}{2}"
 expect = "text text-cramped"
 
 [[gold]]
 name = "frac-num-den-text"
 kind = "style_frac"
 style = "text"
-input = "\\frac{1}{2}"
 expect = "script script-cramped"
 
 [[gold]]
 name = "frac-num-den-script"
 kind = "style_frac"
 style = "script"
-input = "\\frac{1}{2}"
 expect = "scriptscript scriptscript-cramped"
 
 [[gold]]
@@ -322,14 +320,14 @@ name = "nested-color"
 kind = "color_nested"
 style = "text"
 input = "\\textcolor{red}{\\textcolor{blue}{x}}"
-expect = "red-then-blue"
+expect = "#ff0000-then-#0000ff"
 
 [[gold]]
 name = "color-scope-restore"
 kind = "color_nested"
 style = "text"
 input = "{\\color{red} x + {\\color{blue} y} + z}"
-expect = "red-then-blue"
+expect = "#ff0000-then-#0000ff"
 
 [[gold]]
 name = "color-green-following"

@@ -1,13 +1,14 @@
 //! Gold runner: `golds/milestone1.toml` is the contract.
 
 mod common;
+#[path = "support/golds.rs"]
+mod gold_support;
 
 use texpose::{
     category_count, format_tokens, lookup, named_color, parse_color_spec, symbols, tokenize,
     ColorTable, Dim, Error, MathBox, MathFont, ParseErrorKind,
 };
 
-#[derive(Default)]
 struct Rec {
     name: String,
     kind: String,
@@ -25,91 +26,94 @@ struct Rec {
     expect_depth: String,
 }
 
-fn unescape(s: &str) -> String {
-    let mut out = String::new();
-    let mut chars = s.chars();
-    while let Some(c) = chars.next() {
-        if c == '\\' {
-            match chars.next() {
-                Some('\\') => out.push('\\'),
-                Some('n') => out.push('\n'),
-                Some('t') => out.push('\t'),
-                Some('u') => {
-                    if chars.next() == Some('{') {
-                        let mut hex = String::new();
-                        for h in chars.by_ref() {
-                            if h == '}' {
-                                break;
-                            }
-                            hex.push(h);
-                        }
-                        let cp = u32::from_str_radix(&hex, 16).expect("unicode");
-                        out.push(char::from_u32(cp).expect("char"));
-                    }
-                }
-                Some(other) => out.push(other),
-                None => break,
-            }
-        } else {
-            out.push(c);
-        }
-    }
-    out
-}
-
-fn parse_value(raw: &str) -> String {
-    let t = raw.trim();
-    if let Some(s) = t.strip_prefix('"').and_then(|s| s.strip_suffix('"')) {
-        unescape(s)
-    } else {
-        t.to_string()
-    }
-}
-
 fn load_golds() -> Vec<Rec> {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/golds/milestone1.toml");
-    let text = std::fs::read_to_string(path).expect("milestone1.toml");
-    let mut recs = Vec::new();
-    let mut rec = Rec::default();
-    for line in text.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
-            continue;
-        }
-        if line == "[[gold]]" {
-            if !rec.name.is_empty() {
-                recs.push(rec);
+    gold_support::load("golds/milestone1.toml")
+        .into_iter()
+        .map(|gold| {
+            match gold.kind() {
+                "tokenize" | "tokenize_err" => {
+                    gold.expect_fields(&["name", "kind", "input", "expect"], &[]);
+                }
+                "dim" => match gold.required("op") {
+                    "add" | "mul" | "div" | "font_units" => {
+                        gold.expect_fields(&["name", "kind", "op", "lhs", "rhs", "expect"], &[])
+                    }
+                    "from_mu" | "as_ratio" => {
+                        gold.expect_fields(&["name", "kind", "op", "lhs", "expect"], &[]);
+                    }
+                    other => panic!("{}: unknown dim op {other}", gold.name()),
+                },
+                "box" => match gold.required("op") {
+                    "hpack" => {
+                        gold.expect_fields(&["name", "kind", "op", "widths", "expect_width"], &[])
+                    }
+                    "vpack" => gold.expect_fields(
+                        &[
+                            "name",
+                            "kind",
+                            "op",
+                            "heights",
+                            "depths",
+                            "expect_height",
+                            "expect_depth",
+                        ],
+                        &[],
+                    ),
+                    other => panic!("{}: unknown box op {other}", gold.name()),
+                },
+                "font" => match gold.required("op") {
+                    "advance" | "missing" => {
+                        gold.expect_fields(&["name", "kind", "op", "input", "expect"], &[])
+                    }
+                    "units_per_em" | "hhea" | "sha256" => {
+                        gold.expect_fields(&["name", "kind", "op", "expect"], &[]);
+                    }
+                    other => panic!("{}: unknown font op {other}", gold.name()),
+                },
+                "symbol" => match gold.required("op") {
+                    "lookup" | "category_count" => {
+                        gold.expect_fields(&["name", "kind", "op", "input", "expect"], &[])
+                    }
+                    "count" => gold.expect_fields(&["name", "kind", "op", "expect"], &[]),
+                    other => panic!("{}: unknown symbol op {other}", gold.name()),
+                },
+                "color" => match gold.required("op") {
+                    "named" | "error_named" => {
+                        gold.expect_fields(&["name", "kind", "op", "input", "expect"], &[])
+                    }
+                    "named_count" => {
+                        gold.expect_fields(&["name", "kind", "op", "expect"], &[]);
+                    }
+                    "model" | "error" | "error_malformed" => {
+                        gold.expect_fields(&["name", "kind", "op", "model", "input", "expect"], &[])
+                    }
+                    "define" => gold.expect_fields(
+                        &["name", "kind", "op", "lhs", "model", "input", "expect"],
+                        &[],
+                    ),
+                    other => panic!("{}: unknown color op {other}", gold.name()),
+                },
+                other => panic!("{}: unknown kind {other}", gold.name()),
             }
-            rec = Rec::default();
-            continue;
-        }
-        let Some((k, v)) = line.split_once('=') else {
-            continue;
-        };
-        let k = k.trim();
-        let v = parse_value(v);
-        match k {
-            "name" => rec.name = v,
-            "kind" => rec.kind = v,
-            "op" => rec.op = v,
-            "model" => rec.model = v,
-            "input" => rec.input = v,
-            "lhs" => rec.lhs = v,
-            "rhs" => rec.rhs = v,
-            "widths" => rec.widths = v,
-            "heights" => rec.heights = v,
-            "depths" => rec.depths = v,
-            "expect" => rec.expect = v,
-            "expect_width" => rec.expect_width = v,
-            "expect_height" => rec.expect_height = v,
-            "expect_depth" => rec.expect_depth = v,
-            _ => panic!("unknown gold field {k}"),
-        }
-    }
-    if !rec.name.is_empty() {
-        recs.push(rec);
-    }
-    recs
+
+            Rec {
+                name: gold.name().to_string(),
+                kind: gold.kind().to_string(),
+                op: gold.optional("op").unwrap_or("").to_string(),
+                model: gold.optional("model").unwrap_or("").to_string(),
+                input: gold.optional("input").unwrap_or("").to_string(),
+                lhs: gold.optional("lhs").unwrap_or("").to_string(),
+                rhs: gold.optional("rhs").unwrap_or("").to_string(),
+                widths: gold.optional("widths").unwrap_or("").to_string(),
+                heights: gold.optional("heights").unwrap_or("").to_string(),
+                depths: gold.optional("depths").unwrap_or("").to_string(),
+                expect: gold.optional("expect").unwrap_or("").to_string(),
+                expect_width: gold.optional("expect_width").unwrap_or("").to_string(),
+                expect_height: gold.optional("expect_height").unwrap_or("").to_string(),
+                expect_depth: gold.optional("expect_depth").unwrap_or("").to_string(),
+            }
+        })
+        .collect()
 }
 
 fn csv_dims(s: &str) -> Vec<Dim> {

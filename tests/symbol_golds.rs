@@ -1,13 +1,14 @@
 //! Gold runner: `golds/symbols.toml` plus a catalog corpus.
 
 mod common;
+#[path = "support/golds.rs"]
+mod gold_support;
 
 use texpose::{
     layout, layout_with_diagnostics, parse, styled_char, symbol_atom_kind, symbols, AtomKind,
     BoxContent, LayoutDiagnostic, MathBox, MathFont, MathNode, MathStyle, SymbolKind, TextStyle,
 };
 
-#[derive(Default)]
 struct Rec {
     name: String,
     kind: String,
@@ -17,83 +18,34 @@ struct Rec {
     lhs: String,
 }
 
-fn unescape(s: &str) -> String {
-    let mut out = String::new();
-    let mut chars = s.chars();
-    while let Some(c) = chars.next() {
-        if c == '\\' {
-            match chars.next() {
-                Some('\\') => out.push('\\'),
-                Some('n') => out.push('\n'),
-                Some('t') => out.push('\t'),
-                Some('u') => {
-                    if chars.next() == Some('{') {
-                        let mut hex = String::new();
-                        for h in chars.by_ref() {
-                            if h == '}' {
-                                break;
-                            }
-                            hex.push(h);
-                        }
-                        let cp = u32::from_str_radix(&hex, 16).expect("unicode");
-                        out.push(char::from_u32(cp).expect("char"));
-                    }
-                }
-                Some(other) => out.push(other),
-                None => break,
-            }
-        } else {
-            out.push(c);
-        }
-    }
-    out
-}
-
-fn parse_value(raw: &str) -> String {
-    let t = raw.trim();
-    if let Some(s) = t.strip_prefix('"').and_then(|s| s.strip_suffix('"')) {
-        unescape(s)
-    } else {
-        t.to_string()
-    }
-}
-
 fn load_golds() -> Vec<Rec> {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/golds/symbols.toml");
-    let text = std::fs::read_to_string(path).expect("symbols.toml");
-    let mut recs = Vec::new();
-    let mut rec = Rec::default();
-    for line in text.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
-            continue;
-        }
-        if line == "[[gold]]" {
-            if !rec.name.is_empty() {
-                recs.push(rec);
+    gold_support::load("golds/symbols.toml")
+        .into_iter()
+        .map(|gold| {
+            match gold.kind() {
+                "glyph" => {
+                    gold.expect_fields(&["name", "kind", "input", "expect"], &["class"]);
+                }
+                "not" => {
+                    gold.expect_fields(&["name", "kind", "input", "expect", "class"], &[]);
+                }
+                "wider" => gold.expect_fields(&["name", "kind", "input", "lhs"], &[]),
+                "missing_glyph" => gold.expect_fields(&["name", "kind", "input"], &[]),
+                "err_parse" => {
+                    gold.expect_fields(&["name", "kind", "input", "expect"], &[]);
+                }
+                other => panic!("{}: unknown kind {other}", gold.name()),
             }
-            rec = Rec::default();
-            continue;
-        }
-        let Some((k, v)) = line.split_once('=') else {
-            continue;
-        };
-        let k = k.trim();
-        let v = parse_value(v);
-        match k {
-            "name" => rec.name = v,
-            "kind" => rec.kind = v,
-            "input" => rec.input = v,
-            "expect" => rec.expect = v,
-            "class" => rec.class = v,
-            "lhs" => rec.lhs = v,
-            _ => panic!("unknown gold field {k}"),
-        }
-    }
-    if !rec.name.is_empty() {
-        recs.push(rec);
-    }
-    recs
+            Rec {
+                name: gold.name().to_string(),
+                kind: gold.kind().to_string(),
+                input: gold.required("input").to_string(),
+                expect: gold.optional("expect").unwrap_or("").to_string(),
+                class: gold.optional("class").unwrap_or("").to_string(),
+                lhs: gold.optional("lhs").unwrap_or("").to_string(),
+            }
+        })
+        .collect()
 }
 
 fn glyphs(b: &MathBox) -> Vec<char> {
@@ -122,6 +74,16 @@ fn class_name(k: AtomKind) -> &'static str {
     }
 }
 
+fn parsed_class(ast: &MathNode) -> Option<AtomKind> {
+    match ast {
+        MathNode::Atom(_, kind) => Some(*kind),
+        MathNode::Symbol(name) => Some(symbol_atom_kind(name)),
+        MathNode::MathAlphabet(_, _) => Some(AtomKind::Ord),
+        MathNode::Operator(_, _) => Some(AtomKind::Op),
+        _ => None,
+    }
+}
+
 fn lay(font: &MathFont, input: &str) -> MathBox {
     let ast = parse(input).unwrap_or_else(|e| panic!("parse {input}: {e}"));
     layout(&ast, font, MathStyle::Text).unwrap_or_else(|e| panic!("layout {input}: {e}"))
@@ -147,36 +109,84 @@ fn symbol_golds() {
             "glyph" => {
                 let bx = lay(&font, &rec.input);
                 let gs = glyphs(&bx);
-                assert!(
-                    gs.contains(&rec.expect.chars().next().expect("glyph")),
-                    "{}: glyphs {gs:?} missing {}",
-                    rec.name,
-                    rec.expect
-                );
+                let expected: Vec<char> = rec.expect.chars().collect();
+                assert_eq!(gs, expected, "{}: exact glyph sequence", rec.name);
                 if !rec.class.is_empty() {
-                    let ast = parse(&rec.input).unwrap();
-                    if let MathNode::Symbol(name) = ast {
-                        assert_eq!(
-                            class_name(symbol_atom_kind(&name)),
-                            rec.class,
-                            "{}",
-                            rec.name
-                        );
-                    }
+                    let ast = parse(&rec.input).unwrap_or_else(|e| panic!("{}: {e}", rec.name));
+                    let class = parsed_class(&ast).unwrap_or_else(|| {
+                        panic!(
+                            "{}: class field is not supported for AST {}",
+                            rec.name,
+                            ast.gold()
+                        )
+                    });
+                    assert_eq!(class_name(class), rec.class, "{}", rec.name);
                 }
             }
             "not" => {
                 let bx = lay(&font, &rec.input);
-                let gs = glyphs(&bx);
-                let want = rec.expect.chars().next().expect("glyph");
-                assert!(
-                    gs.contains(&want),
-                    "{}: glyphs {gs:?} missing {want}",
+                let expected: Vec<char> = rec.expect.chars().collect();
+                assert_eq!(
+                    expected.len(),
+                    2,
+                    "{}: \\not fixture must name exactly two glyphs",
                     rec.name
                 );
-                assert!(
-                    gs.len() >= 2,
-                    "{}: \\not should overlay a slash, got {gs:?}",
+                assert_eq!(
+                    glyphs(&bx),
+                    expected,
+                    "{}: exact \\not glyph sequence",
+                    rec.name
+                );
+
+                let layers = match &bx.content {
+                    BoxContent::Overlap(layers) => layers,
+                    other => panic!("{}: \\not must be an overlap, got {other:?}", rec.name),
+                };
+                assert_eq!(layers.len(), 2, "{}: \\not overlap layer count", rec.name);
+                assert_eq!(
+                    glyphs(&layers[0]),
+                    vec![expected[0]],
+                    "{}: \\not base layer",
+                    rec.name
+                );
+                assert_eq!(
+                    glyphs(&layers[1]),
+                    vec![expected[1]],
+                    "{}: \\not slash layer",
+                    rec.name
+                );
+
+                let base_input = rec
+                    .input
+                    .strip_prefix("\\not")
+                    .filter(|rest| !rest.is_empty())
+                    .unwrap_or_else(|| panic!("{}: invalid \\not fixture input", rec.name));
+                let base_ast =
+                    parse(base_input).unwrap_or_else(|e| panic!("{} base: {e}", rec.name));
+                let base_class = parsed_class(&base_ast).unwrap_or_else(|| {
+                    panic!(
+                        "{}: class field is not supported for base AST {}",
+                        rec.name,
+                        base_ast.gold()
+                    )
+                });
+                assert_eq!(class_name(base_class), rec.class, "{} base class", rec.name);
+
+                let base = lay(&font, base_input);
+                let negated_row = lay(&font, &format!("a {} b", rec.input));
+                let base_row = lay(&font, &format!("a {base_input} b"));
+                let negated_plus_base = negated_row
+                    .width
+                    .checked_add(&base.width)
+                    .unwrap_or_else(|e| panic!("{}: width sum failed: {e}", rec.name));
+                let base_plus_negated = base_row
+                    .width
+                    .checked_add(&bx.width)
+                    .unwrap_or_else(|e| panic!("{}: width sum failed: {e}", rec.name));
+                assert_eq!(
+                    negated_plus_base, base_plus_negated,
+                    "{}: \\not must preserve the base atom's surrounding spacing",
                     rec.name
                 );
             }
@@ -268,11 +278,6 @@ fn catalog_single_glyphs_layout() {
                 ast.gold()
             ));
         }
-        let class = symbol_atom_kind(name);
-        if matches!(ast, MathNode::Symbol(_)) && class != symbol_atom_kind(name) {
-            failed.push(format!("{} class", e.latex));
-        }
-        let _ = class;
     }
     assert!(
         failed.is_empty(),
