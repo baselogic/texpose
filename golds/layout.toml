@@ -229,7 +229,7 @@ name = "sum-scripts-text"
 kind = "dims"
 style = "text"
 input = "\\sum_{k=1}^{n}"
-expect = "w=2.3032 h=0.782 d=0.302"
+expect = "w=2.3032 h=0.9139 d=0.4178"
 
 [[gold]]
 name = "int-display"
@@ -243,7 +243,7 @@ name = "int-text"
 kind = "dims"
 style = "text"
 input = "\\int_0^1"
-expect = "w=1.36 h=0.8469 d=0.2474"
+expect = "w=1.3103 h=0.9639 d=0.3951"
 
 [[gold]]
 name = "pmatrix"

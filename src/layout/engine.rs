@@ -7,7 +7,7 @@ use crate::atoms::symbol_atom_kind;
 use crate::color::Color;
 use crate::dim::Dim;
 use crate::error::{Error, FontError, NumericError};
-use crate::font::{MathFont, MathFontView, MathGsubContext};
+use crate::font::{MathFont, MathFontView, MathGsubContext, MathKernCorner};
 use crate::layout::assembly::{solve_glyph_assembly, AssemblySolution};
 use crate::layout::metrics::MathParams;
 use crate::layout::numbering::NumberingState;
@@ -1374,9 +1374,16 @@ impl<'font, 'state> Engine<'font, 'state> {
         if sub.is_none() && sup.is_none() {
             return Ok(Item { bx: base, class });
         }
+
         let s = self.params.scale(style);
-        let simple_character_nucleus = matches!(&base.content, BoxContent::Glyph { .. });
+        let base_glyph = direct_glyph(&base);
+        let direct_character_nucleus = base_glyph.is_some();
+        let base_uses_ink_box = match base_glyph {
+            Some((glyph_id, _)) => self.font.is_extended_shape(glyph_id),
+            None => true,
+        };
         let after = self.params.space_after_script.checked_mul(&s)?;
+
         let mut sup_shift = Dim::zero();
         let mut sub_shift = Dim::zero();
         let sup_laid = if let Some(e) = sup {
@@ -1395,18 +1402,35 @@ impl<'font, 'state> Engine<'font, 'state> {
         } else {
             None
         };
-        if simple_character_nucleus {
-            if let Some(sp) = &sup_laid {
-                let min_bottom = self
-                    .script_placement
-                    .superscript_bottom_min
-                    .checked_mul(&s)?;
-                sup_shift = sup_shift.max_ref(&sp.depth.checked_add(&min_bottom)?);
-            }
 
-            if let Some(sb) = &sub_laid {
-                let max_top = self.script_placement.subscript_top_max.checked_mul(&s)?;
-                sub_shift = sub_shift.max_ref(&sb.height.checked_sub(&max_top)?.clamp_nonneg());
+        if let Some(sp) = &sup_laid {
+            let min_bottom = self
+                .script_placement
+                .superscript_bottom_min
+                .checked_mul(&s)?;
+            sup_shift = sup_shift.max_ref(&sp.depth.checked_add(&min_bottom)?);
+
+            if base_uses_ink_box {
+                let base_top = base.height.checked_add(&base.shift)?.clamp_nonneg();
+                let max_drop = self
+                    .script_placement
+                    .superscript_baseline_drop_max
+                    .checked_mul(&s)?;
+                sup_shift = sup_shift.max_ref(&base_top.checked_sub(&max_drop)?.clamp_nonneg());
+            }
+        }
+
+        if let Some(sb) = &sub_laid {
+            let max_top = self.script_placement.subscript_top_max.checked_mul(&s)?;
+            sub_shift = sub_shift.max_ref(&sb.height.checked_sub(&max_top)?.clamp_nonneg());
+
+            if base_uses_ink_box {
+                let base_depth = base.depth.checked_sub(&base.shift)?.clamp_nonneg();
+                let min_drop = self
+                    .script_placement
+                    .subscript_baseline_drop_min
+                    .checked_mul(&s)?;
+                sub_shift = sub_shift.max_ref(&base_depth.checked_add(&min_drop)?);
             }
         }
 
@@ -1414,32 +1438,53 @@ impl<'font, 'state> Engine<'font, 'state> {
             sup_laid.as_ref(),
             sub_laid.as_ref(),
             &s,
-            simple_character_nucleus,
+            direct_character_nucleus,
             &mut sup_shift,
             &mut sub_shift,
         )?;
 
-        let mut kids = vec![base.clone()];
-        let mut width = base.width.clone();
-        if sup_laid.is_some() && !base.italic.is_zero() {
-            kids.push(MathBox::kern(base.italic.clone()));
-            width = width.checked_add(&base.italic)?;
+        let sup_offset = match &sup_laid {
+            Some(sp) => base
+                .italic
+                .checked_add(&self.superscript_math_kern(&base, sp, &sup_shift)?)?,
+            None => Dim::zero(),
+        };
+        let sub_offset = match &sub_laid {
+            Some(sb) => self.subscript_math_kern(&base, sb, &sub_shift)?,
+            None => Dim::zero(),
+        };
+
+        let mut common_offset = Dim::zero();
+        if sup_laid.is_some() {
+            common_offset = common_offset.min_ref(&sup_offset);
         }
-        let mut slot_w = Dim::zero();
+        if sub_laid.is_some() {
+            common_offset = common_offset.min_ref(&sub_offset);
+        }
+
+        let mut slot_w = (-common_offset.clone()).clamp_nonneg();
         let mut slot_h = Dim::zero();
         let mut slot_d = Dim::zero();
         let mut slot_kids = Vec::new();
+
         if let Some(sp) = sup_laid {
-            slot_w = slot_w.max_ref(&sp.width);
+            let lead = sup_offset.checked_sub(&common_offset)?;
+            slot_w = slot_w.max_ref(&lead.checked_add(&sp.width)?);
             slot_h = slot_h.max_ref(&sp.height.checked_add(&sup_shift)?);
             slot_d = slot_d.max_ref(&sp.depth.checked_sub(&sup_shift)?.clamp_nonneg());
-            slot_kids.push(sp.with_shift(sup_shift));
+            slot_kids.push(position_script(sp, lead)?.with_shift(sup_shift));
         }
         if let Some(sb) = sub_laid {
-            slot_w = slot_w.max_ref(&sb.width);
+            let lead = sub_offset.checked_sub(&common_offset)?;
+            slot_w = slot_w.max_ref(&lead.checked_add(&sb.width)?);
             slot_h = slot_h.max_ref(&sb.height.checked_sub(&sub_shift)?.clamp_nonneg());
             slot_d = slot_d.max_ref(&sb.depth.checked_add(&sub_shift)?);
-            slot_kids.push(sb.with_shift(-sub_shift));
+            slot_kids.push(position_script(sb, lead)?.with_shift(-sub_shift));
+        }
+
+        let mut kids = vec![base.clone()];
+        if !common_offset.is_zero() {
+            kids.push(MathBox::kern(common_offset.clone()));
         }
         kids.push(MathBox {
             width: slot_w.clone(),
@@ -1452,13 +1497,26 @@ impl<'font, 'state> Engine<'font, 'state> {
         if !after.is_zero() {
             kids.push(MathBox::kern(after.clone()));
         }
-        width = width.checked_add(&slot_w)?.checked_add(&after)?;
+
+        let width = base
+            .width
+            .checked_add(&common_offset)?
+            .checked_add(&slot_w)?
+            .checked_add(&after)?;
         Ok(Item {
             class,
             bx: MathBox {
                 width,
-                height: base.height.max_ref(&slot_h),
-                depth: base.depth.max_ref(&slot_d),
+                height: base
+                    .height
+                    .checked_add(&base.shift)?
+                    .clamp_nonneg()
+                    .max_ref(&slot_h),
+                depth: base
+                    .depth
+                    .checked_sub(&base.shift)?
+                    .clamp_nonneg()
+                    .max_ref(&slot_d),
                 italic: Dim::zero(),
                 shift: Dim::zero(),
                 content: BoxContent::HList(kids),
@@ -1466,12 +1524,103 @@ impl<'font, 'state> Engine<'font, 'state> {
         })
     }
 
+    fn box_math_kern(
+        &self,
+        math_box: &MathBox,
+        corner: MathKernCorner,
+        correction_height: &Dim,
+    ) -> Result<Dim, Error> {
+        let Some((glyph_id, scale)) = direct_glyph(math_box) else {
+            return Ok(Dim::zero());
+        };
+        Ok(self
+            .font
+            .math_kern(glyph_id, corner, correction_height, scale)?)
+    }
+
+    fn superscript_math_kern(
+        &self,
+        base: &MathBox,
+        script: &MathBox,
+        shift_up: &Dim,
+    ) -> Result<Dim, Error> {
+        // OpenType evaluates each side at the same physical horizontal line,
+        // expressed relative to that glyph's own baseline.
+        let base_at_script_bottom = shift_up
+            .checked_add(&script.shift)?
+            .checked_sub(&script.depth)?
+            .checked_sub(&base.shift)?;
+        let script_at_its_bottom = -script.depth.clone();
+        let first = self
+            .box_math_kern(base, MathKernCorner::TopRight, &base_at_script_bottom)?
+            .checked_add(&self.box_math_kern(
+                script,
+                MathKernCorner::BottomLeft,
+                &script_at_its_bottom,
+            )?)?;
+
+        let base_at_its_top = base.height.clone();
+        let script_at_base_top = base
+            .shift
+            .checked_add(&base.height)?
+            .checked_sub(shift_up)?
+            .checked_sub(&script.shift)?;
+        let second = self
+            .box_math_kern(base, MathKernCorner::TopRight, &base_at_its_top)?
+            .checked_add(&self.box_math_kern(
+                script,
+                MathKernCorner::BottomLeft,
+                &script_at_base_top,
+            )?)?;
+
+        Ok(first.min_ref(&second))
+    }
+
+    fn subscript_math_kern(
+        &self,
+        base: &MathBox,
+        script: &MathBox,
+        shift_down: &Dim,
+    ) -> Result<Dim, Error> {
+        // As for superscripts, the two lookups use one shared physical line
+        // but correction heights relative to the base and script baselines.
+        let base_at_script_top = script
+            .height
+            .checked_add(&script.shift)?
+            .checked_sub(shift_down)?
+            .checked_sub(&base.shift)?;
+        let script_at_its_top = script.height.clone();
+        let first = self
+            .box_math_kern(base, MathKernCorner::BottomRight, &base_at_script_top)?
+            .checked_add(&self.box_math_kern(
+                script,
+                MathKernCorner::TopLeft,
+                &script_at_its_top,
+            )?)?;
+
+        let base_at_its_bottom = -base.depth.clone();
+        let script_at_base_bottom = base
+            .shift
+            .checked_sub(&base.depth)?
+            .checked_add(shift_down)?
+            .checked_sub(&script.shift)?;
+        let second = self
+            .box_math_kern(base, MathKernCorner::BottomRight, &base_at_its_bottom)?
+            .checked_add(&self.box_math_kern(
+                script,
+                MathKernCorner::TopLeft,
+                &script_at_base_bottom,
+            )?)?;
+
+        Ok(first.min_ref(&second))
+    }
+
     fn enforce_paired_script_constraints(
         &self,
         sup: Option<&MathBox>,
         sub: Option<&MathBox>,
         scale: &Dim,
-        simple_character_nucleus: bool,
+        direct_character_nucleus: bool,
         sup_shift: &mut Dim,
         sub_shift: &mut Dim,
     ) -> Result<(), Error> {
@@ -1489,7 +1638,7 @@ impl<'font, 'state> Engine<'font, 'state> {
             *sub_shift = sub_shift.checked_add(&min_gap.checked_sub(&gap)?)?;
         }
 
-        if simple_character_nucleus {
+        if direct_character_nucleus {
             let current_bottom = sup_shift.checked_sub(&sp.depth)?;
             let target_bottom = self
                 .script_placement
@@ -3243,6 +3392,22 @@ impl<'font, 'state> Engine<'font, 'state> {
             bx: MathBox::vpack(packed)?,
         })
     }
+}
+
+fn direct_glyph(math_box: &MathBox) -> Option<(u16, &Dim)> {
+    match &math_box.content {
+        BoxContent::Glyph {
+            glyph_id, scale, ..
+        } => Some((*glyph_id, scale)),
+        _ => None,
+    }
+}
+
+fn position_script(script: MathBox, leading_kern: Dim) -> Result<MathBox, Error> {
+    if leading_kern.is_zero() {
+        return Ok(script);
+    }
+    Ok(MathBox::hpack(vec![MathBox::kern(leading_kern), script])?)
 }
 
 fn shifted_hpack(children: Vec<MathBox>) -> Result<MathBox, Error> {

@@ -13,7 +13,7 @@ name = "aligned-two-dims"
 kind = "dims"
 style = "display"
 input = "\\begin{aligned} f(x) &= x^2 + 2x + 1 \\\\ &= (x+1)^2 \\end{aligned}"
-expect = "w=8.019244444444444444444444 h=1.5877 d=1.0717"
+expect = "w=8.019244444444444444444444 h=1.6607 d=1.1447"
 
 [[gold]]
 name = "aligned-three-eq-x"
@@ -203,7 +203,7 @@ name = "split-in-equation-dims"
 kind = "dims"
 style = "display"
 input = "\\begin{equation}\\begin{split} f(x) &= (x+1)^2 \\\\ &= x^2 + 2x + 1 \\end{split}\\end{equation}"
-expect = "w=9.950466666666666666666666 h=0.8297 d=1.2947"
+expect = "w=9.950466666666666666666666 h=0.9757 d=1.2947"
 
 [[gold]]
 name = "substack-ast"

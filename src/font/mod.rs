@@ -7,7 +7,7 @@ use std::sync::Arc;
 use ttf_parser::{Face, FaceParsingError, RawFace, Tag};
 
 use crate::dim::Dim;
-use crate::error::{Error, FontError};
+use crate::error::{Error, FontError, NumericError};
 
 /// Horizontal glyph metrics in font units and em.
 ///
@@ -90,6 +90,15 @@ pub(crate) enum MathAssemblyDataError {
 enum MathAssemblyAxis {
     Horizontal,
     Vertical,
+}
+
+/// Corner of one glyph's OpenType MATH kerning profile.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum MathKernCorner {
+    TopRight,
+    TopLeft,
+    BottomRight,
+    BottomLeft,
 }
 
 fn assembly_extender_flag(
@@ -453,6 +462,55 @@ impl<'a> MathFontView<'a> {
         Some(self.math_value(value))
     }
 
+    pub(crate) fn is_extended_shape(&self, glyph_id: u16) -> bool {
+        self.math_table()
+            .glyph_info
+            .and_then(|info| info.extended_shapes)
+            .and_then(|coverage| coverage.get(ttf_parser::GlyphId(glyph_id)))
+            .is_some()
+    }
+
+    pub(crate) fn math_kern(
+        &self,
+        glyph_id: u16,
+        corner: MathKernCorner,
+        correction_height: &Dim,
+        scale: &Dim,
+    ) -> Result<Dim, NumericError> {
+        let Some(info) = self.math_table().glyph_info else {
+            return Ok(Dim::zero());
+        };
+        let Some(kern_infos) = info.kern_infos else {
+            return Ok(Dim::zero());
+        };
+        let Some(kern_info) = kern_infos.get(ttf_parser::GlyphId(glyph_id)) else {
+            return Ok(Dim::zero());
+        };
+        let kern = match corner {
+            MathKernCorner::TopRight => kern_info.top_right,
+            MathKernCorner::TopLeft => kern_info.top_left,
+            MathKernCorner::BottomRight => kern_info.bottom_right,
+            MathKernCorner::BottomLeft => kern_info.bottom_left,
+        };
+        let Some(kern) = kern else {
+            return Ok(Dim::zero());
+        };
+
+        let Some(index) = math_kern_index(kern.count(), correction_height, |index| {
+            let Some(height) = kern.height(index) else {
+                return Ok(None);
+            };
+            Ok(Some(self.math_value(height).checked_mul(scale)?))
+        })?
+        else {
+            return Ok(Dim::zero());
+        };
+        let Some(value) = kern.kern(index) else {
+            return Ok(Dim::zero());
+        };
+        self.math_value(value).checked_mul(scale)
+    }
+
     fn variant_records(
         &self,
         construction: ttf_parser::math::GlyphConstruction<'_>,
@@ -638,6 +696,25 @@ impl<'a> MathFontView<'a> {
             .get_or_init(|| MathGsubPlan::from_face(&self.face));
         apply_math_gsub_plan(&self.face, plan, glyph_id, script_level, context)
     }
+}
+
+fn math_kern_index<F>(
+    count: u16,
+    correction_height: &Dim,
+    mut boundary: F,
+) -> Result<Option<u16>, NumericError>
+where
+    F: FnMut(u16) -> Result<Option<Dim>, NumericError>,
+{
+    for index in 0..count {
+        let Some(boundary) = boundary(index)? else {
+            return Ok(None);
+        };
+        if correction_height < &boundary {
+            return Ok(Some(index));
+        }
+    }
+    Ok(Some(count))
 }
 
 fn raw_math_assembly_declared(
@@ -1070,13 +1147,106 @@ fn hex_byte(b: u8) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{MathFont, MathFontView};
+    use super::{math_kern_index, MathFont, MathFontView, MathKernCorner};
 
     const STIX_TWO_MATH: &[u8] =
         include_bytes!("../../tests/fixtures/fonts/stix-two-math/STIXTwoMath-Regular.otf");
 
     fn stix() -> MathFont {
         MathFont::from_bytes(STIX_TWO_MATH).expect("STIX Two Math fixture")
+    }
+
+    #[test]
+    fn math_kern_interval_lookup_uses_the_upper_interval_on_equal_boundaries() {
+        let boundaries = [
+            crate::Dim::from_i64(1),
+            crate::Dim::from_i64(3),
+            crate::Dim::from_i64(7),
+        ];
+        let select = |height: i64| {
+            math_kern_index(3, &crate::Dim::from_i64(height), |index| {
+                Ok::<_, crate::NumericError>(boundaries.get(usize::from(index)).cloned())
+            })
+            .expect("exact comparison cannot overflow")
+            .expect("synthetic boundary table is complete")
+        };
+
+        assert_eq!(select(-4), 0, "negative height below first boundary");
+        assert_eq!(select(0), 0, "below first boundary");
+        assert_eq!(select(1), 1, "equal first boundary");
+        assert_eq!(select(2), 1, "between first and internal boundary");
+        assert_eq!(select(3), 2, "equal internal boundary");
+        assert_eq!(select(5), 2, "between internal and last boundary");
+        assert_eq!(select(7), 3, "equal last boundary");
+        assert_eq!(select(8), 3, "above last boundary");
+
+        let zero_count = math_kern_index(0, &crate::Dim::from_i64(-9), |_| {
+            panic!("heightCount=0 must not inspect a correction-height boundary")
+        })
+        .expect("zero-count lookup cannot overflow")
+        .expect("heightCount=0 still selects kernValues[0]");
+        assert_eq!(zero_count, 0);
+    }
+
+    #[test]
+    fn stix_math_kern_exposes_all_four_corners_and_absent_corner_zero() {
+        let font = stix();
+        let view = font.operation_view();
+        let scale = crate::Dim::one();
+        let height = crate::Dim::zero();
+        let fu = |value: i64| {
+            crate::Dim::from_font_units(value, font.units_per_em())
+                .expect("validated fixture unitsPerEm")
+        };
+
+        let a = view
+            .glyph_index('\u{1D434}')
+            .expect("STIX mathematical italic A");
+        let j = view
+            .glyph_index('\u{1D457}')
+            .expect("STIX mathematical italic j");
+        let v = view
+            .glyph_index('\u{1D449}')
+            .expect("STIX mathematical italic V");
+
+        assert_eq!(
+            view.math_kern(a, MathKernCorner::TopRight, &height, &scale)
+                .expect("top-right kern"),
+            fu(58)
+        );
+        assert_eq!(
+            view.math_kern(j, MathKernCorner::TopLeft, &height, &scale)
+                .expect("top-left kern"),
+            fu(-143)
+        );
+        assert_eq!(
+            view.math_kern(v, MathKernCorner::BottomRight, &height, &scale)
+                .expect("bottom-right kern"),
+            fu(-222)
+        );
+        assert_eq!(
+            view.math_kern(a, MathKernCorner::BottomLeft, &height, &scale)
+                .expect("bottom-left kern"),
+            fu(86)
+        );
+        assert_eq!(
+            view.math_kern(a, MathKernCorner::TopLeft, &height, &scale)
+                .expect("absent corner degrades to zero"),
+            crate::Dim::zero()
+        );
+    }
+
+    #[test]
+    fn stix_extended_shape_coverage_distinguishes_bar_from_ordinary_variable() {
+        let font = stix();
+        let view = font.operation_view();
+        let bar = view.glyph_index('|').expect("STIX vertical bar");
+        let x = view
+            .glyph_index('\u{1D465}')
+            .expect("STIX mathematical italic x");
+
+        assert!(view.is_extended_shape(bar));
+        assert!(!view.is_extended_shape(x));
     }
 
     #[test]

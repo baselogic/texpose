@@ -330,10 +330,7 @@ PROFILES: dict[str, MathProfile] = {
             ),
         ),
         canonical_trace_glyph_mismatches=LIBERTINUS_CANONICAL_TRACE_GLYPH_MISMATCHES,
-        canonical_trace_deviations=(
-            ("display-nested-fraction", 0.0625),
-            ("text-scripts", 0.0811),
-        ),
+        canonical_trace_deviations=(("display-nested-fraction", 0.0625),),
         reference_environment_sha256=REFERENCE_ENVIRONMENT_SHA256,
     ),
     "fira": MathProfile(

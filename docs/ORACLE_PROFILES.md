@@ -93,9 +93,9 @@ large profile exemptions:
 
 | Profile | Raw cases <= 0.050em | p50 | p90 | p95 | p99 | max | structural mismatches |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| STIX Two Math | 65/89 | 0.000027 | 0.304690 | 0.331991 | 0.828115 | 0.828115 | 2 |
-| Libertinus Math | 67/89 | 0.000014 | 0.167502 | 0.296401 | 0.447400 | 0.447400 | 2 |
-| Fira Math | 72/89 | 0.000012 | 0.133440 | 0.258639 | 0.422560 | 0.422560 | 2 |
+| STIX Two Math | 67/89 | 0.000020 | 0.304690 | 0.349773 | 0.828115 | 0.828115 | 2 |
+| Libertinus Math | 68/89 | 0.000014 | 0.126376 | 0.167502 | 0.390829 | 0.390829 | 2 |
+| Fira Math | 75/89 | 0.000012 | 0.119971 | 0.134397 | 0.422560 | 0.422560 | 2 |
 
 The large stress deltas are work inventory for Phase G, not justification to
 raise the global tolerance. In particular, 6pt indexed radicals, brace/underbrace
@@ -143,9 +143,9 @@ produced:
 
 | Profile | Kind topology | Glyph identity/order aligned | Geometry comparable | p50 | p90 | p95 | p99 | max |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| STIX Two Math | 21/21 | 14/21 | 16/21 | 0.000011 | 0.010000 | 0.014000 | 0.014000 | 0.014000 |
-| Libertinus Math | 21/21 | 14/21 | 16/21 | 0.000011 | 0.062399 | 0.080999 | 0.080999 | 0.080999 |
-| Fira Math | 21/21 | 14/21 | 20/21 | 0.000011 | 0.036000 | 0.040000 | 0.040000 | 0.040000 |
+| STIX Two Math | 21/21 | 14/21 | 16/21 | 0.000011 | 0.001500 | 0.014000 | 0.014000 | 0.014000 |
+| Libertinus Math | 21/21 | 14/21 | 16/21 | 0.000011 | 0.008799 | 0.062399 | 0.062399 | 0.062399 |
+| Fira Math | 21/21 | 14/21 | 20/21 | 0.000001 | 0.000013 | 0.007199 | 0.036000 | 0.036000 |
 
 The percentile/max columns cover geometry-comparable traces after the verifier's
 strict unique-glyph realignment for pure reorders. Realignment does not erase the
@@ -188,12 +188,11 @@ unique-ID rule above. A positioned ceiling may overlap a documented glyph/order
 mismatch only when the runtime comparison proves such an identity-realigned reorder.
 Selection changes and ambiguous reorders remain non-comparable, cannot consume a
 ceiling, and therefore make any ceiling on that case fail as stale.
-Libertinus has these remaining bounded positioned deviations after G4:
+Libertinus has one remaining bounded positioned deviation after G7:
 
 | Case | Observed maximum | Contract ceiling |
 | --- | ---: | ---: |
 | `display-nested-fraction` | 0.062399em | 0.062500em |
-| `text-scripts` | 0.080999em | 0.081100em |
 
 Fira has no bounded positioned deviation in the current canonical measurement.
 The former `accent-widehat-script` ceiling is removed because G5 reduced the
@@ -208,9 +207,9 @@ allowlist. The same measurement produced:
 
 | Profile | Kind topology | Glyph identity/order aligned | Geometry comparable | p50 | p90 | p95 | p99 | max |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| STIX Two Math | 84/89 | 52/84 | 56/84 | 0.000020 | 0.636498 | 1.032257 | 1.032257 | 1.032257 |
-| Libertinus Math | 84/89 | 62/84 | 66/84 | 0.000014 | 0.167502 | 0.390833 | 0.822900 | 0.822900 |
-| Fira Math | 84/89 | 62/84 | 72/84 | 0.000012 | 0.128500 | 0.422560 | 0.935500 | 0.935500 |
+| STIX Two Math | 84/89 | 52/84 | 56/84 | 0.000012 | 0.349772 | 1.032257 | 1.032257 | 1.032257 |
+| Libertinus Math | 84/89 | 62/84 | 66/84 | 0.000013 | 0.137598 | 0.190000 | 0.390833 | 0.390833 |
+| Fira Math | 84/89 | 62/84 | 72/84 | 0.000012 | 0.127000 | 0.134398 | 0.422560 | 0.422560 |
 
 The large stress topology, identity, and placement deltas remain discriminating
 evidence for the primitive-by-primitive repairs in Phase G.

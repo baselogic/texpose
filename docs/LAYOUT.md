@@ -46,6 +46,14 @@ Script and scriptscript glyphs activate `ssty`; over-accent glyphs activate `fla
 
 For `ssty`, level 1 selects the first Alternate Substitution form and level 2 selects the second. A Single Substitution is the documented fallback when one script form serves both levels. Glyphs outside active `ssty` coverage retain their original glyph ID. In all cases TeXpose resolves the substitution before reading the final glyph advance, bounding box, and italic correction, then applies `scriptPercentScaleDown` or `scriptScriptPercentScaleDown` to those selected-glyph metrics.
 
+## Script positioning and MathKern
+
+Vertical script positions are established from the MATH script constants before horizontal kerning. `superscriptBottomMin` and `subscriptTopMax` apply to every script. A composite base, or a direct glyph covered by `ExtendedShapeCoverage`, also applies `superscriptBaselineDropMax` / `subscriptBaselineDropMin` against the base ink box. An ordinary direct glyph does not acquire those box-only baseline-drop constraints merely because it is tall.
+
+TeXpose then applies OpenType `MathKernInfo` to each direct-glyph side of the attachment. Superscripts start after the base advance plus its MATH italic correction; subscripts start immediately after the base advance. At each of the two OpenType correction lines, the appropriate base and script corner values are added, and the smaller of the two sums is used as the horizontal kern. Correction-height boundaries are converted to the physical layout scale of the glyph they belong to before comparison; equality belongs to the interval above that boundary. Missing glyph coverage or a missing corner table contributes zero. A boxed side contributes zero for its own corner while a direct glyph on the other side still contributes its height-dependent corner kern, as permitted by OpenType.
+
+Superscript and subscript horizontal origins are represented independently. A base italic correction therefore never shifts a paired subscript merely because a superscript is also present.
+
 ## Missing-glyph degradation
 
 A missing cmap entry for a Unicode scalar required by ordinary math or literal-text layout is recoverable. The diagnostic-aware entry points return `LayoutDiagnostic::MissingGlyph { ch }` in deterministic traversal order and continue layout. The existing convenience entry points (`layout`, `layout_with_em_size_pt`, numbering variants, and `layout_with_max_depth`) preserve their `MathBox` return type and deliberately discard recoverable diagnostics; callers that need to surface degradation must use the corresponding `*_with_diagnostics` entry point.

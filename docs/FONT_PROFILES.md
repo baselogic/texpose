@@ -53,12 +53,14 @@ The table below is a physical-font census for capabilities relevant to the curre
 
 GSUB entries refer specifically to features reachable from `ScriptList["math"]` / `DefaultLangSys`, matching TeXpose's E8 contract. Math construction/assembly counts come from the committed `MATH` table. The profile hash above pins these observations to exact bytes.
 
-| Profile | MathKernInfo | active `ssty` | active `flac` | active `dtls` | vertical constructions / assemblies | horizontal constructions / assemblies |
-| --- | --- | --- | --- | --- | ---: | ---: |
-| `stix` | Present | Present | Present | Present | 118 / 32 | 47 / 37 |
-| `libertinus` | **Missing** | Present | **Missing** | **Missing** | 59 / 15 | 27 / 22 |
-| `fira` | **Missing** | Present | **Missing** | Present | 40 / 18 | 6 / 6 |
-| `dejavu` | **Missing** | Present | **Missing** | Present | 95 / 47 | 86 / 71 |
+| Profile | MathKernInfo glyphs | ExtendedShapeCoverage glyphs | active `ssty` | active `flac` | active `dtls` | vertical constructions / assemblies | horizontal constructions / assemblies |
+| --- | ---: | ---: | --- | --- | --- | ---: | ---: |
+| `stix` | 233 | 494 | Present | Present | Present | 118 / 32 | 47 / 37 |
+| `libertinus` | 0 | 268 | Present | **Missing** | **Missing** | 59 / 15 | 27 / 22 |
+| `fira` | 0 | 388 | Present | **Missing** | Present | 40 / 18 | 6 / 6 |
+| `dejavu` | 0 | 301 | Present | **Missing** | Present | 95 / 47 | 86 / 71 |
+
+For G7, STIX provides positive `MathKernInfo` evidence while Libertinus, Fira, and DejaVu provide the zero-kern degradation path. All four profiles expose non-empty `ExtendedShapeCoverage`; the focused vertical-placement contract uses STIX to distinguish a covered `|` glyph from an uncovered tall ordinary glyph.
 
 For the G5 circumflex/tilde contract, the pinned `stix`, `libertinus`, and `dejavu` fixtures expose horizontal MATH constructions for combining U+0302/U+0303, while their spacing U+02C6/U+02DC candidates do not. The pinned `fira` fixture exposes neither U+0302 nor U+0303 as a horizontal construction; its six horizontal constructions are U+23B4, U+23B5, and U+23DC–U+23DF. G5 therefore uses Fira to prove deterministic base-glyph fallback rather than synthetic stretching.
 
