@@ -171,7 +171,10 @@ fn vertical_assembly_overlap_paints_top_to_bottom() {
     let BoxContent::Overlap(parts) = &left.content else {
         panic!("tall left brace must use a vertical MATH assembly");
     };
-    assert!(parts.len() >= 3, "brace assembly must contain multiple parts");
+    assert!(
+        parts.len() >= 3,
+        "brace assembly must contain multiple parts"
+    );
 
     let glyph_ids: Vec<u16> = parts
         .iter()
@@ -183,8 +186,14 @@ fn vertical_assembly_overlap_paints_top_to_bottom() {
             *glyph_id
         })
         .collect();
-    let top_hook = font.glyph('\u{23A7}').expect("left brace upper hook").glyph_id;
-    let bottom_hook = font.glyph('\u{23A9}').expect("left brace lower hook").glyph_id;
+    let top_hook = font
+        .glyph('\u{23A7}')
+        .expect("left brace upper hook")
+        .glyph_id;
+    let bottom_hook = font
+        .glyph('\u{23A9}')
+        .expect("left brace lower hook")
+        .glyph_id;
 
     assert_eq!(
         glyph_ids.first().copied(),

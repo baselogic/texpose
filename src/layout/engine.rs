@@ -3891,9 +3891,7 @@ fn math_char(c: char) -> char {
 fn is_default_math_variable(c: char) -> bool {
     let lower_greek = ('\u{03B1}'..='\u{03C9}').contains(&c);
 
-    c.is_ascii_alphabetic()
-        || lower_greek
-        || matches!(c, 'ϵ' | 'ϑ' | 'ϰ' | 'ϕ' | 'ϱ' | 'ϖ' | '∂')
+    c.is_ascii_alphabetic() || lower_greek || matches!(c, 'ϵ' | 'ϑ' | 'ϰ' | 'ϕ' | 'ϱ' | 'ϖ' | '∂')
 }
 
 fn math_italic(c: char) -> char {

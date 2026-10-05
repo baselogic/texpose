@@ -43,10 +43,7 @@ fn stacked_overlap_children_follow_tex_top_to_bottom_paint_order() {
 
     assert_eq!(
         overlap_heads(r"\hat{x}", MathStyle::Text),
-        vec![
-            VisibleHead::Glyph('\u{0302}'),
-            VisibleHead::Glyph(italic_x),
-        ],
+        vec![VisibleHead::Glyph('\u{0302}'), VisibleHead::Glyph(italic_x),],
         "top accents must paint before their nucleus"
     );
     assert_eq!(
@@ -72,18 +69,12 @@ fn stacked_overlap_children_follow_tex_top_to_bottom_paint_order() {
     );
     assert_eq!(
         overlap_heads(r"\overset{n}{x}", MathStyle::Display),
-        vec![
-            VisibleHead::Glyph(italic_n),
-            VisibleHead::Glyph(italic_x),
-        ],
+        vec![VisibleHead::Glyph(italic_n), VisibleHead::Glyph(italic_x),],
         "overset annotation must precede its base"
     );
     assert_eq!(
         overlap_heads(r"\underset{i}{x}", MathStyle::Display),
-        vec![
-            VisibleHead::Glyph(italic_x),
-            VisibleHead::Glyph(italic_i),
-        ],
+        vec![VisibleHead::Glyph(italic_x), VisibleHead::Glyph(italic_i),],
         "underset annotation must follow its base"
     );
     assert_eq!(
