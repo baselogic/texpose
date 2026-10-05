@@ -248,6 +248,110 @@ fn display_integral_side_scripts_reuse_generic_script_attachment() {
 }
 
 #[test]
+fn cramped_script_integral_keeps_operator_box_baseline_drop_after_ssty() {
+    let font = common::stix_two_math().expect("STIX Two Math fixture");
+    let params = MathParams::from_font(&font).expect("OpenType MATH parameters");
+    let constants = script_constants(&font);
+    let style = MathStyle::ScriptCramped;
+    let scale = params.scale(style);
+    let tree = layout_source(r"\int_0^\infty", style, &font);
+    let (base, _, slot) = side_attachment_parts(&tree, '∫');
+
+    let selected_gid = match &base.content {
+        BoxContent::Glyph { glyph_id, .. } => *glyph_id,
+        _ => unreachable!(),
+    };
+    let cmap_gid = font.glyph('∫').expect("fixture integral glyph").glyph_id;
+    assert_ne!(
+        selected_gid, cmap_gid,
+        "fixture must exercise the level-1 ssty integral alternate"
+    );
+
+    let face = font.face();
+    let extended_shapes = face
+        .tables()
+        .math
+        .and_then(|math| math.glyph_info)
+        .and_then(|info| info.extended_shapes)
+        .expect("fixture ExtendedShapeCoverage");
+    assert!(
+        extended_shapes
+            .get(ttf_parser::GlyphId(cmap_gid))
+            .is_some(),
+        "base integral must be an extended shape"
+    );
+    assert!(
+        extended_shapes
+            .get(ttf_parser::GlyphId(selected_gid))
+            .is_none(),
+        "fixture must expose the ssty/ExtendedShape coverage boundary"
+    );
+
+    let BoxContent::Overlap(branches) = &slot.content else {
+        unreachable!();
+    };
+    let [upper, lower] = branches.as_slice() else {
+        panic!("paired integral scripts must contain upper and lower branches");
+    };
+
+    let base_height = add(&base.height, &base.shift).clamp_nonneg();
+    let base_depth = sub(&base.depth, &base.shift).clamp_nonneg();
+    let standard_upper = mul(&params.superscript_shift_up_cramped, &scale).max_ref(&add(
+        &upper.depth,
+        &mul(&constants.superscript_bottom_min, &scale),
+    ));
+    let from_base_upper = sub(
+        &base_height,
+        &mul(&constants.superscript_baseline_drop_max, &scale),
+    )
+    .clamp_nonneg();
+    let standard_lower = mul(&params.subscript_shift_down, &scale).max_ref(
+        &sub(
+            &lower.height,
+            &mul(&constants.subscript_top_max, &scale),
+        )
+        .clamp_nonneg(),
+    );
+    let from_base_lower = add(
+        &base_depth,
+        &mul(&constants.subscript_baseline_drop_min, &scale),
+    );
+    assert!(
+        from_base_upper > standard_upper,
+        "fixture must make the operator baseline-drop constraint observable above"
+    );
+    assert!(
+        from_base_lower > standard_lower,
+        "fixture must make the operator baseline-drop constraint observable below"
+    );
+
+    let mut expected_upper = standard_upper.max_ref(&from_base_upper);
+    let mut expected_lower = standard_lower.max_ref(&from_base_lower);
+    let gap = sub(
+        &sub(&add(&expected_upper, &expected_lower), &upper.depth),
+        &lower.height,
+    );
+    let min_gap = mul(&params.sub_superscript_gap_min, &scale);
+    if gap.cmp(&min_gap) == Ordering::Less {
+        expected_lower = add(&expected_lower, &sub(&min_gap, &gap));
+
+        let current_bottom = sub(&expected_upper, &upper.depth);
+        let target_bottom = mul(&constants.superscript_bottom_max_with_subscript, &scale);
+        if current_bottom.cmp(&target_bottom) == Ordering::Less {
+            let raise = sub(&target_bottom, &current_bottom);
+            let lowered_subscript = sub(&expected_lower, &raise);
+            if lowered_subscript.cmp(&Dim::zero()) != Ordering::Less {
+                expected_upper = add(&expected_upper, &raise);
+                expected_lower = lowered_subscript;
+            }
+        }
+    }
+
+    assert!(upper.shift.eq_dim(&expected_upper));
+    assert!((-lower.shift.clone()).eq_dim(&expected_lower));
+}
+
+#[test]
 fn text_integral_with_subscript_uses_tex_operator_width_backtrack() {
     let font = common::stix_two_math().expect("STIX Two Math fixture");
     let params = MathParams::from_font(&font).expect("OpenType MATH parameters");

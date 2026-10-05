@@ -1355,10 +1355,16 @@ impl<'font, 'state> Engine<'font, 'state> {
         let s = self.params.scale(style);
         let base_glyph = direct_glyph(&base);
         let direct_character_nucleus = base_glyph.is_some();
-        let base_uses_ink_box = match base_glyph {
-            Some((glyph_id, _)) => self.font.is_extended_shape(glyph_id),
-            None => true,
-        };
+        // TeX op_noad side scripts treat the operator nucleus as a box for
+        // baseline-drop constraints. Keep that semantic even when `ssty`
+        // substitutes an operator glyph that is not repeated in
+        // ExtendedShapeCoverage. Ordinary direct glyphs still require explicit
+        // ExtendedShape coverage before their ink box constrains script drops.
+        let base_uses_ink_box = class == Some(AtomKind::Op)
+            || match base_glyph {
+                Some((glyph_id, _)) => self.font.is_extended_shape(glyph_id),
+                None => true,
+            };
         let after = self.params.space_after_script.checked_mul(&s)?;
 
         let mut sup_shift = Dim::zero();

@@ -55,6 +55,7 @@ STIX_STRESS_TRACE_GLYPH_DEVIATIONS = (
     ("hard-aligned-model", ((0, 1395, 732), (40, 1395, 732))),
     ("hard-overset-fraction", ((0, 1399, 1398),)),
     ("hard-stat-r2", ((14, 1395, 732),)),
+    ("hard-brutal-core", ((22, 1397, 1396), (28, 1409, 1408))),
     ("size-frac-6pt", ((0, 3326, 4670), (1, 1196, 4532), (2, 3327, 4671), (4, 3328, 4672), (5, 1196, 4532), (6, 3329, 4673))),
     ("size-nested-frac-6pt", ((0, 1138, 4523), (1, 1196, 4532), (2, 4421, 4670), (4, 4422, 4671), (6, 1138, 4523), (7, 1196, 4532), (8, 4423, 4672), (10, 4424, 4673))),
     ("size-nested-frac-20pt", ((2, 4421, 3326), (4, 4422, 3327), (8, 4423, 3328), (10, 4424, 3329))),
@@ -66,9 +67,7 @@ STIX_STRESS_TRACE_GLYPH_DEVIATIONS = (
     ("size-indexed-radical-40pt", ((0, 4523, 1138), (1, 4532, 1196), (2, 4729, 4015), (4, 4524, 1139))),
 )
 
-STIX_STRESS_TRACE_GLYPH_INVENTORY = (
-    ("hard-brutal-core", ((22, 1397, 1396), (28, 1409, 1408), (53, 1304, 1305), (77, 1316, 1317))),
-)
+STIX_STRESS_TRACE_GLYPH_INVENTORY = ()
 
 LIBERTINUS_STRESS_TRACE_GLYPH_DEVIATIONS = (
     ("accent-widehat-j", ((0, 4071, 701),)),

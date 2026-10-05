@@ -90,9 +90,8 @@ Stage 4 therefore leaves no kind-topology mismatch in any profile.
 
 ### STIX Two Math
 
-Twenty of the twenty-one observed mismatch cases are now ratified by tested G5 or
-G6 contracts. The exact signatures live in
-`STIX_STRESS_TRACE_GLYPH_DEVIATIONS`.
+All twenty-one observed mismatch cases are now ratified by tested G5 or G6
+contracts. The exact signatures live in `STIX_STRESS_TRACE_GLYPH_DEVIATIONS`.
 
 G5 accent-selection cases:
 
@@ -108,6 +107,7 @@ hard-matrix-fractions
 hard-aligned-model
 hard-overset-fraction
 hard-stat-r2
+hard-brutal-core
 ```
 
 G6 reference-size-policy cases ratified by Stage 11:
@@ -166,15 +166,13 @@ Libertinus blocking glyph-inventory case.
 No remaining positioned glyph mismatch is ratified at stage 5. Fira's one
 remaining case stays in the unresolved inventory below.
 
-## Blocking positioned glyph inventory
+## Stage-12b STIX `hard-brutal-core` closure
 
-These signatures are preserved exactly but are **not deviations**. A contractual
-stress run must fail while they remain in `*_STRESS_TRACE_GLYPH_INVENTORY`.
-
-### STIX `hard-brutal-core`
-
-Current stress reproducer: the `hard-brutal-core` row in
+`hard-brutal-core` was the last STIX positioned glyph-selection inventory case.
+Its stress reproducer is the `hard-brutal-core` row in
 `tests/fixtures/math_compare_stress.tsv`.
+
+### Pre-fix signature and differential diagnosis
 
 ```text
 primitive 22: 1397 / 1396   circumflex.s3 / circumflex.s2
@@ -189,6 +187,72 @@ blocking until the delimiter pair has a minimal reproducer and its target extent
 is reconstructed. Do not infer that the G2 `advanceMeasurement` rule alone
 explains the observed pair: a different requested target can produce the same
 symptom.
+
+Stage-12b reconstructed that target and **refuted** the initial
+`advanceMeasurement`-versus-ink-box hypothesis. The temporary STIX probe measured
+the TeXpose inner-parenthesis request as `1.8468698em`; for `parenleft.s4` the
+MATH advance is `1.907em` and the glyph ink span is `1.906em`, while `s5` is
+`2.145em` / `2.144em`. Both selection policies therefore accept `s4` at the
+TeXpose target. The probe was removed after this result.
+
+The independent LuaLaTeX probe against the pinned reference fingerprint measured
+the same inner body at `1.3510498046875em` height and `0.61720123291016em` depth,
+with `AxisHeight = 0.25800018310547em`. LuaTeX consequently computes a delimiter
+target of `1.9687377929687em`, which is larger than the `s4` ink span and selects
+`s5`. The delimiter pair is therefore a downstream symptom of earlier vertical
+geometry, not a G2 variant-measure disagreement.
+
+The causal boundary is the cramped-script integral in the inner fraction. STIX
+uses `ssty` for that operator. Its base integral glyph is covered by
+`ExtendedShapeCoverage`, but the selected level-1 `ssty` alternate is not.
+TeXpose previously tested `ExtendedShapeCoverage` only on the post-GSUB direct
+glyph, so an `Op` nucleus could lose `superscriptBaselineDropMax` /
+`subscriptBaselineDropMin` after substitution. LuaTeX `op_noad` semantics box the
+operator nucleus before side-script placement and retain those baseline-drop
+constraints. Stage-12b therefore treats an `Op` nucleus with side scripts as
+box-like for baseline-drop purposes while leaving ordinary direct-glyph
+`ExtendedShapeCoverage` semantics unchanged. A focused regression requires the
+STIX `ssty` alternate to be outside `ExtendedShapeCoverage` and still verifies
+the operator ink-box baseline-drop equations.
+
+The STIX constants make the repair numerically discriminating. With the level-1
+`ssty` integral at script scale, the old ordinary-glyph path settles the lower
+script baseline at `0.2185em`, yielding integral depth `0.22675em`. Applying the
+operator ink-box baseline-drop constraint moves that baseline to `0.28665em` and
+yields depth `0.29490em`, an increase of `0.06815em`. The reconstructed LuaTeX
+maximum axis distance (`716341 / 655360 = 1.093049621582...em`) exceeds the
+pre-fix TeXpose distance (`1.0249em`) by `0.068149621582...em`. The local operator
+error therefore accounts for the delimiter-target discrepancy at the causal
+quantity, before any variant is selected.
+
+The contractual post-fix rerun proves the predicted repair. Primitives 53 and 77
+now match the pinned reference exactly (`1305/1305` and `1317/1317`). The exact
+remaining signature is only the already-ratified G5 accent pair:
+
+```text
+primitive 22: 1397 / 1396   circumflex.s3 / circumflex.s2
+primitive 28: 1409 / 1408   tilde.s5 / tilde.s4
+```
+
+The repaired case has `97/97` glyphs and `4/4` rules. Its outer deltas are
+`0.000036em` width, `0.001001em` ascent, and `0.001001em` descent. In the full
+positioned explanation, the formerly divergent delimiters are identity-aligned
+and differ only by numerical noise at roughly `0.000001em` baseline and
+`0.000017-0.000036em` x. This is direct evidence that the operator baseline-drop
+repair removed the delimiter-selection symptom without weakening G2.
+
+Stage 12b therefore moves the two-pair `hard-brutal-core` signature from
+`STIX_STRESS_TRACE_GLYPH_INVENTORY` to `STIX_STRESS_TRACE_GLYPH_DEVIATIONS`.
+The STIX positioned glyph-selection inventory is now empty. This classification
+does not approve any unrelated outer or positioned geometry residual; the next
+contractual run must expose those independently. Reopen this diagnosis if the
+focused operator regression fails or if primitives 53/77 reappear.
+
+## Blocking positioned glyph inventory
+
+These signatures are preserved exactly but are **not deviations**. A contractual
+stress run must fail while they remain in `*_STRESS_TRACE_GLYPH_INVENTORY`. STIX
+has no entry after Stage 12b.
 
 ### Libertinus `hard-stat-r2`
 
