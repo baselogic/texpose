@@ -42,6 +42,12 @@ Two already-ratified rules explain most remaining glyph-selection differences:
   The pinned LuaLaTeX environment independently uses its LaTeX math-size policy
   outside the 10pt declaration point; that difference is reference-size-policy
   evidence, not authority to replace the OpenType MATH percentages in TeXpose.
+- **G7 MathKern**: the published OpenType MATH algorithm evaluates two
+  correction-height sums for each script attachment and applies their minimum.
+  The focused owners are the STIX first/second correction-height tests in
+  `tests/math_kern.rs`; the font-level lookup tests separately pin interval
+  boundary behavior. The pinned LuaLaTeX reference differs on STIX
+  `hard-logit`, but that observation does not override the published MATH rule.
 
 A ratified positioned stress signature does **not** approve outer geometry and
 it does not approve any other primitive in the same formula. Exact signatures
@@ -222,6 +228,7 @@ The following stress-only outer ceilings are bounded profile records:
 
 | Profile | Case | Observed maximum | Ceiling | Cause |
 | --- | --- | ---: | ---: | --- |
+| STIX | `hard-logit` | 0.449940em | 0.450100em | G7 OpenType MathKern minimum-of-sums |
 | STIX | `size-frac-6pt` | 0.331992em | 0.332100em | G6 reference-size policy |
 | STIX | `size-nested-frac-6pt` | 0.291390em | 0.291500em | G6 reference-size policy |
 | STIX | `size-delim-6pt` | 0.331991em | 0.332100em | G6 reference-size policy |
@@ -252,7 +259,6 @@ the remaining **unwaived** outer geometry above `0.050em` is:
 STIX:
 
 ```text
-hard-logit                     0.449940em
 hard-wide-expression           0.349773em
 hard-aligned-model             0.214347em
 hard-stat-r2                   0.209959em
@@ -273,8 +279,9 @@ Fira:
 hard-aligned-model             0.079861em
 ```
 
-These remain G12 work. No G7, overbrace, delimiter-selection, or other residual
-is approved by the G6 records in this stage.
+These remain G12 work. Stage 12a classifies only STIX `hard-logit`; it does not
+approve `hard-wide-expression`, ExtendedShape, overbrace, delimiter-selection,
+or any other residual.
 
 ## Closure protocol
 
@@ -658,3 +665,75 @@ Fira:       hard-matrix-fractions
 Stage 11 intentionally does **not** classify the remaining G7/MathKern,
 ExtendedShape, overbrace, or delimiter-selection residuals. Those require their
 own complete G12 evidence tuple and remain blocking.
+
+
+## Stage-12a STIX MathKern policy classification
+
+Stage 12a closes one G7 **classification** without changing TeXpose layout. The
+measured stress case is:
+
+```tex
+\operatorname{logit}\left[P(Y_i=1\mid X_i)\right]=\beta_0+\sum_{j=1}^{p}\beta_jX_{ij}
+```
+
+The outer geometry is `15.343044em` in TeXpose versus `15.792984em` in the
+pinned LuaLaTeX reference, a signed width delta of `-0.449940em`. Glyph and rule
+counts are identical (`31/31`, `0/0`). The positioned trace is topology-aligned
+and identity/order aligned for all 31 glyphs; its maximum is `0.449941em` in
+`glyph-x`.
+
+The first causal divergence is already visible in the minimal subexpression
+`Y_i`. Primitive 8, the base `Y`, is aligned to `0.000002em`. Primitive 9, the
+script `i`, keeps the same glyph ID (`4430`), baseline (`-0.210000em` versus
+`-0.210001em`), and scale (`0.700000`) but moves from `3.857667em` in TeXpose to
+`4.198665em` in the reference, a signed x delta of `-0.340998em`. Later script
+attachments add further horizontal differences while preserving identity,
+baseline, and scale, reaching the final `0.449941em` maximum. This localizes the
+root to horizontal script kerning rather than G6 scaling, glyph selection, or
+vertical placement.
+
+The governing external contract is OpenType MATH. For a subscript it requires
+two correction heights, sums the base bottom-right MathKern with the script
+top-left MathKern at each height, and applies the **minimum** of the two sums.
+The same minimum rule applies to superscripts. Current specification text:
+
+```text
+https://learn.microsoft.com/en-us/typography/opentype/spec/math
+```
+
+TeXpose implements that rule directly in `superscript_math_kern` and
+`subscript_math_kern` with `first.min_ref(&second)`. Existing focused contracts
+prove that STIX can select either candidate when it is the minimum:
+
+```text
+tests/math_kern.rs::stix_superscript_math_kern_can_select_the_first_correction_height
+tests/math_kern.rs::stix_superscript_math_kern_can_select_the_second_correction_height
+tests/math_kern.rs::stix_subscript_math_kern_can_select_the_first_correction_height
+tests/math_kern.rs::stix_subscript_math_kern_can_select_the_second_correction_height
+```
+
+The specification ecosystem itself records an unresolved ambiguity: OpenType
+issue 1147 notes that the literal minimum chooses the more-negative kern when
+both candidates are negative, while Word uses the smaller-magnitude adjustment.
+That issue is evidence of a cross-engine policy split, not authority to replace
+the currently published OpenType algorithm:
+
+```text
+https://github.com/MicrosoftDocs/typography-issues/issues/1147
+```
+
+Stage 12a therefore adds two STIX stress-only, stale-sensitive records for
+`hard-logit`: an outer ceiling of `0.450100em` and a positioned-trace ceiling of
+`0.450100em`. Neither record permits structural or glyph-selection differences.
+The raw stress census remains `79/93`, and the positioned measurement remains
+`93/93` kind topology, `72/93` glyph identity/order aligned, and `72/93` geometry
+comparable. The record only changes classification of the already-measured G7
+difference.
+
+Reopen this decision if the published OpenType rule changes, if TeXpose no longer
+selects the specified minimum, if the pinned reference converges, or if the
+measured delta exceeds the ceiling. The verifier's stale-ceiling checks force
+review if the difference disappears. `hard-wide-expression`,
+`hard-aligned-model`, `hard-stat-r2`, `hard-depth-typography`,
+`hard-script-on-delimited`, and the unresolved glyph inventories remain separate
+G12 work.
