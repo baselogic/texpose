@@ -3875,15 +3875,18 @@ fn math_char(c: char) -> char {
 
 /// TeX's default math-italic face for a variable letter.
 ///
-/// Latin letters and lowercase Greek (with its variant forms) are drawn from
-/// the Mathematical Italic block, as plain TeX's `\fam1` does. Uppercase
-/// Greek, digits and everything else stay upright. Explicit font commands
+/// Latin letters, lowercase Greek (with its variant forms), and `\partial` are
+/// drawn from the Mathematical Italic block, as plain TeX's `\fam1` does.
+/// Uppercase Greek, `\nabla`, digits and everything else stay upright. Explicit
+/// font commands
 /// Math-alphabet runs arrive as [`MathNode::MathAlphabet`] and literal text as
 /// [`MathNode::LiteralText`]; both bypass default-variable remapping here.
 fn is_default_math_variable(c: char) -> bool {
     let lower_greek = ('\u{03B1}'..='\u{03C9}').contains(&c);
 
-    c.is_ascii_alphabetic() || lower_greek || matches!(c, 'ϵ' | 'ϑ' | 'ϰ' | 'ϕ' | 'ϱ' | 'ϖ')
+    c.is_ascii_alphabetic()
+        || lower_greek
+        || matches!(c, 'ϵ' | 'ϑ' | 'ϰ' | 'ϕ' | 'ϱ' | 'ϖ' | '∂')
 }
 
 fn math_italic(c: char) -> char {

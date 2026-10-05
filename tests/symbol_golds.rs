@@ -336,10 +336,10 @@ fn font_style_letter_classes() {
     );
 }
 
-/// Plain math draws lowercase Greek in the Mathematical Italic block (issue #2).
+/// Plain math draws lowercase Greek and `\partial` from the Mathematical Italic block.
 fn math_italic(c: char) -> char {
     let lower_greek = ('\u{03B1}'..='\u{03C9}').contains(&c);
-    if lower_greek || matches!(c, 'ϵ' | 'ϑ' | 'ϰ' | 'ϕ' | 'ϱ' | 'ϖ') {
+    if lower_greek || matches!(c, 'ϵ' | 'ϑ' | 'ϰ' | 'ϕ' | 'ϱ' | 'ϖ' | '∂') {
         styled_char(c, TextStyle::It)
     } else {
         c
