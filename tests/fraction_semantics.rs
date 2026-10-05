@@ -1,9 +1,27 @@
 mod common;
 
 use texpose::{
-    layout, parse, BoxContent, Dim, Error, FractionAlignment, FractionRule, FractionSpec,
-    FractionStyle, Length, MathBox, MathFont, MathNode, MathStyle,
+    layout, layout_with_diagnostics, layout_with_em_size_pt, parse, BoxContent, Dim, Error,
+    FractionAlignment, FractionRule, FractionSpec, FractionStyle, LayoutDiagnostic, Length,
+    MathBox, MathFont, MathNode, MathParams, MathStyle,
 };
+
+const STIX: &[u8] = include_bytes!("fixtures/fonts/stix-two-math/STIXTwoMath-Regular.otf");
+const LIBERTINUS: &[u8] =
+    include_bytes!("fixtures/fonts/libertinus-math/LibertinusMath-Regular.otf");
+const FIRA: &[u8] = include_bytes!("fixtures/fonts/fira-math/FiraMath-Regular.otf");
+const MISSING: char = '\u{10FFFF}';
+
+fn profile_fonts() -> [(&'static str, MathFont); 3] {
+    [
+        ("stix", MathFont::from_bytes(STIX).expect("STIX Two Math")),
+        (
+            "libertinus",
+            MathFont::from_bytes(LIBERTINUS).expect("Libertinus Math"),
+        ),
+        ("fira", MathFont::from_bytes(FIRA).expect("Fira Math")),
+    ]
+}
 
 fn fraction(source: &str) -> texpose::FractionSpec {
     match parse(source).expect("fraction syntax must parse") {
@@ -27,6 +45,55 @@ fn fraction_layers(bx: &MathBox) -> &[MathBox] {
 
 fn font_units(font: &MathFont, value: i16) -> Dim {
     Dim::from_font_units(i64::from(value), font.units_per_em()).expect("font units")
+}
+
+fn first_glyph_x(math_box: &MathBox) -> Option<Dim> {
+    fn visit(math_box: &MathBox, x: &Dim) -> Option<Dim> {
+        match &math_box.content {
+            BoxContent::Glyph { .. } => Some(x.clone()),
+            BoxContent::HList(children) => {
+                let mut child_x = x.clone();
+                for child in children {
+                    if let Some(found) = visit(child, &child_x) {
+                        return Some(found);
+                    }
+                    child_x = child_x
+                        .checked_add(&child.width)
+                        .expect("test x arithmetic");
+                }
+                None
+            }
+            BoxContent::VList(children) | BoxContent::Overlap(children) => {
+                children.iter().find_map(|child| visit(child, x))
+            }
+            BoxContent::Color(_, inner) | BoxContent::BackColor(_, inner) => visit(inner, x),
+            BoxContent::Frame { inner, .. } => visit(inner, x),
+            BoxContent::Empty
+            | BoxContent::Rule
+            | BoxContent::Kern(_)
+            | BoxContent::Line { .. } => None,
+        }
+    }
+
+    visit(math_box, &Dim::zero())
+}
+
+fn glyph_scales(math_box: &MathBox, scales: &mut Vec<Dim>) {
+    match &math_box.content {
+        BoxContent::Glyph { scale, .. } => scales.push(scale.clone()),
+        BoxContent::HList(children)
+        | BoxContent::VList(children)
+        | BoxContent::Overlap(children) => {
+            for child in children {
+                glyph_scales(child, scales);
+            }
+        }
+        BoxContent::Color(_, inner) | BoxContent::BackColor(_, inner) => {
+            glyph_scales(inner, scales);
+        }
+        BoxContent::Frame { inner, .. } => glyph_scales(inner, scales),
+        BoxContent::Empty | BoxContent::Rule | BoxContent::Kern(_) | BoxContent::Line { .. } => {}
+    }
 }
 
 fn count_rules(content: &BoxContent) -> usize {
@@ -163,6 +230,72 @@ fn binomial_fraction_suppresses_the_fraction_rule() {
 }
 
 #[test]
+fn ruled_fraction_uses_math_fraction_constants() {
+    let font = common::stix_two_math().unwrap();
+    let constants = font
+        .face()
+        .tables()
+        .math
+        .expect("MATH table")
+        .constants
+        .expect("MATH constants");
+
+    for (style, num_shift, den_shift, num_gap, den_gap) in [
+        (
+            MathStyle::Text,
+            constants.fraction_numerator_shift_up().value,
+            constants.fraction_denominator_shift_down().value,
+            constants.fraction_numerator_gap_min().value,
+            constants.fraction_denominator_gap_min().value,
+        ),
+        (
+            MathStyle::Display,
+            constants.fraction_numerator_display_style_shift_up().value,
+            constants
+                .fraction_denominator_display_style_shift_down()
+                .value,
+            constants.fraction_num_display_style_gap_min().value,
+            constants.fraction_denom_display_style_gap_min().value,
+        ),
+    ] {
+        let boxed = layout(&parse(r"\frac{b}{b}").unwrap(), &font, style).unwrap();
+        let layers = fraction_layers(&boxed);
+        assert_eq!(
+            layers.len(),
+            3,
+            "ruled fraction must contain numerator/bar/denominator"
+        );
+
+        let numerator = &layers[0];
+        let bar = &layers[1];
+        let denominator = &layers[2];
+        let half = bar.height.checked_div(&Dim::from_i64(2)).unwrap();
+        let axis = font_units(&font, constants.axis_height().value);
+        let denominator_shift_down = -denominator.shift.clone();
+        let actual_num_gap = numerator
+            .shift
+            .checked_sub(&numerator.depth)
+            .unwrap()
+            .checked_sub(&bar.shift.checked_add(&bar.height).unwrap())
+            .unwrap();
+        let actual_den_gap = bar
+            .shift
+            .checked_sub(&denominator.shift.checked_add(&denominator.height).unwrap())
+            .unwrap();
+
+        assert_eq!(
+            bar.height,
+            font_units(&font, constants.fraction_rule_thickness().value)
+        );
+        assert_eq!(bar.shift.checked_add(&half).unwrap(), axis);
+        assert!(numerator.shift >= font_units(&font, num_shift));
+        assert!(denominator_shift_down >= font_units(&font, den_shift));
+        assert!(actual_num_gap >= font_units(&font, num_gap));
+        assert!(actual_den_gap >= font_units(&font, den_gap));
+    }
+}
+
+#[test]
 fn ruleless_fraction_uses_math_stack_spacing() {
     let font = common::stix_two_math().unwrap();
     let constants = font
@@ -276,4 +409,116 @@ fn explicit_rule_thickness_controls_layout_and_zero_is_ruleless() {
     let zero_box = layout(&MathNode::Fraction(zero), &font, MathStyle::Text).unwrap();
     let none_box = layout(&MathNode::Fraction(none), &font, MathStyle::Text).unwrap();
     assert_eq!(zero_box, none_box);
+}
+
+#[test]
+fn nested_fraction_keeps_math_script_scale_across_root_em_sizes_and_profiles() {
+    let ast = parse(r"\frac{1+\frac{a}{b}}{1+\frac{c}{d}}").expect("nested fraction");
+
+    for (name, font) in profile_fonts() {
+        let expected_script = MathParams::from_font(&font)
+            .expect("validated MATH constants")
+            .scale(MathStyle::Script);
+        for size in [6_i64, 10, 20, 40] {
+            let boxed =
+                layout_with_em_size_pt(&ast, &font, MathStyle::Display, &Dim::from_i64(size))
+                    .unwrap_or_else(|error| panic!("{name} {size}pt nested fraction: {error}"));
+            let mut scales = Vec::new();
+            glyph_scales(&boxed, &mut scales);
+
+            assert!(
+                scales.iter().any(|scale| scale == &Dim::one()),
+                "{name} {size}pt must retain text-style glyphs"
+            );
+            assert!(
+                scales.iter().any(|scale| scale == &expected_script),
+                "{name} {size}pt must use the font MATH script scale"
+            );
+            assert!(
+                scales
+                    .iter()
+                    .all(|scale| scale == &Dim::one() || scale == &expected_script),
+                "{name} {size}pt introduced a physical-size-dependent glyph scale"
+            );
+        }
+    }
+}
+
+#[test]
+fn fraction_degrades_missing_component_glyph_without_losing_fraction_structure() {
+    let font = common::stix_two_math().expect("STIX Two Math");
+    let node = MathNode::Fraction(FractionSpec::ordinary(
+        MathNode::Atom(MISSING, texpose::AtomKind::Ord),
+        MathNode::Atom('1', texpose::AtomKind::Ord),
+    ));
+    let output = layout_with_diagnostics(&node, &font, MathStyle::Display)
+        .expect("missing component glyph must use the normal deterministic fallback");
+
+    assert_eq!(
+        output.diagnostics,
+        vec![LayoutDiagnostic::MissingGlyph { ch: MISSING }]
+    );
+    assert_eq!(fraction_layers(&output.math_box).len(), 3);
+    assert_eq!(count_rules(&output.math_box.content), 1);
+}
+
+#[test]
+fn fraction_components_materialize_terminal_math_italic_across_profiles() {
+    for (name, font) in profile_fonts() {
+        let numerator = layout(&parse("b").unwrap(), &font, MathStyle::Text).unwrap();
+        let denominator = layout(&parse("b").unwrap(), &font, MathStyle::TextCramped).unwrap();
+        let expected = numerator
+            .width
+            .checked_add(&numerator.italic)
+            .unwrap()
+            .max_ref(&denominator.width.checked_add(&denominator.italic).unwrap());
+
+        let fraction = layout(&parse(r"\frac{b}{b}").unwrap(), &font, MathStyle::Display).unwrap();
+        let rule = fraction_layers(&fraction)
+            .iter()
+            .find(|layer| matches!(layer.content, BoxContent::Rule))
+            .unwrap_or_else(|| panic!("{name}: ruled fraction must contain a bar"));
+
+        assert_eq!(
+            rule.width, expected,
+            "{name}: fraction clean-box width must include terminal math italic"
+        );
+    }
+}
+
+#[test]
+fn cfrac_alignment_changes_only_the_numerator_horizontal_origin() {
+    let font = common::stix_two_math().unwrap();
+    let centered = layout(
+        &parse(r"\cfrac{i}{MMMM}").unwrap(),
+        &font,
+        MathStyle::Display,
+    )
+    .unwrap();
+    let left = layout(
+        &parse(r"\cfrac[l]{i}{MMMM}").unwrap(),
+        &font,
+        MathStyle::Display,
+    )
+    .unwrap();
+    let right = layout(
+        &parse(r"\cfrac[r]{i}{MMMM}").unwrap(),
+        &font,
+        MathStyle::Display,
+    )
+    .unwrap();
+
+    let center_layers = fraction_layers(&centered);
+    let left_layers = fraction_layers(&left);
+    let right_layers = fraction_layers(&right);
+    let center_x = first_glyph_x(&center_layers[0]).expect("centered numerator glyph");
+    let left_x = first_glyph_x(&left_layers[0]).expect("left numerator glyph");
+    let right_x = first_glyph_x(&right_layers[0]).expect("right numerator glyph");
+
+    assert_eq!(left_x, Dim::zero());
+    assert!(left_x < center_x && center_x < right_x);
+    assert_eq!(centered.width, left.width);
+    assert_eq!(centered.width, right.width);
+    assert_eq!(center_layers[1].width, left_layers[1].width);
+    assert_eq!(center_layers[1].width, right_layers[1].width);
 }

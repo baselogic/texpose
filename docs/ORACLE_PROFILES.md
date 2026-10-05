@@ -54,8 +54,8 @@ Measured on the reference environment above:
 
 | Profile | Raw cases <= 0.050em | p50 | p90 | p95 | p99 | max |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| STIX Two Math | 20/21 | 0.000011 | 0.013287 | 0.015001 | 0.079999 | 0.079999 |
-| Libertinus Math | 19/21 | 0.000006 | 0.001001 | 0.056999 | 0.062386 | 0.062386 |
+| STIX Two Math | 20/21 | 0.000011 | 0.001001 | 0.015001 | 0.079999 | 0.079999 |
+| Libertinus Math | 20/21 | 0.000006 | 0.000014 | 0.001001 | 0.056999 | 0.056999 |
 | Fira Math | 21/21 | 0.000001 | 0.000013 | 0.000013 | 0.035988 | 0.035988 |
 
 The raw count remains visible even when a bounded deviation is documented. A
@@ -65,19 +65,19 @@ misleading all-green count.
 ### Bounded canonical deviations
 
 These entries freeze bounded cross-engine differences so the contractual oracle can
-detect new regressions without overriding stronger external evidence. Most remain
-Phase G repair inventory. The G5 `accent-widehat-j` entries are different: OpenType
-MATH defines horizontal variant extent by `MathGlyphVariantRecord.advanceMeasurement`,
+detect new regressions without overriding stronger external evidence. The remaining
+entries are the G5 `accent-widehat-j` reference-engine differences: OpenType MATH
+defines horizontal variant extent by `MathGlyphVariantRecord.advanceMeasurement`,
 and the pinned fonts expose a combining-circumflex construction that the current
 LuaLaTeX reference does not select for this one-character case. Those ceilings record
 the resulting reference-engine divergence; they do not weaken TeXpose's MATH variant
-selection contract.
+selection contract. G9 removed the former Libertinus `display-nested-fraction`
+geometry waiver after the measured delta fell below canonical tolerance.
 
 | Profile | Case | Observed maximum | Contract ceiling | Phase G owner |
 | --- | --- | ---: | ---: | --- |
 | STIX | `accent-widehat-j` | 0.079999em | 0.080100em | G5 horizontal accent variants |
 | Libertinus | `accent-widehat-j` | 0.056999em | 0.057100em | G5 horizontal accent variants |
-| Libertinus | `display-nested-fraction` | 0.062386em | 0.062500em | fraction geometry |
 
 No canonical structural mismatch is documented for these cases. A new glyph- or
 rule-count mismatch still fails. A documented geometry case also fails if it
@@ -88,8 +88,10 @@ exemption rather than carrying historical allowance indefinitely.
 ## Stress evidence
 
 Stress remains diagnostic evidence for primitive investigation, nightly runs,
-and release candidates. The measured state is intentionally not normalized into
-large profile exemptions:
+and release candidates. The table below is the pre-G9 whole-corpus snapshot; it is
+kept as investigation context rather than presented as the current post-G9 fraction
+measurement. G12 owns the next complete stress-baseline refresh. The measured state
+is intentionally not normalized into large profile exemptions:
 
 | Profile | Raw cases <= 0.050em | p50 | p90 | p95 | p99 | max | structural mismatches |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -110,6 +112,30 @@ its own final math lists. The verifier requires positive monotonic sizes with a
 real text-to-script transition. Equality between script and scriptscript is
 allowed because the reference engine can clamp both to the same physical floor;
 MiKTeX 26.5 observed `6pt -> 5pt -> 5pt` for the 6pt stress sweep.
+
+### G9 physical-size fraction sweep
+
+G9 keeps TeXpose script scaling owned by the selected font's OpenType MATH
+`scriptPercentScaleDown` and `scriptScriptPercentScaleDown` values, as established
+by G6. The OpenType `ssty` contract likewise assumes those MATH percentages are the
+scaling factors applied by the math engine. Root-em size therefore changes physical
+`pt`/`bp` quantities such as null-delimiter spacing, but does not replace the font's
+style-scale ratios inside TeXpose. Focused fraction tests protect that distinction at
+6pt, 10pt, 20pt, and 40pt, including nested fractions.
+
+The post-G9 10pt fraction geometry is effectively at numeric noise in all three
+profiles: the affected stress fraction family maxima are `0.000013em` (STIX),
+`0.000016em` (Libertinus), and `0.000012em` (Fira). Canonical
+`display-nested-fraction` is likewise `0.000013em`, `0.000014em`, and `0.000012em`
+respectively.
+
+The remaining physical-size sweep differences are reference-size-policy evidence,
+not a reason to replace TeXpose's MATH scaling contract. At 6pt the pinned reference
+clamps script and scriptscript to 5pt. At 20pt and 40pt, the positioned trace reports
+`0.100003em` glyph-scale deltas for Libertinus nested fractions and `0.020003em` for
+Fira; STIX has selection differences that make those traces non-comparable. These
+size-sweep cases remain explicit G12 profile-classification inventory. G9 adds no
+stress waiver or global tolerance increase for them.
 
 ## Collection-face identity
 
@@ -188,15 +214,11 @@ unique-ID rule above. A positioned ceiling may overlap a documented glyph/order
 mismatch only when the runtime comparison proves such an identity-realigned reorder.
 Selection changes and ambiguous reorders remain non-comparable, cannot consume a
 ceiling, and therefore make any ceiling on that case fail as stale.
-Libertinus has one remaining bounded positioned deviation after G7:
-
-| Case | Observed maximum | Contract ceiling |
-| --- | ---: | ---: |
-| `display-nested-fraction` | 0.062399em | 0.062500em |
-
-Fira has no bounded positioned deviation in the current canonical measurement.
-The former `accent-widehat-script` ceiling is removed because G5 reduced the
-identity-realigned maximum to `0.040000em`; retaining that exception would make the
+Libertinus and Fira have no bounded positioned deviation in the current canonical
+measurement. G9 removed the former Libertinus `display-nested-fraction` ceiling after
+the identity-aligned maximum fell to `0.000014em`. The former Fira
+`accent-widehat-script` ceiling was already removed because G5 reduced the
+identity-realigned maximum to `0.040000em`; retaining either exception would make the
 profile stale.
 
 A ceiling that is exceeded fails. A ceiling that is no longer needed also fails

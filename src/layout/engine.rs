@@ -980,82 +980,14 @@ impl<'font, 'state> Engine<'font, 'state> {
         })
     }
 
-    fn fraction(&self, num: &MathNode, den: &MathNode, style: MathStyle) -> Result<Item, Error> {
-        let num_b = self.layout(num, style.numerator())?;
-        let den_b = self.layout(den, style.denominator())?;
-        let s = self.params.scale(style);
-        let axis = self.params.axis_height.checked_mul(&s)?;
-        let thick = self.params.fraction_rule_thickness.checked_mul(&s)?;
-        let half = thick.checked_div(&Dim::from_i64(2))?;
-        let (shift_up0, shift_dn0, gap_num, gap_den) = if style.is_display() {
-            (
-                self.params
-                    .fraction_numerator_display_style_shift_up
-                    .checked_mul(&s)?,
-                self.params
-                    .fraction_denominator_display_style_shift_down
-                    .checked_mul(&s)?,
-                self.params
-                    .fraction_num_display_style_gap_min
-                    .checked_mul(&s)?,
-                self.params
-                    .fraction_denom_display_style_gap_min
-                    .checked_mul(&s)?,
-            )
+    fn fraction_component(&self, node: &MathNode, style: MathStyle) -> Result<MathBox, Error> {
+        let bx = self.layout(node, style)?;
+        if row_needs_math_italic_kern(node) && !bx.italic.is_zero() {
+            let italic = bx.italic.clone();
+            Ok(MathBox::hpack(vec![bx, MathBox::kern(italic)])?)
         } else {
-            (
-                self.params.fraction_numerator_shift_up.checked_mul(&s)?,
-                self.params
-                    .fraction_denominator_shift_down
-                    .checked_mul(&s)?,
-                self.params.fraction_numerator_gap_min.checked_mul(&s)?,
-                self.params.fraction_denominator_gap_min.checked_mul(&s)?,
-            )
-        };
-        let num_floor = axis
-            .checked_add(&half)?
-            .checked_add(&gap_num)?
-            .checked_add(&num_b.depth)?;
-        let den_floor = den_b
-            .height
-            .checked_add(&gap_den)?
-            .checked_add(&half)?
-            .checked_sub(&axis)?
-            .clamp_nonneg();
-        let num_shift = shift_up0.max_ref(&num_floor);
-        let den_shift = shift_dn0.max_ref(&den_floor);
-        let content_width = num_b.width.max_ref(&den_b.width);
-        let num_c = center_in(num_b, &content_width)?;
-        let den_c = center_in(den_b, &content_width)?;
-        let num_h = num_c.height.clone();
-        let den_d = den_c.depth.clone();
-        let bar = MathBox::rule(content_width.clone(), thick.clone(), Dim::zero())
-            .with_shift(axis.checked_sub(&half)?);
-        let inner = MathBox {
-            width: content_width,
-            height: num_shift.checked_add(&num_h)?,
-            depth: den_shift.checked_add(&den_d)?,
-            italic: Dim::zero(),
-            shift: Dim::zero(),
-            content: BoxContent::Overlap(vec![
-                num_c.with_shift(num_shift),
-                bar,
-                den_c.with_shift(-den_shift),
-            ]),
-        };
-
-        // A delimiter-less generalized fraction
-        // still has two null delimiters. TeX's default
-        // `\nulldelimiterspace` is the absolute dimension 1.2 pt, normalized
-        // against the caller's physical root em size.
-        Ok(Item {
-            class: Some(AtomKind::Inner),
-            bx: MathBox::hpack(vec![
-                MathBox::kern(self.null_delimiter_space.clone()),
-                inner,
-                MathBox::kern(self.null_delimiter_space.clone()),
-            ])?,
-        })
+            Ok(bx)
+        }
     }
 
     fn generalized_fraction(&self, spec: &FractionSpec, style: MathStyle) -> Result<Item, Error> {
@@ -1067,19 +999,8 @@ impl<'font, 'state> Engine<'font, 'state> {
             FractionStyle::ScriptScript => MathStyle::ScriptScript,
         };
 
-        if spec.rule == FractionRule::Default
-            && spec.left_delimiter == Delimiter::Empty
-            && spec.right_delimiter == Delimiter::Empty
-            && matches!(
-                spec.numerator_alignment,
-                FractionAlignment::Default | FractionAlignment::Center
-            )
-        {
-            return self.fraction(&spec.numerator, &spec.denominator, fraction_style);
-        }
-
-        let num_b = self.layout(&spec.numerator, fraction_style.numerator())?;
-        let den_b = self.layout(&spec.denominator, fraction_style.denominator())?;
+        let num_b = self.fraction_component(&spec.numerator, fraction_style.numerator())?;
+        let den_b = self.fraction_component(&spec.denominator, fraction_style.denominator())?;
         let scale = self.params.scale(fraction_style);
         let axis = self.params.axis_height.checked_mul(&scale)?;
 

@@ -304,18 +304,6 @@ PROFILES: dict[str, MathProfile] = {
         stress_tolerance=0.05,
         documented_deviations=(
             (
-                "display-nested-fraction",
-                Deviation(
-                    geometry_ceiling=0.0625,
-                    allow_structure=False,
-                    note=(
-                        "MiKTeX 26.5 reference measured 0.062386em width delta; "
-                        "Phase G owns fraction geometry. The ceiling freezes the "
-                        "observed divergence rather than accepting it as correct."
-                    ),
-                ),
-            ),
-            (
                 "accent-widehat-j",
                 Deviation(
                     geometry_ceiling=0.0571,
@@ -330,7 +318,7 @@ PROFILES: dict[str, MathProfile] = {
             ),
         ),
         canonical_trace_glyph_mismatches=LIBERTINUS_CANONICAL_TRACE_GLYPH_MISMATCHES,
-        canonical_trace_deviations=(("display-nested-fraction", 0.0625),),
+        canonical_trace_deviations=(),
         reference_environment_sha256=REFERENCE_ENVIRONMENT_SHA256,
     ),
     "fira": MathProfile(

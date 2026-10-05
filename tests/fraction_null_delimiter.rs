@@ -7,29 +7,74 @@ fn fraction_null_delimiter_space_remains_physical_across_em_sizes() {
     let font = common::stix_two_math().expect("STIX Two Math");
     let ast = parse(r"\frac{1}{2}").expect("fraction");
 
-    let ten_pt = layout_with_em_size_pt(&ast, &font, MathStyle::Text, &Dim::from_i64(10))
-        .expect("10 pt fraction");
-    let twenty_pt = layout_with_em_size_pt(&ast, &font, MathStyle::Text, &Dim::from_i64(20))
-        .expect("20 pt fraction");
+    let sizes = [6_i64, 10, 20, 40];
+    let layouts = sizes.map(|size| {
+        layout_with_em_size_pt(&ast, &font, MathStyle::Text, &Dim::from_i64(size))
+            .unwrap_or_else(|error| panic!("{size} pt fraction: {error}"))
+    });
     let default = layout(&ast, &font, MathStyle::Text).expect("default fraction");
 
-    assert_eq!(default.width, ten_pt.width);
-    assert_eq!(
-        ten_pt.width.checked_sub(&twenty_pt.width).unwrap(),
-        Dim::ratio(3, 25).unwrap()
-    );
-    assert_eq!(ten_pt.height, twenty_pt.height);
-    assert_eq!(ten_pt.depth, twenty_pt.depth);
+    assert_eq!(default.width, layouts[1].width);
+    for (size, boxed) in sizes.into_iter().zip(layouts.iter()) {
+        assert_eq!(boxed.height, layouts[1].height, "{size}pt height");
+        assert_eq!(boxed.depth, layouts[1].depth, "{size}pt depth");
+    }
+    for ((left_size, left), (right_size, right)) in sizes
+        .into_iter()
+        .zip(layouts.iter())
+        .zip(sizes.into_iter().zip(layouts.iter()).skip(1))
+    {
+        let expected = Dim::ratio(12, 5)
+            .unwrap()
+            .checked_mul(
+                &Dim::ratio(1, left_size)
+                    .unwrap()
+                    .checked_sub(&Dim::ratio(1, right_size).unwrap())
+                    .unwrap(),
+            )
+            .unwrap();
+        assert_eq!(
+            left.width.checked_sub(&right.width).unwrap(),
+            expected,
+            "{left_size}pt -> {right_size}pt null-delimiter delta"
+        );
+    }
 
     let nested = parse(r"\frac{\frac{1}{2}}{3}").expect("nested fraction");
-    let nested_ten = layout_with_em_size_pt(&nested, &font, MathStyle::Text, &Dim::from_i64(10))
-        .expect("10 pt nested fraction");
-    let nested_twenty = layout_with_em_size_pt(&nested, &font, MathStyle::Text, &Dim::from_i64(20))
-        .expect("20 pt nested fraction");
-    assert_eq!(
-        nested_ten.width.checked_sub(&nested_twenty.width).unwrap(),
-        Dim::ratio(6, 25).unwrap()
-    );
+    let nested_layouts = sizes.map(|size| {
+        layout_with_em_size_pt(&nested, &font, MathStyle::Text, &Dim::from_i64(size))
+            .unwrap_or_else(|error| panic!("{size} pt nested fraction: {error}"))
+    });
+    for (size, boxed) in sizes.into_iter().zip(nested_layouts.iter()) {
+        assert_eq!(
+            boxed.height, nested_layouts[1].height,
+            "{size}pt nested height"
+        );
+        assert_eq!(
+            boxed.depth, nested_layouts[1].depth,
+            "{size}pt nested depth"
+        );
+    }
+    for ((left_size, left), (right_size, right)) in sizes
+        .into_iter()
+        .zip(nested_layouts.iter())
+        .zip(sizes.into_iter().zip(nested_layouts.iter()).skip(1))
+    {
+        let expected = Dim::ratio(24, 5)
+            .unwrap()
+            .checked_mul(
+                &Dim::ratio(1, left_size)
+                    .unwrap()
+                    .checked_sub(&Dim::ratio(1, right_size).unwrap())
+                    .unwrap(),
+            )
+            .unwrap();
+        assert_eq!(
+            left.width.checked_sub(&right.width).unwrap(),
+            expected,
+            "{left_size}pt -> {right_size}pt nested null-delimiter delta"
+        );
+    }
 }
 
 #[test]
