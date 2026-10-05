@@ -411,4 +411,3 @@ Canonical runs remain unchanged at STIX 24/25 with its existing approved G5
 geometry deviation, Libertinus 24/25 with its existing approved G5 geometry
 deviation, and Fira 25/25 with no approved geometry deviation. Stage 8 does not
 change positioned glyph identity/order classifications.
-
