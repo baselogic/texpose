@@ -62,6 +62,14 @@ pub(super) struct OperatorSemantics<'a> {
     pub(super) placement: LimitPlacement,
 }
 
+fn overunder_class(base: &MathNode) -> AtomKind {
+    match noad_class(base) {
+        Some(AtomKind::Bin) => AtomKind::Bin,
+        Some(AtomKind::Rel) => AtomKind::Rel,
+        _ => AtomKind::Op,
+    }
+}
+
 /// Build and binary-normalize the semantic sequence for one syntax row.
 pub(super) fn normalize_row<'a>(items: &'a [MathNode], style: MathStyle) -> Vec<SemanticItem<'a>> {
     let mut out = Vec::with_capacity(items.len() + 1);
@@ -157,15 +165,15 @@ pub(super) fn noad_class(node: &MathNode) -> Option<AtomKind> {
             MatrixStyle::Matrix | MatrixStyle::Array | MatrixStyle::Aligned => AtomKind::Ord,
             _ => AtomKind::Inner,
         }),
-        MathNode::Delimited(_, _, _) | MathNode::ColorBox(_, _) | MathNode::FColorBox(_, _, _) => {
-            Some(AtomKind::Inner)
-        }
+        MathNode::Delimited(_, _, _) => Some(AtomKind::Inner),
+        MathNode::ColorBox(_, _) | MathNode::FColorBox(_, _, _) => Some(AtomKind::Ord),
         MathNode::Substack(_) => Some(AtomKind::Ord),
         MathNode::SizedDelim(_, _, class) => Some(*class),
         MathNode::Superscript(base, _)
         | MathNode::Subscript(base, _)
         | MathNode::SubSup(base, _, _) => noad_class(base),
-        MathNode::OverUnder(base, _, _) => noad_class(base),
+        MathNode::OverUnder(base, _, _) => Some(overunder_class(base)),
+        MathNode::StackRel(_, _) => Some(AtomKind::Rel),
         MathNode::Accent(base, AccentKind::Not) => noad_class(base),
         MathNode::Accent(_, _) | MathNode::CancelTo(_, _) => Some(AtomKind::Ord),
         MathNode::MathAlphabet(_, _)
@@ -173,9 +181,8 @@ pub(super) fn noad_class(node: &MathNode) -> Option<AtomKind> {
         | MathNode::Ref(_)
         | MathNode::Tag { .. }
         | MathNode::Intertext(_) => Some(AtomKind::Ord),
-        MathNode::Color(_, body) | MathNode::TextColor(_, body) | MathNode::Phantom(_, body) => {
-            noad_class(body)
-        }
+        MathNode::Color(_, body) | MathNode::TextColor(_, body) => noad_class(body),
+        MathNode::Phantom(_, _) => Some(AtomKind::Ord),
         MathNode::Row(nodes) if nodes.len() == 1 => noad_class(&nodes[0]),
         MathNode::Row(_) | MathNode::Strut(_, _) | MathNode::Rule(_, _) => Some(AtomKind::Ord),
         MathNode::Style(_)
@@ -390,7 +397,7 @@ mod tests {
     }
 
     #[test]
-    fn over_under_preserves_the_base_spacing_class() {
+    fn over_under_preserves_only_bin_and_relation_classes() {
         assert_eq!(
             classes(r"a\overset{!}{+}b"),
             vec![AtomKind::Ord, AtomKind::Bin, AtomKind::Ord]
@@ -400,8 +407,36 @@ mod tests {
             vec![AtomKind::Ord, AtomKind::Rel, AtomKind::Ord]
         );
         assert_eq!(
+            classes(r"a\overset{!}{x}b"),
+            vec![AtomKind::Ord, AtomKind::Op, AtomKind::Ord]
+        );
+        assert_eq!(
             classes(r"a\xrightarrow{x}b"),
             vec![AtomKind::Ord, AtomKind::Rel, AtomKind::Ord]
+        );
+        assert_eq!(
+            classes(r"a\stackrel{!}{x}b"),
+            vec![AtomKind::Ord, AtomKind::Rel, AtomKind::Ord]
+        );
+        assert_eq!(
+            classes(r"a\phantom{=}b"),
+            vec![AtomKind::Ord, AtomKind::Ord, AtomKind::Ord]
+        );
+    }
+
+    #[test]
+    fn color_boxes_are_ordinary_while_foreground_color_preserves_class() {
+        assert_eq!(
+            classes(r"a\textcolor{red}{=}b"),
+            vec![AtomKind::Ord, AtomKind::Rel, AtomKind::Ord]
+        );
+        assert_eq!(
+            classes(r"a\colorbox{red}{=}b"),
+            vec![AtomKind::Ord, AtomKind::Ord, AtomKind::Ord]
+        );
+        assert_eq!(
+            classes(r"a\fcolorbox{blue}{red}{=}b"),
+            vec![AtomKind::Ord, AtomKind::Ord, AtomKind::Ord]
         );
     }
 

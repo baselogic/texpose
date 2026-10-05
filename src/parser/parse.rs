@@ -900,11 +900,7 @@ impl Parser {
             "stackrel" => {
                 let over = self.parse_arg()?;
                 let base = self.parse_arg()?;
-                Ok(MathNode::OverUnder(
-                    Box::new(base),
-                    Some(Box::new(over)),
-                    None,
-                ))
+                Ok(MathNode::StackRel(Box::new(base), Box::new(over)))
             }
             "mathrm" => self.math_alphabet(TextStyle::Rm),
             "mathbf" => self.math_alphabet(TextStyle::Bf),
@@ -1878,6 +1874,10 @@ fn enforce_ast_node_limit(
                 if let Some(over) = over {
                     push_ast_child(&mut stack, over.as_ref(), count, max_nodes, span)?;
                 }
+                push_ast_child(&mut stack, base.as_ref(), count, max_nodes, span)?;
+            }
+            MathNode::StackRel(base, over) => {
+                push_ast_child(&mut stack, over.as_ref(), count, max_nodes, span)?;
                 push_ast_child(&mut stack, base.as_ref(), count, max_nodes, span)?;
             }
             MathNode::CancelTo(value, expression) => {

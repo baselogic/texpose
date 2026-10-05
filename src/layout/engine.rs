@@ -10,7 +10,7 @@ use crate::error::{Error, FontError, NumericError};
 use crate::font::{MathFont, MathFontView, MathGsubContext, MathKernCorner};
 use crate::layout::assembly::{solve_glyph_assembly, AssemblySolution};
 use crate::layout::metrics::MathParams;
-use crate::layout::numbering::NumberingState;
+use crate::layout::numbering::{NumberingPlan, NumberingState};
 use crate::layout::semantic::{
     noad_class, normalize_row, operator_semantics, script_semantics, script_styles, LimitPlacement,
     OperatorNucleus, OperatorSemantics, ScriptSemantics, SemanticItem,
@@ -37,6 +37,16 @@ const TEX_ARRAY_COLSEP_PT: i64 = 5;
 const TEX_MIN_ALIGN_SEP_PT: i64 = 10;
 const TEX_JOT_PT: i64 = 3;
 const TEX_LINE_SKIP_PT: i64 = 1;
+// Standard LaTeX article/report/book defaults used by \fbox and color boxes.
+const TEX_FBOX_SEP_PT: i64 = 3;
+const TEX_FBOX_RULE_PT_NUM: i64 = 2;
+const TEX_FBOX_RULE_PT_DEN: i64 = 5;
+const TEX_CANCEL_LINE_PT_NUM: i64 = 2;
+const TEX_CANCEL_LINE_PT_DEN: i64 = 5;
+// cancel.sty adds two physical points to the selected picture-line span.
+// TeXpose maps that discrete picture-font construction to a backend-neutral
+// free line extending one physical point beyond each measured box edge.
+const TEX_CANCEL_OVERSHOOT_PT: i64 = 1;
 
 /// Lay out `node` in `style` using caller-provided OpenType MATH metrics.
 ///
@@ -167,7 +177,8 @@ pub fn layout_with_em_size_pt_and_diagnostics(
 ///
 /// # Errors
 ///
-/// Same as [`layout`].
+/// Same as [`layout`], plus [`Error::InvalidOption`] when the numbering
+/// configuration cannot produce the next automatic equation number.
 ///
 /// # Examples
 ///
@@ -194,7 +205,7 @@ pub fn layout_with_numbering(
 ///
 /// # Errors
 ///
-/// Same as [`layout`].
+/// Same as [`layout_with_numbering`].
 pub fn layout_with_numbering_and_diagnostics(
     node: &MathNode,
     font: &MathFont,
@@ -222,7 +233,8 @@ pub fn layout_with_numbering_and_diagnostics(
 ///
 /// # Errors
 ///
-/// Same as [`layout_with_em_size_pt`].
+/// Same as [`layout_with_em_size_pt`], plus the numbering failures documented
+/// by [`layout_with_numbering`].
 pub fn layout_with_numbering_and_em_size_pt(
     node: &MathNode,
     font: &MathFont,
@@ -240,7 +252,7 @@ pub fn layout_with_numbering_and_em_size_pt(
 ///
 /// # Errors
 ///
-/// Same as [`layout_with_em_size_pt`].
+/// Same as [`layout_with_numbering_and_em_size_pt`].
 pub fn layout_with_numbering_and_em_size_pt_and_diagnostics(
     node: &MathNode,
     font: &MathFont,
@@ -343,27 +355,32 @@ fn layout_impl(
         &params,
         root_em_size,
     )?;
-    let start = state.collect(node);
-    let engine = Engine {
-        font,
-        params,
-        script_placement,
-        substack,
-        fraction_stack,
-        null_delimiter_space,
-        delimiter_shortfall,
-        root_em_size: root_em_size.clone(),
-        numbers: state,
-        idx: Cell::new(start),
-        depth: Cell::new(0),
-        max_depth,
-        diagnostics: RefCell::new(Vec::new()),
+    let numbering = state.prepare(node)?;
+    let output = {
+        let engine = Engine {
+            font,
+            params,
+            script_placement,
+            substack,
+            fraction_stack,
+            null_delimiter_space,
+            delimiter_shortfall,
+            root_em_size: root_em_size.clone(),
+            numbers: state,
+            numbering: &numbering,
+            idx: Cell::new(0),
+            depth: Cell::new(0),
+            max_depth,
+            diagnostics: RefCell::new(Vec::new()),
+        };
+        let math_box = engine.layout(node, style)?;
+        LayoutOutput {
+            math_box,
+            diagnostics: engine.diagnostics.into_inner(),
+        }
     };
-    let math_box = engine.layout(node, style)?;
-    Ok(LayoutOutput {
-        math_box,
-        diagnostics: engine.diagnostics.into_inner(),
-    })
+    state.commit(numbering);
+    Ok(output)
 }
 
 fn resolve_length(
@@ -392,6 +409,7 @@ struct Engine<'font, 'state> {
     delimiter_shortfall: Dim,
     root_em_size: RootEmSize,
     numbers: &'state NumberingState,
+    numbering: &'state NumberingPlan,
     idx: Cell<usize>,
     /// Current nesting depth, bounded by `max_depth`.
     depth: Cell<usize>,
@@ -608,46 +626,42 @@ impl<'font, 'state> Engine<'font, 'state> {
                 })
             }
             MathNode::Phantom(kind, inner) => {
+                // LaTeX measures math phantoms with an ordinary math hbox in the
+                // current style. OpenType MATH italic correction is not appended to
+                // that hbox width; copy exactly the measured box dimensions, then
+                // discard paint and any box-level italic metadata.
                 let mut bx = self.layout(inner, style)?;
+                bx.italic = Dim::zero();
+                bx.content = BoxContent::Empty;
                 match kind {
-                    PhantomKind::Full => bx.content = BoxContent::Empty,
-                    PhantomKind::Vertical => {
-                        bx.width = Dim::zero();
-                        bx.content = BoxContent::Empty;
-                    }
+                    PhantomKind::Full => {}
+                    PhantomKind::Vertical => bx.width = Dim::zero(),
                     PhantomKind::Horizontal => {
                         bx.height = Dim::zero();
                         bx.depth = Dim::zero();
-                        bx.content = BoxContent::Empty;
                     }
                 }
                 Ok(Item {
-                    class: noad_class(inner),
+                    class: Some(AtomKind::Ord),
                     bx,
                 })
             }
             MathNode::MathAlphabet(s, ts) => self.math_alphabet_run(s, *ts, style),
             MathNode::LiteralText(s) => self.literal_text_run(s, style),
-            MathNode::OverUnder(base, over, under) => {
-                let (under_style, over_style) = script_styles(style);
-                let mut b = self.layout(base, style)?;
-                let mut needed = b.width.clone();
-                if let Some(o) = over {
-                    needed = needed.max_ref(&self.layout(o, over_style)?.width);
-                }
-                if let Some(u) = under {
-                    needed = needed.max_ref(&self.layout(u, under_style)?.width);
-                }
-                b = self.stretch_h(b, &needed, style)?;
-                self.attach_limits(
-                    b,
-                    over.as_deref(),
-                    under.as_deref(),
-                    style,
-                    (under_style, over_style),
-                    true,
-                )
-            }
+            MathNode::OverUnder(base, over, under) => self.over_under(
+                base,
+                over.as_deref(),
+                under.as_deref(),
+                style,
+                noad_class(node).unwrap_or(AtomKind::Op),
+            ),
+            MathNode::StackRel(base, over) => self.over_under(
+                base,
+                Some(over.as_ref()),
+                None,
+                style,
+                noad_class(node).unwrap_or(AtomKind::Rel),
+            ),
             MathNode::Accent(base, kind) => self.accent(base, *kind, style),
             MathNode::CancelTo(value, expr) => self.cancelto(value, expr, style),
             MathNode::Matrix(ms, spec, rows) => self.matrix(*ms, spec, rows, style),
@@ -673,26 +687,21 @@ impl<'font, 'state> Engine<'font, 'state> {
                 })
             }
             MathNode::ColorBox(c, body) => {
+                // TeXpose keeps color-box bodies in math mode, but follows the
+                // LaTeX hbox model: terminal math italic is not appended, and
+                // physical \fboxsep is independent of the current math style.
                 let inner = self.layout(body, style)?;
-                let pad = self.params.mu(style)?.checked_mul(&Dim::from_i64(3))?;
+                let pad = self.tex_points_in_root_em(TEX_FBOX_SEP_PT)?;
                 Ok(Item {
-                    class: Some(AtomKind::Inner),
+                    class: Some(AtomKind::Ord),
                     bx: back_color_wrap(*c, pad_box(inner, &pad)?),
                 })
             }
             MathNode::FColorBox(border, fill, body) => {
                 let inner = self.layout(body, style)?;
-                let pad = self.params.mu(style)?.checked_mul(&Dim::from_i64(3))?;
-                let thick = self
-                    .params
-                    .fraction_rule_thickness
-                    .checked_mul(&self.params.scale(style))?;
                 Ok(Item {
-                    class: Some(AtomKind::Inner),
-                    bx: back_color_wrap(
-                        *fill,
-                        frame_wrap(thick, Some(*border), pad_box(inner, &pad)?),
-                    ),
+                    class: Some(AtomKind::Ord),
+                    bx: self.framed_color_box(inner, Some(*border), Some(*fill))?,
                 })
             }
         }
@@ -988,6 +997,41 @@ impl<'font, 'state> Engine<'font, 'state> {
         } else {
             Ok(bx)
         }
+    }
+
+    fn over_under(
+        &self,
+        base: &MathNode,
+        over: Option<&MathNode>,
+        under: Option<&MathNode>,
+        style: MathStyle,
+        class: AtomKind,
+    ) -> Result<Item, Error> {
+        let (under_style, over_style) = script_styles(style);
+        // amsmath implements overset/underset as a boxed math operator with limits.
+        // Stackrel uses the same geometry but wraps the result in a relation. Measure
+        // each participant as a complete math list before stretching/centering so
+        // terminal math italic is materialized exactly once.
+        let mut base_box = self.clean_math_component(base, style)?;
+        let over_box = match over {
+            Some(node) => Some(self.clean_math_component(node, over_style)?),
+            None => None,
+        };
+        let under_box = match under {
+            Some(node) => Some(self.clean_math_component(node, under_style)?),
+            None => None,
+        };
+        let mut needed = base_box.width.clone();
+        if let Some(ref bx) = over_box {
+            needed = needed.max_ref(&bx.width);
+        }
+        if let Some(ref bx) = under_box {
+            needed = needed.max_ref(&bx.width);
+        }
+        base_box = self.stretch_h(base_box, &needed, style)?;
+        let mut item = self.attach_limit_boxes(base_box, over_box, under_box, style)?;
+        item.class = Some(class);
+        Ok(item)
     }
 
     fn generalized_fraction(&self, spec: &FractionSpec, style: MathStyle) -> Result<Item, Error> {
@@ -2045,17 +2089,27 @@ impl<'font, 'state> Engine<'font, 'state> {
                 (under_style, over_style),
             );
         }
-        let s = self.params.scale(style);
-        let op_h = op.height.clone();
-        let op_d = op.depth.clone();
         let over_b = match over {
-            Some(o) => Some(self.layout(o, over_style)?),
+            Some(o) => Some(self.clean_math_component(o, over_style)?),
             None => None,
         };
         let under_b = match under {
-            Some(u) => Some(self.layout(u, under_style)?),
+            Some(u) => Some(self.clean_math_component(u, under_style)?),
             None => None,
         };
+        self.attach_limit_boxes(op, over_b, under_b, style)
+    }
+
+    fn attach_limit_boxes(
+        &self,
+        op: MathBox,
+        over_b: Option<MathBox>,
+        under_b: Option<MathBox>,
+        style: MathStyle,
+    ) -> Result<Item, Error> {
+        let s = self.params.scale(style);
+        let op_h = effective_height(&op)?;
+        let op_d = effective_depth(&op)?;
         let mut width = op.width.clone();
         if let Some(ref o) = over_b {
             width = width.max_ref(&o.width);
@@ -2069,24 +2123,22 @@ impl<'font, 'state> Engine<'font, 'state> {
         if let Some(ob) = over_b {
             let gap = self.params.upper_limit_gap_min.checked_mul(&s)?;
             let rise = self.params.upper_limit_baseline_rise_min.checked_mul(&s)?;
-            let extra = gap.max_ref(&rise);
-            height = height
-                .checked_add(&ob.height)?
-                .checked_add(&ob.depth)?
-                .checked_add(&extra)?;
-            let sh = op_h.checked_add(&extra)?.checked_add(&ob.depth)?;
+            let over_height = effective_height(&ob)?;
+            let over_depth = effective_depth(&ob)?;
+            let offset = rise.max_ref(&gap.checked_add(&over_depth)?);
+            let sh = op_h.checked_add(&offset)?;
+            height = height.max_ref(&sh.checked_add(&over_height)?);
             kids.push(center_in(ob, &width)?.with_shift(sh));
         }
         if let Some(ub) = under_b {
             let gap = self.params.lower_limit_gap_min.checked_mul(&s)?;
             let drop = self.params.lower_limit_baseline_drop_min.checked_mul(&s)?;
-            let extra = gap.max_ref(&drop);
-            depth = depth
-                .checked_add(&ub.height)?
-                .checked_add(&ub.depth)?
-                .checked_add(&extra)?;
-            let sh = -op_d.checked_add(&extra)?.checked_add(&ub.height)?;
-            kids.push(center_in(ub, &width)?.with_shift(sh));
+            let under_height = effective_height(&ub)?;
+            let under_depth = effective_depth(&ub)?;
+            let offset = drop.max_ref(&gap.checked_add(&under_height)?);
+            let sh = op_d.checked_add(&offset)?;
+            depth = depth.max_ref(&sh.checked_add(&under_depth)?);
+            kids.push(center_in(ub, &width)?.with_shift(-sh));
         }
         Ok(Item {
             class: Some(AtomKind::Op),
@@ -2133,6 +2185,29 @@ impl<'font, 'state> Engine<'font, 'state> {
     }
 
     fn accent(&self, base: &MathNode, kind: AccentKind, style: MathStyle) -> Result<Item, Error> {
+        if kind == AccentKind::Boxed {
+            // amsmath defines \boxed through \fbox around a fresh displaystyle
+            // math formula. As with an ordinary math hbox, terminal math italic
+            // is not appended merely because the final item is a math character.
+            let inner = self.layout(base, MathStyle::Display)?;
+            return Ok(Item {
+                class: Some(AtomKind::Ord),
+                bx: self.framed_color_box(inner, None, None)?,
+            });
+        }
+        if matches!(
+            kind,
+            AccentKind::Cancel | AccentKind::BCancel | AccentKind::XCancel
+        ) {
+            // cancel.sty measures an ordinary math hbox and overlays its marks
+            // without changing horizontal spacing or appending terminal italic.
+            let b = self.layout(base, style)?;
+            return Ok(Item {
+                class: Some(AtomKind::Ord),
+                bx: self.cancel_box(b, kind)?,
+            });
+        }
+
         let nucleus_style = if is_tex_accent(kind) {
             style.cramp()
         } else {
@@ -2145,30 +2220,6 @@ impl<'font, 'state> Engine<'font, 'state> {
         };
         if kind == AccentKind::Not {
             return self.not_overlay(base, b, style);
-        }
-        if kind == AccentKind::Boxed {
-            return Ok(Item {
-                class: Some(AtomKind::Ord),
-                bx: self.boxed_frame(b, style)?,
-            });
-        }
-        if matches!(
-            kind,
-            AccentKind::Cancel | AccentKind::BCancel | AccentKind::XCancel
-        ) {
-            let mut kids = vec![b.clone()];
-            kids.extend(self.cancel_lines(&b, kind, style)?);
-            return Ok(Item {
-                class: Some(AtomKind::Ord),
-                bx: MathBox {
-                    width: b.width.clone(),
-                    height: b.height.clone(),
-                    depth: b.depth.clone(),
-                    italic: Dim::zero(),
-                    shift: Dim::zero(),
-                    content: BoxContent::Overlap(kids),
-                },
-            });
         }
         if matches!(kind, AccentKind::Overline | AccentKind::Underline) {
             return self.bar_rule(b, kind == AccentKind::Underline, style);
@@ -2363,27 +2414,77 @@ impl<'font, 'state> Engine<'font, 'state> {
     }
 
     fn cancelto(&self, value: &MathNode, expr: &MathNode, style: MathStyle) -> Result<Item, Error> {
+        // cancel.sty defaults to the "smaller" option: a displaystyle target is
+        // textstyle, textstyle becomes scriptstyle, and deeper styles clamp at
+        // scriptscriptstyle.  The default overlap mode must not widen the
+        // cancelled expression even when the target protrudes past it.
         let b = self.layout(expr, style)?;
-        let val = self.layout(value, style.into_script())?;
-        let mut kids = vec![b.clone()];
-        kids.extend(self.cancel_lines(&b, AccentKind::Cancel, style)?);
-        let gap = self
-            .params
-            .space_after_script
-            .checked_mul(&self.params.scale(style))?;
-        let val_x = b.width.checked_add(&gap)?;
-        let val_shift = b.height.checked_add(&val.depth)?;
-        let val_w = val.width.clone();
-        let val_h = val.height.clone();
-        kids.push(shift_x(val, val_x.clone())?.with_shift(val_shift.clone()));
-        let width = val_x.checked_add(&val_w)?;
-        let height = b.height.max_ref(&val_shift.checked_add(&val_h)?);
+        let val_style = if style.is_display() {
+            MathStyle::Text
+        } else if style.script_level() == 0 {
+            MathStyle::Script
+        } else {
+            MathStyle::ScriptScript
+        };
+        let val = self.layout(value, val_style)?;
+        let (x_left, y_low, x_right, y_high, thickness, overshoot) =
+            self.cancel_line_metrics(&b)?;
+
+        let line_height = b.height.checked_add(&overshoot)?;
+        let line_depth = b.depth.checked_add(&overshoot)?;
+        let line = |x1: Dim, y1: Dim, x2: Dim, y2: Dim| MathBox {
+            width: b.width.clone(),
+            height: line_height.clone(),
+            depth: line_depth.clone(),
+            italic: Dim::zero(),
+            shift: Dim::zero(),
+            content: BoxContent::Line {
+                x1,
+                y1,
+                x2,
+                y2,
+                thickness: thickness.clone(),
+            },
+        };
+
+        let mut kids = vec![
+            b.clone(),
+            line(x_left, y_low, x_right.clone(), y_high.clone()),
+        ];
+
+        // The public display list has a generic line primitive rather than a
+        // backend-specific arrow primitive.  Represent the arrowhead by two
+        // short physical line segments so renderers retain a real arrow while
+        // the logical width stays that of the expression, matching cancel.sty
+        // default overlap semantics.
+        let head_long = self.tex_point_ratio_in_root_em(3, 2)?;
+        let head_short = self.tex_point_ratio_in_root_em(1, 2)?;
+        kids.push(line(
+            x_right.clone(),
+            y_high.clone(),
+            x_right.checked_sub(&head_long)?,
+            y_high.checked_sub(&head_short)?,
+        ));
+        kids.push(line(
+            x_right.clone(),
+            y_high.clone(),
+            x_right.checked_sub(&head_short)?,
+            y_high.checked_sub(&head_long)?,
+        ));
+
+        let label_gap = self.tex_point_ratio_in_root_em(1, 2)?;
+        let half_val = val.width.checked_div(&Dim::from_i64(2))?;
+        let val_x = x_right.checked_sub(&half_val)?;
+        let val_shift = y_high.checked_add(&label_gap)?.checked_add(&val.depth)?;
+        let val_height = val_shift.checked_add(&val.height)?;
+        kids.push(shift_x(val, val_x)?.with_shift(val_shift));
+
         Ok(Item {
             class: Some(AtomKind::Ord),
             bx: MathBox {
-                width,
-                height,
-                depth: b.depth.clone(),
+                width: b.width.clone(),
+                height: line_height.max_ref(&val_height),
+                depth: line_depth,
                 italic: Dim::zero(),
                 shift: Dim::zero(),
                 content: BoxContent::Overlap(kids),
@@ -2391,13 +2492,79 @@ impl<'font, 'state> Engine<'font, 'state> {
         })
     }
 
-    fn boxed_frame(&self, inner: MathBox, style: MathStyle) -> Result<MathBox, Error> {
-        let pad = self.params.mu(style)?.checked_mul(&Dim::from_i64(3))?;
-        let thick = self
-            .params
-            .fraction_rule_thickness
-            .checked_mul(&self.params.scale(style))?;
-        Ok(frame_wrap(thick, None, pad_box(inner, &pad)?))
+    fn framed_color_box(
+        &self,
+        inner: MathBox,
+        stroke: Option<Color>,
+        fill: Option<Color>,
+    ) -> Result<MathBox, Error> {
+        let sep = self.tex_points_in_root_em(TEX_FBOX_SEP_PT)?;
+        let rule = self.tex_point_ratio_in_root_em(TEX_FBOX_RULE_PT_NUM, TEX_FBOX_RULE_PT_DEN)?;
+        let padded = pad_box(inner, &sep)?;
+        let decorated = match fill {
+            Some(color) => back_color_wrap(color, padded),
+            None => padded,
+        };
+        // LaTeX's frame rules sit outside the fboxsep-padded contents.  Model
+        // that physical rule extent explicitly so width/height/depth include
+        // both sides of the frame rather than treating the stroke as paint-only.
+        let framed_inner = pad_box(decorated, &rule)?;
+        Ok(frame_wrap(rule, stroke, framed_inner))
+    }
+
+    fn cancel_line_metrics(&self, b: &MathBox) -> Result<(Dim, Dim, Dim, Dim, Dim, Dim), Error> {
+        let overshoot = self.tex_points_in_root_em(TEX_CANCEL_OVERSHOOT_PT)?;
+        let thickness =
+            self.tex_point_ratio_in_root_em(TEX_CANCEL_LINE_PT_NUM, TEX_CANCEL_LINE_PT_DEN)?;
+        let x_left = -overshoot.clone();
+        let y_low = -b.depth.checked_add(&overshoot)?;
+        let x_right = b.width.checked_add(&overshoot)?;
+        let y_high = b.height.checked_add(&overshoot)?;
+        Ok((x_left, y_low, x_right, y_high, thickness, overshoot))
+    }
+
+    fn cancel_box(&self, b: MathBox, kind: AccentKind) -> Result<MathBox, Error> {
+        let (x_left, y_low, x_right, y_high, thickness, overshoot) =
+            self.cancel_line_metrics(&b)?;
+        let height = b.height.checked_add(&overshoot)?;
+        let depth = b.depth.checked_add(&overshoot)?;
+        let mk = |x1: Dim, y1: Dim, x2: Dim, y2: Dim| MathBox {
+            width: b.width.clone(),
+            height: height.clone(),
+            depth: depth.clone(),
+            italic: Dim::zero(),
+            shift: Dim::zero(),
+            content: BoxContent::Line {
+                x1,
+                y1,
+                x2,
+                y2,
+                thickness: thickness.clone(),
+            },
+        };
+        let mut kids = vec![b.clone()];
+        match kind {
+            AccentKind::Cancel => kids.push(mk(x_left, y_low, x_right, y_high)),
+            AccentKind::BCancel => kids.push(mk(x_left, y_high, x_right, y_low)),
+            AccentKind::XCancel => {
+                kids.push(mk(
+                    x_left.clone(),
+                    y_low.clone(),
+                    x_right.clone(),
+                    y_high.clone(),
+                ));
+                kids.push(mk(x_left, y_high, x_right, y_low));
+            }
+            _ => {}
+        }
+        Ok(MathBox {
+            width: b.width.clone(),
+            height,
+            depth,
+            italic: Dim::zero(),
+            shift: Dim::zero(),
+            content: BoxContent::Overlap(kids),
+        })
     }
 
     fn bar_rule(&self, b: MathBox, under: bool, style: MathStyle) -> Result<Item, Error> {
@@ -2448,48 +2615,10 @@ impl<'font, 'state> Engine<'font, 'state> {
         })
     }
 
-    fn cancel_lines(
-        &self,
-        b: &MathBox,
-        kind: AccentKind,
-        style: MathStyle,
-    ) -> Result<Vec<MathBox>, Error> {
-        let t = self
-            .params
-            .fraction_rule_thickness
-            .checked_mul(&self.params.scale(style))?;
-        let w = b.width.clone();
-        let h = b.height.clone();
-        let d = b.depth.clone();
-        let mk = |x1: Dim, y1: Dim, x2: Dim, y2: Dim| MathBox {
-            width: w.clone(),
-            height: h.clone(),
-            depth: d.clone(),
-            italic: Dim::zero(),
-            shift: Dim::zero(),
-            content: BoxContent::Line {
-                x1,
-                y1,
-                x2,
-                y2,
-                thickness: t.clone(),
-            },
-        };
-        Ok(match kind {
-            AccentKind::Cancel => vec![mk(Dim::zero(), -d.clone(), w.clone(), h.clone())],
-            AccentKind::BCancel => vec![mk(Dim::zero(), h.clone(), w.clone(), -d.clone())],
-            AccentKind::XCancel => vec![
-                mk(Dim::zero(), -d.clone(), w.clone(), h.clone()),
-                mk(Dim::zero(), h.clone(), w.clone(), -d.clone()),
-            ],
-            _ => Vec::new(),
-        })
-    }
-
     fn take_number(&self) -> Option<String> {
         let i = self.idx.get();
         self.idx.set(i + 1);
-        self.numbers.assigned(i).map(str::to_string)
+        self.numbering.assigned(i).map(str::to_string)
     }
 
     fn number_box(&self, s: &str, style: MathStyle) -> Result<MathBox, Error> {
@@ -2510,9 +2639,12 @@ impl<'font, 'state> Engine<'font, 'state> {
     }
 
     fn reference(&self, key: &str, style: MathStyle) -> Result<Item, Error> {
-        let s = self.numbers.lookup(key).ok_or_else(|| Error::Unsupported {
-            what: format!("undefined label {key}"),
-        })?;
+        let s = self
+            .numbering
+            .lookup(self.numbers, key)
+            .ok_or_else(|| Error::Unsupported {
+                what: format!("undefined label {key}"),
+            })?;
         self.math_alphabet_run(s, TextStyle::Rm, style)
     }
 
@@ -2713,7 +2845,12 @@ impl<'font, 'state> Engine<'font, 'state> {
     }
 
     fn tex_points_in_root_em(&self, points: i64) -> Result<Dim, Error> {
-        Ok(self.resolve_length(&Length::TexPt(Dim::from_i64(points)), MathStyle::Text)?)
+        self.tex_point_ratio_in_root_em(points, 1)
+    }
+
+    fn tex_point_ratio_in_root_em(&self, numerator: i64, denominator: i64) -> Result<Dim, Error> {
+        let points = Dim::ratio(numerator, denominator)?;
+        Ok(self.resolve_length(&Length::TexPt(points), MathStyle::Text)?)
     }
 
     fn layout_environment_rows(

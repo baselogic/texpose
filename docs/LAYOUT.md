@@ -46,6 +46,20 @@ AMSmath alignment cells and `\substack` rows are cleaned as math lists before th
 
 `\substack` is a centered scriptstyle subarray. Its rows use the non-display OpenType MATH stack shifts/gap at script scale and the finished stack is vcentered on the surrounding style's axis. This intrinsic vcentering is preserved when the substack later becomes a large-operator limit. Missing required cell glyphs keep the grid shape and use the ordinary deterministic missing-glyph diagnostic/fallback path.
 
+## Phantoms and explicit over/under stacks
+
+Math `\phantom`, `\vphantom`, and `\hphantom` measure their body in an ordinary math hbox in the current style, matching LaTeX's `\mathph@nt`. OpenType MATH italic correction is not appended to that hbox width merely because the terminal item is a math character. The resulting phantom is an ordinary empty box with zero box-level italic correction: `\phantom` preserves the measured width/height/depth, `\vphantom` preserves only height/depth, and `\hphantom` preserves only width. Missing required glyphs still emit the normal deterministic diagnostic even though the final box is not painted.
+
+AMSmath `\overset` and `\underset` are laid out as math-operator limits. Their base and annotations are cleaned as complete math lists before width selection, and the upper/lower MATH edge-gap and baseline rise/drop constraints remain independent. The spacing class preserves a binary or relation base and otherwise becomes operator, matching amsmath's `\binrel@` wrapper. LaTeX `\stackrel` uses the same geometry but has an explicit relation semantic representation, so a non-relation base cannot accidentally turn it into an operator.
+
+## Color, framed boxes, and cancellation
+
+Foreground `\color`/`\textcolor` wrappers are geometry-transparent and preserve the wrapped math noad class. TeXpose's math-mode `\colorbox`/`\fcolorbox` subset keeps the body in the caller's math style but measures it as an ordinary math hbox, so a terminal character does not acquire an extra MATH italic correction at the box boundary. The resulting color boxes are ordinary noads. Padding uses the standard physical `\fboxsep=3pt`; framed forms add physical `\fboxrule=0.4pt` on every side. These physical dimensions are resolved against the caller's root em rather than against `mu` or `FractionRuleThickness`.
+
+`\boxed` (and TeXpose's math-mode `\fbox` alias) follows amsmath's `\fbox{\m@th$\displaystyle...$}` contract: the body is always displaystyle, measured as a math hbox without terminal-italic materialization, then surrounded by the same 3pt padding and 0.4pt frame. Missing glyphs are diagnosed once because the body is evaluated once.
+
+For `cancel`/`bcancel`/`xcancel`, TeXpose preserves cancel.sty's default overlap contract: the cancellation mark does not widen the expression, uses physical 0.4pt `\thinlines`, and the body is measured as an ordinary math hbox. The public layout IR has a free-line primitive rather than LaTeX picture-line glyphs, so the supported backend-neutral projection is a continuous diagonal extending one physical point past each measured box edge (the symmetric projection of cancel.sty's two-point extra span). `cancelto` keeps the same non-widening overlap policy, represents the arrowhead by two additional physical line segments, and follows cancel.sty's default `smaller` style table: display→text, text→script, and script/scriptscript→scriptscript.
+
 ## Radical geometry
 
 Radicals size U+221A from the cramped radicand span plus the style-appropriate `RadicalVerticalGap` / `RadicalDisplayStyleVerticalGap` and `RadicalRuleThickness`. `RadicalExtraAscender` is reserved above the finished rule and is not part of the MATH variant/assembly target. If the selected ready-made variant or vertical assembly is taller than the minimum request, the excess is split into the effective gap and surd descent using the TeX radical construction rule.

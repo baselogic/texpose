@@ -83,13 +83,13 @@ Primary references used by this contract map:
 - **Semantic representation:** `MathNode::Accent`, `MathNode::CancelTo`, or `MathNode::OverUnder` for constructs whose syntax carries an explicit over/under value.
 - **Malformed-input behavior:** an empty accent base returns `MalformedArgument`; an unknown `\wide...` accent family returns `UnsupportedCommand`.
 - **Unsupported forms:** accent commands not represented by `AccentKind` are not inferred from their names.
-- **Primary contract test:** `tests/accent_golds.rs::accent_golds`, `tests/wide_accent_math.rs`, and `tests/nested_accent_geometry.rs`.
-- **Governing authority:** TeX/LaTeX accent semantics plus supported amsmath-style over/under forms; OpenType MATH owns top-accent attachment and variants.
+- **Primary contract test:** `tests/accent_golds.rs::accent_golds`, `tests/wide_accent_math.rs`, `tests/nested_accent_geometry.rs`, and `tests/color_boxes_cancel.rs` for cancel-family overlays.
+- **Governing authority:** TeX/LaTeX accent semantics plus supported amsmath-style over/under forms; OpenType MATH owns top-accent attachment and variants. The supported `cancel` family follows cancel.sty default overlap/style semantics, projected to backend-neutral free lines as documented in `LAYOUT.md`.
 
 ## Operators
 
 - **Accepted syntax:** `\sum`, `\prod`, `\lim`, the parser's named operator set (`\sin`, `\cos`, `\log`, `\det`, etc.), `\operatorname{...}`, large-operator catalog commands, `\limits`, `\nolimits`, `\overset`, `\underset`, `\stackrel`, `\xrightarrow`, and `\xleftarrow`.
-- **Semantic representation:** `MathNode::Sum`, `Product`, `Limit`, `Operator`, or `OverUnder`; explicit `\limits`/`\nolimits` is retained as `MathNode::Limits(..., LimitMode)`. The semantic layout pass resolves default vs explicit placement and script styles before geometry.
+- **Semantic representation:** `MathNode::Sum`, `Product`, `Limit`, `Operator`, `OverUnder`, or `StackRel`; explicit `\limits`/`\nolimits` is retained as `MathNode::Limits(..., LimitMode)`. `\overset`/`\underset` preserve only binary/relation spacing classes and otherwise become operators, while `\stackrel` is always represented as a relation. The semantic layout pass resolves default vs explicit placement and script styles before geometry.
 - **Malformed-input behavior:** missing over/under/name arguments, malformed optional x-arrow arguments, or `\limits`/`\nolimits` after a non-operator nucleus return `MalformedArgument`.
 - **Unsupported forms:** arbitrary operator declarations and macro-defined operators are outside the parser.
 - **Primary contract test:** `tests/large_operator_limits.rs`, `tests/amsmath_substack.rs`, and operator records in `tests/parse_golds.rs`.
@@ -146,34 +146,37 @@ Primary references used by this contract map:
 - **Semantic representation:** `MathNode::Color`, `TextColor`, `ColorBox`, or `FColorBox` carrying a typed `Color`; definitions update the parse-local `ColorTable`.
 - **Malformed-input behavior:** malformed color components return `MalformedArgument`; unsupported models or unknown named colors return `UnsupportedCommand` with the relevant specification span when available.
 - **Unsupported forms:** forward references to later color definitions and color models outside `parse_color_spec` are rejected.
-- **Primary contract test:** color records in `tests/parse_golds.rs` and `tests/layout_golds.rs::layout_golds`.
-- **Governing authority:** explicit TeXpose color-subset policy using LaTeX-style command vocabulary.
+- **Primary contract test:** color records in `tests/parse_golds.rs`, `tests/layout_golds.rs::layout_golds`, and `tests/color_boxes_cancel.rs`.
+- **Governing authority:** explicit TeXpose math-color subset using LaTeX command vocabulary. Foreground wrappers preserve geometry/class; color boxes use the standard physical `\fboxsep`/`\fboxrule` defaults while keeping their body in TeXpose math mode.
 
 ## Numbering
 
-- **Accepted syntax:** `\tag{...}`, `\tag*{...}`, `\nonumber`, and `\notag`; `align`/`gather` number rows by default, while `equation`/`multline` own one environment number according to `MatrixStyle` policy.
-- **Semantic representation:** `MathNode::Tag`/`NoNumber` are peeled into `EnvRow::Cells { number: EqNumber, ... }`; layout numbering state/configuration remains separate from parsing.
-- **Malformed-input behavior:** missing tag arguments and malformed environment placement return typed argument/matrix failures rather than silently inventing a number.
-- **Unsupported forms:** numbering policies not represented by `NumberingConfig`, arbitrary counter manipulation, and unsupported starred environments are outside this subset.
-- **Primary contract test:** numbering records in `tests/env_golds.rs` and numbering behavior exercised by environment/layout tests.
-- **Governing authority:** LaTeX/amsmath numbering forms plus explicit TeXpose numbering policy.
+- **Accepted syntax:** `\tag{...}`, `\tag*{...}`, `\nonumber`, and `\notag` on rows owned by the supported numbered display environments; `align`/`gather` number rows by default, while `equation`/`multline` own one environment number according to `MatrixStyle` policy.
+- **Semantic representation:** `MathNode::Tag`/`NoNumber` are peeled into `EnvRow::Cells { number: EqNumber, ... }`. `NumberingState` retains only durable counter/label state; each layout call prepares an ephemeral assignment plan and commits that plan only after layout succeeds.
+- **Counter contract:** `\tag`/`\tag*` and `\nonumber`/`\notag` do not consume the automatic counter. Automatic values use the configured `start`; counter exhaustion returns `Error::InvalidOption` instead of saturating and repeating the terminal value.
+- **Failure contract:** a failed layout does not consume equation numbers or publish labels. Missing tag arguments and malformed environment structure return typed failures rather than inventing a number.
+- **Unsupported forms:** arbitrary counter manipulation, unsupported starred environments, and use of numbering controls outside the documented numbered-display subset are not contractual. `NumberFormat` changes the displayed equation number but not the payload returned by `\ref`.
+- **Primary contract test:** `tests/numbering_labels.rs`, plus numbering records in `tests/env_golds.rs`.
+- **Governing authority:** LaTeX/amsmath numbering forms plus explicit TeXpose in-memory and transactional-state policy.
 
 ## Labels
 
-- **Accepted syntax:** `\label{key}`.
-- **Semantic representation:** `MathNode::Label(String)`; labels inside environment rows are peeled into that row's metadata for numbering resolution.
+- **Accepted syntax:** `\label{key}` on a supported numbered environment row.
+- **Semantic representation:** `MathNode::Label(String)` is peeled into row metadata. A successful numbering pass stores both the formatted display number and the unwrapped reference payload; `NumberingState::label` exposes the formatted display form for inspection.
+- **Failure contract:** labels are published only when their number/tag exists and the complete layout succeeds. A label on a suppressed number remains unbound.
 - **Malformed-input behavior:** an unclosed/missing key group returns the corresponding typed group/argument error.
-- **Unsupported forms:** auxiliary-file persistence and general LaTeX cross-document label machinery are outside the portable core.
-- **Primary contract test:** label/numbering records in `tests/env_golds.rs`.
+- **Unsupported forms:** auxiliary-file persistence, general cross-document label machinery, and labels outside the documented numbered-display subset are outside the portable core.
+- **Primary contract test:** `tests/numbering_labels.rs` and label records in `tests/env_golds.rs`.
 - **Governing authority:** LaTeX label vocabulary plus TeXpose in-memory numbering policy.
 
 ## References
 
 - **Accepted syntax:** `\ref{key}`.
-- **Semantic representation:** `MathNode::Ref(String)` resolved through `NumberingState` during layout.
-- **Malformed-input behavior:** malformed key groups return typed group/argument errors; unresolved references remain governed by the numbering/layout contract rather than parser fallback.
-- **Unsupported forms:** `\pageref`, hyperlink/package extensions, and external auxiliary-file lookup are outside the core.
-- **Primary contract test:** reference/numbering records in `tests/env_golds.rs` and numbering-state tests.
+- **Semantic representation:** `MathNode::Ref(String)` resolves through `NumberingState` during layout. The rendered payload is the unwrapped reference value (`1`, `iv`, `A`, ...); display wrappers such as `(1)` or `[iv]` belong to the equation number itself, not to `\ref`.
+- **Forward-reference contract:** references to labels later in the same parsed layout tree resolve because numbering preparation precedes geometry. A reference in an earlier independent layout call cannot see a label introduced only by a later call.
+- **Malformed-input behavior:** malformed key groups return typed group/argument errors; an unresolved reference fails explicitly during layout.
+- **Unsupported forms:** `\eqref`, `\pageref`, hyperlink/package extensions, external auxiliary-file lookup, and cross-call forward-reference precollection are outside the core.
+- **Primary contract test:** `tests/numbering_labels.rs` and reference/numbering records in `tests/env_golds.rs`.
 - **Governing authority:** LaTeX reference vocabulary plus TeXpose in-memory numbering policy.
 
 ## Phantoms
@@ -182,7 +185,7 @@ Primary references used by this contract map:
 - **Semantic representation:** `MathNode::Phantom(PhantomKind::{Full, Vertical, Horizontal}, body)`.
 - **Malformed-input behavior:** missing/unclosed body arguments return typed parser errors.
 - **Unsupported forms:** package-specific phantom variants are not inferred.
-- **Primary contract test:** phantom records in `tests/parse_golds.rs`, `tests/layout_golds.rs`, and the math comparison corpus.
+- **Primary contract test:** `tests/phantom_overunder.rs` plus phantom records in `tests/parse_golds.rs`, `tests/layout_golds.rs`, and the math comparison corpus.
 - **Governing authority:** TeX/LaTeX phantom semantics as narrowed by `PhantomKind`.
 
 ## Boxes and rules
@@ -191,8 +194,8 @@ Primary references used by this contract map:
 - **Semantic representation:** boxed forms use `MathNode::Accent(..., AccentKind::Boxed)` or color-box nodes; `\rule` is `MathNode::Rule(Length, Length)`; `\strut` is `MathNode::Strut(Length, Length)`.
 - **Malformed-input behavior:** missing bodies/colors or malformed rule dimensions return typed parser errors; length units are never erased during parsing.
 - **Unsupported forms:** optional LaTeX `\rule` raise arguments and other box-model commands are outside the current subset.
-- **Primary contract test:** `tests/length_units.rs::parsed_rule_preserves_both_length_units`, box/color golds, and accent golds.
-- **Governing authority:** LaTeX box/rule command forms plus explicit TeXpose geometry policy; TeX units follow the documented length contract.
+- **Primary contract test:** `tests/length_units.rs::parsed_rule_preserves_both_length_units`, box/color golds, accent golds, and `tests/color_boxes_cancel.rs`.
+- **Governing authority:** amsmath `\boxed` plus LaTeX `\fboxsep=3pt` / `\fboxrule=0.4pt`, narrowed to TeXpose's math-mode box subset; TeX units follow the documented length contract.
 
 ## Literal text runs
 

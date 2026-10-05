@@ -2,7 +2,10 @@
 
 use std::collections::HashMap;
 
-use crate::parser::{EnvRow, EqNumber, MathNode, MatrixStyle};
+use crate::{
+    parser::{EnvRow, EqNumber, MathNode, MatrixStyle},
+    Error,
+};
 
 /// How auto equation numbers are written.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -80,8 +83,80 @@ impl NumberingConfig {
 pub struct NumberingState {
     config: NumberingConfig,
     next: usize,
-    labels: HashMap<String, String>,
+    labels: HashMap<String, LabelValue>,
+}
+
+#[derive(Clone, Debug)]
+struct LabelValue {
+    display: String,
+    reference: String,
+}
+
+#[derive(Clone, Debug)]
+struct NumberAssignment {
+    display: String,
+    reference: String,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct NumberingPlan {
+    next: usize,
+    labels: HashMap<String, LabelValue>,
     assigned: Vec<Option<String>>,
+}
+
+impl NumberingPlan {
+    pub(crate) fn assigned(&self, i: usize) -> Option<&str> {
+        self.assigned.get(i).and_then(|o| o.as_deref())
+    }
+
+    pub(crate) fn lookup<'a>(&'a self, state: &'a NumberingState, key: &str) -> Option<&'a str> {
+        self.labels
+            .get(key)
+            .or_else(|| state.labels.get(key))
+            .map(|value| value.reference.as_str())
+    }
+
+    fn wrap(config: &NumberingConfig, body: &str) -> String {
+        match config.format {
+            NumberFormat::Parenthesized => format!("({body})"),
+            NumberFormat::Bracketed => format!("[{body}]"),
+            NumberFormat::Plain => body.to_string(),
+        }
+    }
+
+    fn auto_body(config: &NumberingConfig, n: usize) -> String {
+        match config.style {
+            NumberStyle::Arabic => n.to_string(),
+            NumberStyle::Roman => to_roman(n),
+            NumberStyle::Alphabetic => to_alpha(n),
+        }
+    }
+
+    fn auto_assignment(&mut self, config: &NumberingConfig) -> Result<NumberAssignment, Error> {
+        let n = self.next;
+        let next = n.checked_add(1).ok_or_else(|| Error::InvalidOption {
+            what: "equation counter overflow".into(),
+        })?;
+        let reference = Self::auto_body(config, n);
+        self.next = next;
+        Ok(NumberAssignment {
+            display: Self::wrap(config, &reference),
+            reference,
+        })
+    }
+
+    fn bind(&mut self, labels: &[String], assignment: &NumberAssignment) {
+        for key in labels {
+            self.labels.insert(
+                key.clone(),
+                LabelValue {
+                    display: assignment.display.clone(),
+                    reference: assignment.reference.clone(),
+                },
+            );
+        }
+    }
 }
 
 impl Default for NumberingState {
@@ -99,87 +174,64 @@ impl NumberingState {
             config,
             next,
             labels: HashMap::new(),
-            assigned: Vec::new(),
         }
     }
 
-    /// Formatted number bound to `key`, if `\label{key}` was seen.
+    /// Formatted equation number bound to `key`, if `\label{key}` was seen.
+    ///
+    /// This is the display form, including [`NumberFormat`]. `\ref` uses the
+    /// unwrapped reference payload internally.
     #[must_use]
     pub fn label(&self, key: &str) -> Option<&str> {
-        self.labels.get(key).map(String::as_str)
+        self.labels.get(key).map(|value| value.display.as_str())
     }
 
-    pub(crate) fn lookup(&self, key: &str) -> Option<&str> {
-        self.label(key)
+    pub(crate) fn prepare(&self, node: &MathNode) -> Result<NumberingPlan, Error> {
+        let mut plan = NumberingPlan {
+            next: self.next,
+            labels: HashMap::new(),
+            assigned: Vec::new(),
+        };
+        collect_node(node, &self.config, &mut plan)?;
+        Ok(plan)
     }
 
-    pub(crate) fn assigned(&self, i: usize) -> Option<&str> {
-        self.assigned.get(i).and_then(|o| o.as_deref())
-    }
-
-    /// Walk `node`, assign numbers, fill labels. Returns the index of the first
-    /// new assignment (for this tree).
-    pub fn collect(&mut self, node: &MathNode) -> usize {
-        let start = self.assigned.len();
-        collect_node(node, self);
-        start
-    }
-
-    fn wrap(&self, body: &str) -> String {
-        match self.config.format {
-            NumberFormat::Parenthesized => format!("({body})"),
-            NumberFormat::Bracketed => format!("[{body}]"),
-            NumberFormat::Plain => body.to_string(),
-        }
-    }
-
-    fn auto_body(&self, n: usize) -> String {
-        match self.config.style {
-            NumberStyle::Arabic => n.to_string(),
-            NumberStyle::Roman => to_roman(n),
-            NumberStyle::Alphabetic => to_alpha(n),
-        }
-    }
-
-    fn auto_display(&mut self) -> String {
-        let n = self.next;
-        self.next = self.next.saturating_add(1);
-        self.wrap(&self.auto_body(n))
-    }
-
-    fn bind(&mut self, labels: &[String], display: &str) {
-        for k in labels {
-            self.labels.insert(k.clone(), display.to_string());
-        }
+    pub(crate) fn commit(&mut self, plan: NumberingPlan) {
+        self.next = plan.next;
+        self.labels.extend(plan.labels);
     }
 }
 
-fn collect_node(node: &MathNode, st: &mut NumberingState) {
+fn collect_node(
+    node: &MathNode,
+    config: &NumberingConfig,
+    plan: &mut NumberingPlan,
+) -> Result<(), Error> {
     match node {
-        MathNode::Matrix(style, _, rows) => collect_matrix(*style, rows, st),
+        MathNode::Matrix(style, _, rows) => collect_matrix(*style, rows, config, plan)?,
         MathNode::Row(v) | MathNode::Substack(v) => {
             for n in v {
-                collect_node(n, st);
+                collect_node(n, config, plan)?;
             }
         }
         MathNode::Fraction(spec) => {
-            collect_node(&spec.numerator, st);
-            collect_node(&spec.denominator, st);
+            collect_node(&spec.numerator, config, plan)?;
+            collect_node(&spec.denominator, config, plan)?;
         }
         MathNode::Superscript(a, b) | MathNode::Subscript(a, b) | MathNode::CancelTo(a, b) => {
-            collect_node(a, st);
-            collect_node(b, st);
+            collect_node(a, config, plan)?;
+            collect_node(b, config, plan)?;
         }
         MathNode::SubSup(a, b, c) => {
-            collect_node(a, st);
-            collect_node(b, st);
-            collect_node(c, st);
+            collect_node(a, config, plan)?;
+            collect_node(b, config, plan)?;
+            collect_node(c, config, plan)?;
         }
         MathNode::Radical(deg, r) => {
             if let Some(d) = deg {
-                collect_node(d, st);
+                collect_node(d, config, plan)?;
             }
-            collect_node(r, st);
+            collect_node(r, config, plan)?;
         }
         MathNode::Delimited(_, b, _)
         | MathNode::Limits(b, _)
@@ -189,29 +241,33 @@ fn collect_node(node: &MathNode, st: &mut NumberingState) {
         | MathNode::ColorBox(_, b)
         | MathNode::Phantom(_, b)
         | MathNode::Intertext(b)
-        | MathNode::Tag { body: b, .. } => collect_node(b, st),
-        MathNode::FColorBox(_, _, b) => collect_node(b, st),
+        | MathNode::Tag { body: b, .. } => collect_node(b, config, plan)?,
+        MathNode::FColorBox(_, _, b) => collect_node(b, config, plan)?,
         MathNode::Sum(lo, hi) | MathNode::Product(lo, hi) | MathNode::Integral(_, lo, hi) => {
             if let Some(n) = lo {
-                collect_node(n, st);
+                collect_node(n, config, plan)?;
             }
             if let Some(n) = hi {
-                collect_node(n, st);
+                collect_node(n, config, plan)?;
             }
         }
         MathNode::Limit(lo) => {
             if let Some(n) = lo {
-                collect_node(n, st);
+                collect_node(n, config, plan)?;
             }
         }
         MathNode::OverUnder(b, over, under) => {
-            collect_node(b, st);
+            collect_node(b, config, plan)?;
             if let Some(n) = over {
-                collect_node(n, st);
+                collect_node(n, config, plan)?;
             }
             if let Some(n) = under {
-                collect_node(n, st);
+                collect_node(n, config, plan)?;
             }
+        }
+        MathNode::StackRel(b, over) => {
+            collect_node(b, config, plan)?;
+            collect_node(over, config, plan)?;
         }
         MathNode::Atom(_, _)
         | MathNode::SizedDelim(_, _, _)
@@ -228,17 +284,23 @@ fn collect_node(node: &MathNode, st: &mut NumberingState) {
         | MathNode::NoNumber
         | MathNode::Hline => {}
     }
+    Ok(())
 }
 
-fn collect_matrix(style: MatrixStyle, rows: &[EnvRow], st: &mut NumberingState) {
+fn collect_matrix(
+    style: MatrixStyle,
+    rows: &[EnvRow],
+    config: &NumberingConfig,
+    plan: &mut NumberingPlan,
+) -> Result<(), Error> {
     for row in rows {
         match row {
             EnvRow::Cells { cells, .. } => {
                 for c in cells {
-                    collect_node(c, st);
+                    collect_node(c, config, plan)?;
                 }
             }
-            EnvRow::Intertext(n) => collect_node(n, st),
+            EnvRow::Intertext(n) => collect_node(n, config, plan)?,
             EnvRow::Hline => {}
         }
     }
@@ -247,11 +309,11 @@ fn collect_matrix(style: MatrixStyle, rows: &[EnvRow], st: &mut NumberingState) 
             match row {
                 EnvRow::Intertext(_) | EnvRow::Hline => {}
                 EnvRow::Cells { number, labels, .. } => {
-                    let display = assign(number, st);
-                    if let Some(d) = &display {
-                        st.bind(labels, d);
+                    let assignment = assign(number, config, plan)?;
+                    if let Some(value) = &assignment {
+                        plan.bind(labels, value);
                     }
-                    st.assigned.push(display);
+                    plan.assigned.push(assignment.map(|value| value.display));
                 }
             }
         }
@@ -272,23 +334,32 @@ fn collect_matrix(style: MatrixStyle, rows: &[EnvRow], st: &mut NumberingState) 
                 labels.extend(l.iter().cloned());
             }
         }
-        let display = assign(&number, st);
-        if let Some(d) = &display {
-            st.bind(&labels, d);
+        let assignment = assign(&number, config, plan)?;
+        if let Some(value) = &assignment {
+            plan.bind(&labels, value);
         }
-        st.assigned.push(display);
+        plan.assigned.push(assignment.map(|value| value.display));
     }
+    Ok(())
 }
 
-fn assign(number: &EqNumber, st: &mut NumberingState) -> Option<String> {
+fn assign(
+    number: &EqNumber,
+    config: &NumberingConfig,
+    plan: &mut NumberingPlan,
+) -> Result<Option<NumberAssignment>, Error> {
     match number {
-        EqNumber::Suppress => None,
+        EqNumber::Suppress => Ok(None),
         EqNumber::Tag { star, body } => {
-            let plain = node_plain(body);
-            let display = if *star { plain } else { st.wrap(&plain) };
-            Some(display)
+            let reference = node_plain(body);
+            let display = if *star {
+                reference.clone()
+            } else {
+                NumberingPlan::wrap(config, &reference)
+            };
+            Ok(Some(NumberAssignment { display, reference }))
         }
-        EqNumber::Default => Some(st.auto_display()),
+        EqNumber::Default => plan.auto_assignment(config).map(Some),
     }
 }
 
