@@ -1656,8 +1656,18 @@ impl<'font, 'state> Engine<'font, 'state> {
         let s = self.params.scale(style);
         let axis = self.params.axis_height.checked_mul(&s)?;
         let needed = self.delimiter_target(&body_b.height, &body_b.depth, &axis)?;
-        let left = self.center_delimiter(self.delim_box(open, &needed, style)?, &axis)?;
-        let right = self.center_delimiter(self.delim_box(close, &needed, style)?, &axis)?;
+        // TeX null \left/\right delimiters occupy \nulldelimiterspace;
+        // they are not zero-width parser placeholders.
+        let left = if matches!(open, Delimiter::Empty) {
+            MathBox::kern(self.null_delimiter_space.clone())
+        } else {
+            self.center_delimiter(self.delim_box(open, &needed, style)?, &axis)?
+        };
+        let right = if matches!(close, Delimiter::Empty) {
+            MathBox::kern(self.null_delimiter_space.clone())
+        } else {
+            self.center_delimiter(self.delim_box(close, &needed, style)?, &axis)?
+        };
         Ok(Item {
             class: Some(AtomKind::Inner),
             bx: shifted_hpack(vec![left, body_b, right])?,

@@ -213,10 +213,11 @@ preserves that uncertainty. A future fix needs a minimal overbrace reproducer an
 the exact TeXpose/reference target width before this pair can move to a deviation
 or be repaired.
 
-## Blocking outer-geometry inventory
+## Post-stage-8 outer-geometry inventory
 
-No new geometry waiver is introduced by stage 5. Cases above `0.050em` after
-stage 4 remain blocking G12 work. The current raw inventory is:
+Stages 7 and 8 closed `hard-matrix-fractions` and `hard-delim-eval`
+respectively. No new geometry waiver was introduced. The remaining raw cases
+above `0.050em` are:
 
 STIX:
 
@@ -232,8 +233,6 @@ size-nested-frac-6pt           0.291390em
 size-indexed-radical-20pt      0.261050em
 size-indexed-radical-40pt      0.261050em
 hard-stat-r2                   0.237959em
-hard-matrix-fractions          0.166631em
-hard-delim-eval                0.120001em
 hard-depth-typography          0.103974em
 accent-widehat-j               0.079999em  (existing bounded canonical/G5 deviation)
 hard-script-on-delimited       0.061649em
@@ -246,9 +245,7 @@ size-indexed-radical-6pt       0.390829em
 hard-aligned-model             0.276717em
 size-indexed-radical-20pt      0.167502em
 size-indexed-radical-40pt      0.167500em
-hard-matrix-fractions          0.166628em
 hard-stat-r2                   0.162499em
-hard-delim-eval                0.137597em
 hard-depth-typography          0.126376em
 hard-script-extreme            0.076198em
 accent-widehat-j               0.056999em  (existing bounded canonical/G5 deviation)
@@ -263,8 +260,6 @@ Fira:
 ```text
 size-indexed-radical-6pt       0.422560em
 hard-aligned-model             0.169117em
-hard-matrix-fractions          0.166632em
-hard-delim-eval                0.134397em
 size-indexed-radical-20pt      0.133440em
 size-indexed-radical-40pt      0.133440em
 hard-script-extreme            0.127000em
@@ -272,10 +267,11 @@ size-nested-frac-6pt           0.072184em
 hard-logit                     0.052344em
 ```
 
-The repeated approximately `0.16663em` matrix delta and the cross-profile
-`hard-aligned-model`, `hard-delim-eval`, `hard-logit`, and indexed-radical deltas
-are high-value next causal targets. Their cross-font repetition is evidence for
-investigation, not proof of a shared root cause.
+The cross-profile `hard-aligned-model`, `hard-logit`, and indexed-radical
+families remain the highest-value causal targets. Their repetition across fonts
+is evidence for investigation, not proof of a shared root cause. The
+`accent-widehat-j` entries above are already-bounded G5 deviations rather than
+new G12 blockers.
 
 ## Closure protocol
 
@@ -371,3 +367,48 @@ Positioned glyph identity counts remain unchanged (`72/93`, `81/93`, `92/93`):
 STIX and Libertinus still contain their already-classified G5 accent selections,
 and Fira still has the blocking overbrace pair `2016/2014`. Stage 7 does not
 reclassify those glyph-selection mismatches.
+
+## Stage-8 null-delimiter-space closure
+
+`hard-delim-eval` exposed a physical-spacing bug in `\left...\right`. The
+minimal reproducer is:
+
+```tex
+\left.x\right|
+```
+
+TeX/LuaTeX materializes an empty vertical delimiter with
+`\nulldelimiterspace`; TeXpose previously represented `Delimiter::Empty` as a
+zero-width `MathBox::empty()` in `delimited()`. The repair materializes the
+existing typed physical `null_delimiter_space` as a horizontal kern for empty
+left/right delimiters. It does not change visible delimiter sizing.
+
+The focused owner is
+`tests/delimiter_sizing.rs::left_right_null_delimiters_keep_physical_nulldelimiterspace`.
+Across STIX Two Math, Libertinus Math, and Fira Math, at root-em sizes
+6/10/20/40pt, it requires both `\left.` and `\right.` to contribute exactly
+`1.2pt / root_em`. The pre-existing evaluation-delimiter assembly test now
+requires the null side to be a kern while retaining its original visible
+assembly checks.
+
+Post-fix stress measurements for `hard-delim-eval` are:
+
+```text
+profile      width signed     ascent signed    descent signed   <=0.050em census
+STIX         -0.000000em       +0.000000em      +0.000516em      79/93
+Libertinus   -0.017597em       +0.000000em      -0.000000em      81/93
+Fira         -0.014397em       +0.000000em      +0.000001em      86/93
+```
+
+Before the repair the width deficits were approximately `-0.120001em`,
+`-0.137597em`, and `-0.134397em` respectively. The common `0.120000em`
+component is the missing `1.2pt` at the 10pt root size. After restoration all
+three cases are below the `0.050em` profile tolerance. The residual Libertinus
+and Fira width deltas are therefore separate downstream geometry evidence, not
+null-delimiter-space failures.
+
+Canonical runs remain unchanged at STIX 24/25 with its existing approved G5
+geometry deviation, Libertinus 24/25 with its existing approved G5 geometry
+deviation, and Fira 25/25 with no approved geometry deviation. Stage 8 does not
+change positioned glyph identity/order classifications.
+

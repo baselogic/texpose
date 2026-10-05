@@ -6,6 +6,22 @@ use texpose::{
     layout_with_em_size_pt, parse, BoxContent, Dim, MathBox, MathFont, MathParams, MathStyle,
 };
 
+const STIX: &[u8] = include_bytes!("fixtures/fonts/stix-two-math/STIXTwoMath-Regular.otf");
+const LIBERTINUS: &[u8] =
+    include_bytes!("fixtures/fonts/libertinus-math/LibertinusMath-Regular.otf");
+const FIRA: &[u8] = include_bytes!("fixtures/fonts/fira-math/FiraMath-Regular.otf");
+
+fn profile_fonts() -> [(&'static str, MathFont); 3] {
+    [
+        ("stix", MathFont::from_bytes(STIX).expect("STIX Two Math")),
+        (
+            "libertinus",
+            MathFont::from_bytes(LIBERTINUS).expect("Libertinus Math"),
+        ),
+        ("fira", MathFont::from_bytes(FIRA).expect("Fira Math")),
+    ]
+}
+
 fn tex_delimiter_target(max_distance: &Dim, em_size_pt: &Dim) -> Dim {
     let factor_target = max_distance
         .checked_mul(&Dim::ratio(901, 500).unwrap())
@@ -28,6 +44,37 @@ fn delimited_children(tree: &MathBox) -> (&MathBox, &MathBox, &MathBox) {
         panic!("expected left/body/right delimiter branches");
     };
     (left, body, right)
+}
+
+#[test]
+fn left_right_null_delimiters_keep_physical_nulldelimiterspace() {
+    for (name, font) in profile_fonts() {
+        for em_size_pt in [6_i64, 10, 20, 40] {
+            let em_size = Dim::from_i64(em_size_pt);
+            let expected = Dim::ratio(6, 5)
+                .expect("1.2pt")
+                .checked_div(&em_size)
+                .expect("positive root em");
+
+            for (source, left_is_null) in [(r"\left.a\right|", true), (r"\left|a\right.", false)] {
+                let ast = parse(source).expect("null-delimiter expression");
+                let tree = layout_with_em_size_pt(&ast, &font, MathStyle::Display, &em_size)
+                    .unwrap_or_else(|error| panic!("{name} {em_size_pt}pt {source}: {error}"));
+                let (left, _, right) = delimited_children(&tree);
+                let null_side = if left_is_null { left } else { right };
+                let BoxContent::Kern(width) = &null_side.content else {
+                    panic!("{name} {em_size_pt}pt {source}: null delimiter must be a kern");
+                };
+
+                assert!(
+                    width.eq_dim(&expected),
+                    "{name} {em_size_pt}pt {source}: null delimiter {} != {}",
+                    width.to_dec_string(),
+                    expected.to_dec_string()
+                );
+            }
+        }
+    }
 }
 
 fn glyph_id(bx: &MathBox, expected_ch: char) -> u16 {
@@ -308,8 +355,7 @@ fn evaluation_delimiter_keeps_null_side_and_assembles_visible_bar_when_prebuilt_
     )
     .expect("evaluation delimiter layout");
     let (null, _, right) = delimited_children(&tree);
-    assert!(matches!(&null.content, BoxContent::Empty));
-    assert!(null.width.is_zero());
+    assert!(matches!(&null.content, BoxContent::Kern(_)));
     assert_vertical_assembly_reaches(right, '|', &target);
 }
 
