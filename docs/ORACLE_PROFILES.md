@@ -151,6 +151,8 @@ face mismatch would be a false failure.
 
 ## Positioned primitive trace evidence
 
+The canonical outer structural census counts glyphs and paintable rules. Zero-width TeX struts are layout scaffolding, not rendered rule primitives, so both the Rust probe and LuaTeX reference exclude them from the structural rule count. Running-dimension LuaTeX rules are resolved against their parent box before this visibility test. This keeps structural comparison aligned with the positioned trace, which already omits non-painting rules, and avoids making LaTeX-internal strut representation a TeXpose rendering contract.
+
 F8 adds an exact positioned trace on both sides. TeXpose flattens the `MathBox`
 tree into glyph/rule primitives in exact `Dim` coordinates. LuaTeX walks the
 final hlist/vlist, resolves the selected glyph index, and reports coordinates in

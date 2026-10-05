@@ -144,14 +144,14 @@ name = "cases-piecewise-dims"
 kind = "dims"
 style = "display"
 input = "f(x)=\\begin{cases} x^2 & \\text{if } x > 0 \\\\ 0 & \\text{if } x = 0 \\\\ -x^2 & \\text{if } x < 0 \\end{cases}"
-expect = "w=9.562911111111111111111111 h=2.058 d=1.542"
+expect = "w=9.682911111111111111111111 h=2.058 d=1.542"
 
 [[gold]]
 name = "cases-frac-dims"
 kind = "dims"
 style = "display"
 input = "\\begin{cases} \\frac{1}{2} \\\\ b \\end{cases}"
-expect = "w=1.0868 h=1.67645 d=1.16045"
+expect = "w=1.2068 h=1.67645 d=1.16045"
 
 [[gold]]
 name = "array-lcr-ast"

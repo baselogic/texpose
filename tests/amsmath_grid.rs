@@ -2,7 +2,28 @@ mod common;
 
 use core::cmp::Ordering;
 
-use texpose::{layout_with_em_size_pt, parse, BoxContent, Dim, MathBox, MathParams, MathStyle};
+use texpose::{
+    layout_with_diagnostics, layout_with_em_size_pt, parse, BoxContent, Dim, LayoutDiagnostic,
+    MathBox, MathFont, MathParams, MathStyle,
+};
+
+const STIX: &[u8] = include_bytes!("fixtures/fonts/stix-two-math/STIXTwoMath-Regular.otf");
+const LIBERTINUS: &[u8] =
+    include_bytes!("fixtures/fonts/libertinus-math/LibertinusMath-Regular.otf");
+const FIRA: &[u8] = include_bytes!("fixtures/fonts/fira-math/FiraMath-Regular.otf");
+const MISSING: char = '\u{10FFFF}';
+const TEX_ARRAY_COLSEP_TOTAL_PT: i64 = 10;
+
+fn profile_fonts() -> [(&'static str, MathFont); 3] {
+    [
+        ("stix", MathFont::from_bytes(STIX).expect("STIX Two Math")),
+        (
+            "libertinus",
+            MathFont::from_bytes(LIBERTINUS).expect("Libertinus Math"),
+        ),
+        ("fira", MathFont::from_bytes(FIRA).expect("Fira Math")),
+    ]
+}
 
 fn add(a: &Dim, b: &Dim) -> Dim {
     a.checked_add(b).unwrap()
@@ -154,9 +175,15 @@ fn cases_use_arraystretch_quad_gap_and_axis_center() {
 
     let outer = hlist_children(&tree);
 
-    assert_eq!(outer.len(), 2, "expected left brace and cases stack");
+    assert_eq!(
+        outer.len(),
+        3,
+        "expected left brace, cases stack and right null delimiter"
+    );
 
     let stack = &outer[1];
+    let expected_null = div(&Dim::ratio(6, 5).unwrap(), &em_size_pt);
+    assert!(kern_width(&outer[2]).eq_dim(&expected_null));
 
     assert_axis_centered(stack, &axis);
 
@@ -178,6 +205,29 @@ fn cases_use_arraystretch_quad_gap_and_axis_center() {
         assert!(parts[0].depth.eq_dim(&Dim::ratio(36, 100).unwrap()));
 
         assert!(kern_width(&parts[2]).eq_dim(&Dim::one()));
+    }
+}
+
+#[test]
+fn cases_right_null_delimiter_remains_physical_across_root_em_sizes_and_profiles() {
+    let ast = parse(r"\begin{cases}x,&x<0\\y,&x\ge0\end{cases}").expect("cases");
+
+    for (name, font) in profile_fonts() {
+        for size in [6_i64, 10, 20, 40] {
+            let em_size_pt = Dim::from_i64(size);
+            let tree = layout_with_em_size_pt(&ast, &font, MathStyle::Display, &em_size_pt)
+                .unwrap_or_else(|error| panic!("{name} {size}pt cases: {error}"));
+            let outer = hlist_children(&tree);
+            assert_eq!(outer.len(), 3, "{name} {size}pt cases outer shape");
+
+            let expected = div(&Dim::ratio(6, 5).unwrap(), &em_size_pt);
+            assert!(
+                kern_width(&outer[2]).eq_dim(&expected),
+                "{name} {size}pt null delimiter {} != {}",
+                kern_width(&outer[2]).to_dec_string(),
+                expected.to_dec_string()
+            );
+        }
     }
 }
 
@@ -310,4 +360,124 @@ fn aligned_uses_jot_lineskip_and_centers_complete_stack() {
     };
 
     assert!(gap.depth.eq_dim(&expected_gap,));
+}
+
+#[test]
+fn matrix_physical_column_spacing_is_root_em_resolved_across_profiles() {
+    let ast = parse(r"\begin{matrix}a&b\end{matrix}").expect("matrix");
+
+    for (name, font) in profile_fonts() {
+        for size in [6_i64, 10, 20, 40] {
+            let tree =
+                layout_with_em_size_pt(&ast, &font, MathStyle::Display, &Dim::from_i64(size))
+                    .unwrap_or_else(|error| panic!("{name} {size}pt matrix: {error}"));
+            let stack = environment_stack(&tree);
+            let rows = vlist_children(stack);
+            assert_eq!(rows.len(), 1, "{name} {size}pt row count");
+            let parts = hlist_children(&rows[0]);
+            assert_eq!(parts.len(), 4, "{name} {size}pt matrix row shape");
+
+            let expected = div(
+                &Dim::from_i64(TEX_ARRAY_COLSEP_TOTAL_PT),
+                &Dim::from_i64(size),
+            );
+            assert!(
+                kern_width(&parts[2]).eq_dim(&expected),
+                "{name} {size}pt matrix column gap {} != {}",
+                kern_width(&parts[2]).to_dec_string(),
+                expected.to_dec_string()
+            );
+        }
+    }
+}
+
+#[test]
+fn amsmath_grid_cells_clean_terminal_math_italic_across_profiles() {
+    let matrix_ast = parse(r"\begin{matrix}x&x\end{matrix}").expect("matrix");
+    let aligned_ast = parse(r"\begin{aligned}x&x\end{aligned}").expect("aligned");
+    let x_ast = parse("x").expect("x");
+    let em_size_pt = Dim::from_i64(10);
+
+    for (name, font) in profile_fonts() {
+        let text_x = layout_with_em_size_pt(&x_ast, &font, MathStyle::Text, &em_size_pt)
+            .unwrap_or_else(|error| panic!("{name} text x: {error}"));
+        assert!(
+            !text_x.italic.is_zero(),
+            "{name}: fixture must expose terminal math italic"
+        );
+        let expected_text = add(&text_x.width, &text_x.italic);
+
+        let matrix = layout_with_em_size_pt(&matrix_ast, &font, MathStyle::Display, &em_size_pt)
+            .unwrap_or_else(|error| panic!("{name} matrix: {error}"));
+        let matrix_rows = vlist_children(environment_stack(&matrix));
+        let matrix_parts = hlist_children(&matrix_rows[0]);
+        assert!(
+            matrix_parts[1].width.eq_dim(&expected_text)
+                && matrix_parts[3].width.eq_dim(&expected_text),
+            "{name}: matrix cells must include terminal math italic exactly once"
+        );
+
+        let display_x = layout_with_em_size_pt(&x_ast, &font, MathStyle::Display, &em_size_pt)
+            .unwrap_or_else(|error| panic!("{name} display x: {error}"));
+        assert!(
+            !display_x.italic.is_zero(),
+            "{name}: display fixture must expose terminal math italic"
+        );
+        let expected_display = add(&display_x.width, &display_x.italic);
+
+        let aligned = layout_with_em_size_pt(&aligned_ast, &font, MathStyle::Display, &em_size_pt)
+            .unwrap_or_else(|error| panic!("{name} aligned: {error}"));
+        let aligned_rows = vlist_children(environment_stack(&aligned));
+        let aligned_parts = hlist_children(&aligned_rows[0]);
+        assert_eq!(aligned_parts.len(), 3, "{name} aligned row shape");
+        assert!(
+            aligned_parts[1].width.eq_dim(&expected_display)
+                && aligned_parts[2].width.eq_dim(&expected_display),
+            "{name}: aligned fields must include terminal math italic exactly once"
+        );
+    }
+}
+
+#[test]
+fn matrix_empty_cells_preserve_shared_column_widths_and_alignment_points() {
+    let ast = parse(r"\begin{matrix}a&\\&bb\end{matrix}").expect("matrix with empty cells");
+
+    for (name, font) in profile_fonts() {
+        let tree = layout_with_em_size_pt(&ast, &font, MathStyle::Display, &Dim::from_i64(10))
+            .unwrap_or_else(|error| panic!("{name} empty-cell matrix: {error}"));
+        let rows = vlist_children(environment_stack(&tree));
+        assert_eq!(rows.len(), 2, "{name} row count");
+        assert!(
+            rows[0].width.eq_dim(&rows[1].width),
+            "{name} rows must share the measured column grid"
+        );
+
+        for row in rows {
+            let parts = hlist_children(row);
+            assert_eq!(
+                parts.len(),
+                4,
+                "{name} row must retain two alignment fields"
+            );
+            assert!(matches!(&parts[0].content, BoxContent::Rule));
+            assert!(matches!(&parts[2].content, BoxContent::Kern(_)));
+        }
+    }
+}
+
+#[test]
+fn matrix_degrades_missing_cell_glyph_without_losing_grid_structure() {
+    let font = common::stix_two_math().expect("STIX Two Math");
+    let source = format!(r"\begin{{matrix}}a&{MISSING}\\b&c\end{{matrix}}");
+    let ast = parse(&source).expect("matrix with missing scalar");
+    let output = layout_with_diagnostics(&ast, &font, MathStyle::Display)
+        .expect("missing matrix cell glyph must degrade deterministically");
+
+    assert_eq!(
+        output.diagnostics,
+        vec![LayoutDiagnostic::MissingGlyph { ch: MISSING }]
+    );
+    let rows = vlist_children(environment_stack(&output.math_box));
+    assert_eq!(rows.len(), 2);
+    assert!(rows.iter().all(|row| hlist_children(row).len() == 4));
 }

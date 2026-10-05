@@ -36,6 +36,16 @@ Ruled fractions use the style-appropriate OpenType MATH numerator/denominator sh
 
 An empty generalized-fraction delimiter is a TeX null delimiter, not a zero-width delimiter. Each empty side contributes the physical default `\nulldelimiterspace` of 1.2 TeX pt through the typed physical-length resolver. Consequently normalized MATH geometry is root-em invariant while the null-delimiter contribution scales as a physical length when the caller changes the root em from 6pt through 40pt. Explicit fraction delimiters continue through the ordinary TeX delimiter target and OpenType MATH variant/assembly machinery.
 
+## AMSMath grids and script stacks
+
+AMSmath alignment cells and `\substack` rows are cleaned as math lists before their widths participate in a grid or stack. A one-item math character therefore materializes its terminal MATH italic correction exactly once, matching the clean-box rule used by generalized-fraction components.
+
+`matrix`, `pmatrix`, `bmatrix`, and `vmatrix` use textstyle cells on a shared measured column grid. Adjacent matrix columns are separated by two physical `\arraycolsep` values (10 TeX pt with the supported default), resolved through the root-em physical-length boundary. Empty cells remain explicit alignment fields so later rows reuse the same column widths. The completed row stack is vertically centered on the current mathematical `AxisHeight`; visible matrix delimiters are then sized from that centered stack through the ordinary TeX delimiter/MATH variant path.
+
+`cases` uses the same row/grid machinery with left-aligned textstyle cells, `\arraystretch=1.2`, a one-quad intercolumn insertion, a left brace, TeX's physical 1.2pt right `\nulldelimiterspace` from the terminating `\right.`, and current-axis centering. `aligned` uses displaystyle cells in alternating right/left alignment fields. Right-hand fields receive the empty-Ord prefix used by amsmath, 10 TeX pt `\minalignsep` is inserted only between alignment pairs, and inter-row spacing applies the amsmath `\openup\jot` rule: baseline skip grows by 3pt, while close rows fall back to the corresponding 4pt line skip.
+
+`\substack` is a centered scriptstyle subarray. Its rows use the non-display OpenType MATH stack shifts/gap at script scale and the finished stack is vcentered on the surrounding style's axis. This intrinsic vcentering is preserved when the substack later becomes a large-operator limit. Missing required cell glyphs keep the grid shape and use the ordinary deterministic missing-glyph diagnostic/fallback path.
+
 ## Radical geometry
 
 Radicals size U+221A from the cramped radicand span plus the style-appropriate `RadicalVerticalGap` / `RadicalDisplayStyleVerticalGap` and `RadicalRuleThickness`. `RadicalExtraAscender` is reserved above the finished rule and is not part of the MATH variant/assembly target. If the selected ready-made variant or vertical assembly is taller than the minimum request, the excess is split into the effective gap and surd descent using the TeX radical construction rule.

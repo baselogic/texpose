@@ -160,6 +160,34 @@ const MATH_COMPARISON_CASES: &[MathComparisonCase<'static>] = &[
         display: false,
         size_pt: 10,
     },
+    MathComparisonCase {
+        name: "display-matrix",
+        family: "matrices",
+        source: r"\begin{pmatrix}\frac{1}{2}&x\\y&z\end{pmatrix}",
+        display: true,
+        size_pt: 10,
+    },
+    MathComparisonCase {
+        name: "display-cases",
+        family: "cases",
+        source: r"\begin{cases}x,&x<0\\y,&x\ge0\end{cases}",
+        display: true,
+        size_pt: 10,
+    },
+    MathComparisonCase {
+        name: "display-aligned",
+        family: "aligned",
+        source: r"\begin{aligned}a&=b\\c&=\frac{1}{2}\end{aligned}",
+        display: true,
+        size_pt: 10,
+    },
+    MathComparisonCase {
+        name: "display-substack",
+        family: "substack",
+        source: r"\substack{1\le i\le n\\i\ne j}",
+        display: true,
+        size_pt: 10,
+    },
 ];
 
 const MATH_COMPARISON_STRESS_TSV: &str = include_str!("fixtures/math_compare_stress.tsv");
@@ -289,11 +317,11 @@ fn math_comparison_stress_fixture_is_well_formed() {
         .copied()
         .collect();
     let unique = unique_measurements(&all);
-    assert_eq!(all.len(), 94);
-    assert_eq!(unique.len(), 89);
+    assert_eq!(all.len(), 98);
+    assert_eq!(unique.len(), 93);
     assert_eq!(
         unique.iter().map(|item| item.names.len()).sum::<usize>(),
-        94
+        98
     );
     let fraction = unique
         .iter()
@@ -351,8 +379,12 @@ fn box_stats(math_box: &MathBox) -> BoxStats {
     match &math_box.content {
         BoxContent::Empty | BoxContent::Kern(_) => {}
         BoxContent::Rule => {
-            stats.rules = 1;
-            stats.ops = 1;
+            if math_box.width > Dim::zero()
+                && (math_box.height > Dim::zero() || math_box.depth > Dim::zero())
+            {
+                stats.rules = 1;
+                stats.ops = 1;
+            }
         }
         BoxContent::Glyph { .. } => {
             stats.glyphs = 1;
@@ -377,6 +409,17 @@ fn box_stats(math_box: &MathBox) -> BoxStats {
         }
     }
     stats
+}
+
+#[test]
+fn structural_rule_census_ignores_nonpainting_zero_width_struts() {
+    let strut = MathBox::rule(Dim::zero(), Dim::one(), Dim::one());
+    let visible = MathBox::rule(Dim::one(), Dim::one(), Dim::zero());
+    let tree = MathBox::hpack(vec![strut, visible]).expect("rule census fixture");
+
+    let stats = box_stats(&tree);
+    assert_eq!(stats.rules, 1);
+    assert_eq!(stats.ops, 1);
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

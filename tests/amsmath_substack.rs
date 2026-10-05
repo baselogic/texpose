@@ -4,6 +4,22 @@ use core::cmp::Ordering;
 
 use texpose::{layout, parse, BoxContent, Dim, MathBox, MathFont, MathNode, MathParams, MathStyle};
 
+const STIX: &[u8] = include_bytes!("fixtures/fonts/stix-two-math/STIXTwoMath-Regular.otf");
+const LIBERTINUS: &[u8] =
+    include_bytes!("fixtures/fonts/libertinus-math/LibertinusMath-Regular.otf");
+const FIRA: &[u8] = include_bytes!("fixtures/fonts/fira-math/FiraMath-Regular.otf");
+
+fn profile_fonts() -> [(&'static str, MathFont); 3] {
+    [
+        ("stix", MathFont::from_bytes(STIX).expect("STIX Two Math")),
+        (
+            "libertinus",
+            MathFont::from_bytes(LIBERTINUS).expect("Libertinus Math"),
+        ),
+        ("fira", MathFont::from_bytes(FIRA).expect("Fira Math")),
+    ]
+}
+
 fn add(a: &Dim, b: &Dim) -> Dim {
     a.checked_add(b).unwrap()
 }
@@ -127,6 +143,30 @@ fn substack_uses_scriptstyle_rows_math_stack_spacing_and_vcenter() {
 }
 
 #[test]
+fn substack_single_atom_rows_clean_terminal_math_italic_across_profiles() {
+    let ast = parse(r"\substack{x\\x}").expect("substack");
+    let x_ast = parse("x").expect("x");
+
+    for (name, font) in profile_fonts() {
+        let direct = layout(&x_ast, &font, MathStyle::Script)
+            .unwrap_or_else(|error| panic!("{name} script x: {error}"));
+        assert!(
+            !direct.italic.is_zero(),
+            "{name}: fixture must expose script terminal math italic"
+        );
+        let expected = add(&direct.width, &direct.italic);
+        let stack = layout(&ast, &font, MathStyle::Display)
+            .unwrap_or_else(|error| panic!("{name} substack: {error}"));
+        assert!(
+            stack.width.eq_dim(&expected),
+            "{name}: substack width {} != clean script width {}",
+            stack.width.to_dec_string(),
+            expected.to_dec_string()
+        );
+    }
+}
+
+#[test]
 fn display_sum_preserves_substack_vcenter_inside_lower_limit() {
     let font = common::stix_two_math().expect("STIX Two Math");
 
@@ -165,4 +205,36 @@ fn display_sum_preserves_substack_vcenter_inside_lower_limit() {
         intrinsic_center.eq_dim(&axis),
         "external limit shift must not overwrite substack vcenter"
     );
+}
+
+#[test]
+fn substack_script_rows_and_vcenter_hold_across_verification_fonts() {
+    let ast = parse(r"\substack{1\le i\le n\\i\ne j}").expect("substack");
+
+    for (name, font) in profile_fonts() {
+        let params = MathParams::from_font(&font).expect("MATH constants");
+        let tree = layout(&ast, &font, MathStyle::Script)
+            .unwrap_or_else(|error| panic!("{name} substack layout: {error}"));
+        let axis = mul(&params.axis_height, &params.scale(MathStyle::Script));
+        let center = div(&sub(&tree.height, &tree.depth), &Dim::from_i64(2));
+        assert!(
+            center.eq_dim(&axis),
+            "{name} substack center {} != script axis {}",
+            center.to_dec_string(),
+            axis.to_dec_string()
+        );
+
+        let MathNode::Substack(lines) = &ast else {
+            unreachable!();
+        };
+        let expected_width = lines
+            .iter()
+            .map(|line| {
+                layout(line, &font, MathStyle::Script)
+                    .expect("script row")
+                    .width
+            })
+            .fold(Dim::zero(), |width, row| width.max_ref(&row));
+        assert!(tree.width.eq_dim(&expected_width), "{name} substack width");
+    }
 }

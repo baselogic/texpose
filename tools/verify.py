@@ -20,10 +20,10 @@ from typing import Iterable
 
 ROOT = Path(__file__).resolve().parent.parent
 PROFILE_REVISION = "oracle-v9"
-CANONICAL_CENSUS_SHA256 = "d1d1e356e5a4f426ebf603ed6be5cb134dca3bebe9be7f6b49938ed5ada4ddf1"
-STRESS_CENSUS_SHA256 = "383828f9f734c65e67ce7b9a4f12f501fc2951825ed8ffd1ff6fca945b5e29b4"
+CANONICAL_CENSUS_SHA256 = "cc94469fc91882057326e233c4d00fd91cb19614256e393c0fede884d4ba8c88"
+STRESS_CENSUS_SHA256 = "f2144d4c75dab742ff2fa1642ce29e391382f6b600c44ee01f6d6004ee203108"
 CANONICAL_ALIAS_CENSUS_SHA256 = CANONICAL_CENSUS_SHA256
-STRESS_ALIAS_CENSUS_SHA256 = "1eae50562863db2a26d7c28c96c78a82c3a47649348cb277fc7f17b7578f3b71"
+STRESS_ALIAS_CENSUS_SHA256 = "d59a05fab134f3a74e16e11ce9750e01963511b846bbd8dd42ea7f2e5677ae83"
 KNOWN_CAPABILITIES = frozenset({"math-font", "canonical-corpus", "stress-corpus"})
 REFERENCE_ENVIRONMENT_SHA256 = "b621bc874d9749432eca9f8a66a8bc8ffd72afda0ef8de8624f6a2c2171acbdf"
 STIX_CANONICAL_TRACE_GLYPH_MISMATCHES = (
@@ -256,13 +256,13 @@ PROFILES: dict[str, MathProfile] = {
         face_index=0,
         required_capabilities=("math-font", "canonical-corpus", "stress-corpus"),
         capability_exclusions=(),
-        canonical_measurements=21,
-        canonical_aliases=21,
+        canonical_measurements=25,
+        canonical_aliases=25,
         canonical_census_sha256=CANONICAL_CENSUS_SHA256,
         canonical_alias_census_sha256=CANONICAL_ALIAS_CENSUS_SHA256,
         canonical_tolerance=0.05,
-        stress_measurements=89,
-        stress_aliases=94,
+        stress_measurements=93,
+        stress_aliases=98,
         stress_census_sha256=STRESS_CENSUS_SHA256,
         stress_alias_census_sha256=STRESS_ALIAS_CENSUS_SHA256,
         stress_tolerance=0.05,
@@ -292,13 +292,13 @@ PROFILES: dict[str, MathProfile] = {
         face_index=0,
         required_capabilities=("math-font", "canonical-corpus", "stress-corpus"),
         capability_exclusions=(),
-        canonical_measurements=21,
-        canonical_aliases=21,
+        canonical_measurements=25,
+        canonical_aliases=25,
         canonical_census_sha256=CANONICAL_CENSUS_SHA256,
         canonical_alias_census_sha256=CANONICAL_ALIAS_CENSUS_SHA256,
         canonical_tolerance=0.05,
-        stress_measurements=89,
-        stress_aliases=94,
+        stress_measurements=93,
+        stress_aliases=98,
         stress_census_sha256=STRESS_CENSUS_SHA256,
         stress_alias_census_sha256=STRESS_ALIAS_CENSUS_SHA256,
         stress_tolerance=0.05,
@@ -328,13 +328,13 @@ PROFILES: dict[str, MathProfile] = {
         face_index=0,
         required_capabilities=("math-font", "canonical-corpus", "stress-corpus"),
         capability_exclusions=(),
-        canonical_measurements=21,
-        canonical_aliases=21,
+        canonical_measurements=25,
+        canonical_aliases=25,
         canonical_census_sha256=CANONICAL_CENSUS_SHA256,
         canonical_alias_census_sha256=CANONICAL_ALIAS_CENSUS_SHA256,
         canonical_tolerance=0.05,
-        stress_measurements=89,
-        stress_aliases=94,
+        stress_measurements=93,
+        stress_aliases=98,
         stress_census_sha256=STRESS_CENSUS_SHA256,
         stress_alias_census_sha256=STRESS_ALIAS_CENSUS_SHA256,
         stress_tolerance=0.05,
@@ -590,8 +590,8 @@ def resolve_run_spec(args: argparse.Namespace) -> RunSpec:
         font_sha256=sha256_file(font_path),
         face_index=face_index,
         revision="adhoc-v1",
-        measurement_count=89 if args.stress else 21,
-        alias_count=94 if args.stress else 21,
+        measurement_count=93 if args.stress else 25,
+        alias_count=98 if args.stress else 25,
         census_sha256=STRESS_CENSUS_SHA256 if args.stress else CANONICAL_CENSUS_SHA256,
         alias_census_sha256=(
             STRESS_ALIAS_CENSUS_SHA256 if args.stress else CANONICAL_ALIAS_CENSUS_SHA256
@@ -1740,7 +1740,7 @@ def self_test() -> None:
     if geometry_deviation_is_approved(0.0812, 0.05, bounded):
         fail("self-test geometry ceiling failed open")
 
-    names = [f"case-{index}" for index in range(1, 22)]
+    names = [f"case-{index}" for index in range(1, 26)]
     census = "TEXPOSE_MATH_COMPARE_CASES names=" + ",".join(names)
     alias_census = "TEXPOSE_MATH_COMPARE_ALIASES names=" + ",".join(names)
     meta = (
@@ -1773,8 +1773,8 @@ def self_test() -> None:
         font_sha256="a" * 64,
         face_index=0,
         revision="test-v1",
-        measurement_count=21,
-        alias_count=21,
+        measurement_count=25,
+        alias_count=25,
         census_sha256=census_sha256(names),
         alias_census_sha256=census_sha256(names),
         tolerance=0.05,
@@ -1811,7 +1811,7 @@ def self_test() -> None:
         fail("self-test microtype guard must run after begin-document hooks and before evidence")
 
     cases, parsed_meta = parse_math_probe([meta, census, alias_census, *rows], spec)
-    if len(cases) != 21 or parsed_meta.face_index != 0:
+    if len(cases) != 25 or parsed_meta.face_index != 0:
         fail("self-test valid probe rejected")
 
     grouped_names = ["group-a", "single", "group-b"]
@@ -1921,7 +1921,7 @@ def self_test() -> None:
             reference_lines.extend((lua_case(name), lua_trace(name)))
         path.write_text("\n".join(reference_lines) + "\n", encoding="utf-8")
         parsed, reference = parse_math_results(path, cases, spec)
-        if len(parsed) != 21 or not reference.environment_sha256():
+        if len(parsed) != 25 or not reference.environment_sha256():
             fail("self-test valid reference rejected")
 
         first_delta = compare_positioned_trace(cases["case-1"], parsed["case-1"])
@@ -2376,8 +2376,8 @@ def self_test() -> None:
             font_sha256="a" * 64,
             face_index=1,
             revision="test-v1",
-            measurement_count=21,
-            alias_count=21,
+            measurement_count=25,
+            alias_count=25,
             census_sha256=spec.census_sha256,
             alias_census_sha256=spec.alias_census_sha256,
             tolerance=0.05,
@@ -2411,13 +2411,13 @@ def self_test() -> None:
         face_index=0,
         required_capabilities=("math-font",),
         capability_exclusions=(("case-1", "unknown-capability"),),
-        canonical_measurements=21,
-        canonical_aliases=21,
+        canonical_measurements=25,
+        canonical_aliases=25,
         canonical_census_sha256=CANONICAL_CENSUS_SHA256,
         canonical_alias_census_sha256=CANONICAL_ALIAS_CENSUS_SHA256,
         canonical_tolerance=0.05,
-        stress_measurements=89,
-        stress_aliases=94,
+        stress_measurements=93,
+        stress_aliases=98,
         stress_census_sha256=STRESS_CENSUS_SHA256,
         stress_alias_census_sha256=STRESS_ALIAS_CENSUS_SHA256,
         stress_tolerance=0.05,

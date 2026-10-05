@@ -980,7 +980,7 @@ impl<'font, 'state> Engine<'font, 'state> {
         })
     }
 
-    fn fraction_component(&self, node: &MathNode, style: MathStyle) -> Result<MathBox, Error> {
+    fn clean_math_component(&self, node: &MathNode, style: MathStyle) -> Result<MathBox, Error> {
         let bx = self.layout(node, style)?;
         if row_needs_math_italic_kern(node) && !bx.italic.is_zero() {
             let italic = bx.italic.clone();
@@ -999,8 +999,8 @@ impl<'font, 'state> Engine<'font, 'state> {
             FractionStyle::ScriptScript => MathStyle::ScriptScript,
         };
 
-        let num_b = self.fraction_component(&spec.numerator, fraction_style.numerator())?;
-        let den_b = self.fraction_component(&spec.denominator, fraction_style.denominator())?;
+        let num_b = self.clean_math_component(&spec.numerator, fraction_style.numerator())?;
+        let den_b = self.clean_math_component(&spec.denominator, fraction_style.denominator())?;
         let scale = self.params.scale(fraction_style);
         let axis = self.params.axis_height.checked_mul(&scale)?;
 
@@ -2543,7 +2543,7 @@ impl<'font, 'state> Engine<'font, 'state> {
         // even when the surrounding expression is already Script.
         let mut laid = Vec::with_capacity(lines.len());
         for line in lines {
-            laid.push(self.layout(line, MathStyle::Script)?);
+            laid.push(self.clean_math_component(line, MathStyle::Script)?);
         }
         let width = laid
             .iter()
@@ -2634,7 +2634,7 @@ impl<'font, 'state> Engine<'font, 'state> {
         )?;
         let gaps = vec![Dim::zero(); packed_rows.len().saturating_sub(1)];
         let stack = self.center_amsmath_stack(packed_rows, &gaps, style)?;
-        let bx = self.wrap_amsmath_stack(stack, matrix_delims(style_m), style)?;
+        let bx = self.wrap_amsmath_stack(stack, matrix_delims(style_m), style, false)?;
         Ok(Item {
             class: Some(AtomKind::Inner),
             bx,
@@ -2654,7 +2654,7 @@ impl<'font, 'state> Engine<'font, 'state> {
         )?;
         let gaps = vec![Dim::zero(); packed_rows.len().saturating_sub(1)];
         let stack = self.center_amsmath_stack(packed_rows, &gaps, style)?;
-        let bx = self.wrap_amsmath_stack(stack, (Some('{'), None), style)?;
+        let bx = self.wrap_amsmath_stack(stack, (Some('{'), None), style, true)?;
         Ok(Item {
             class: Some(AtomKind::Inner),
             bx,
@@ -2673,7 +2673,7 @@ impl<'font, 'state> Engine<'font, 'state> {
             };
             let mut laid = Vec::with_capacity(row.len());
             for (column, cell) in row.iter().enumerate() {
-                let mut bx = self.layout(cell, MathStyle::Display)?;
+                let mut bx = self.clean_math_component(cell, MathStyle::Display)?;
                 if column % 2 == 1 {
                     let leading = self.aligned_leading_ord_space(cell)?;
                     if !leading.is_zero() {
@@ -2701,7 +2701,7 @@ impl<'font, 'state> Engine<'font, 'state> {
         )?;
         let gaps = self.aligned_interrow_gaps(&packed_rows)?;
         let stack = self.center_amsmath_stack(packed_rows, &gaps, style)?;
-        let bx = self.wrap_amsmath_stack(stack, (None, None), style)?;
+        let bx = self.wrap_amsmath_stack(stack, (None, None), style, false)?;
         Ok(Item {
             class: Some(AtomKind::Inner),
             bx,
@@ -2724,14 +2724,14 @@ impl<'font, 'state> Engine<'font, 'state> {
         rows.iter()
             .map(|row| {
                 row.iter()
-                    .map(|cell| self.layout(cell, style))
+                    .map(|cell| self.clean_math_component(cell, style))
                     .collect::<Result<Vec<_>, _>>()
             })
             .collect()
     }
 
     fn aligned_leading_ord_space(&self, cell: &MathNode) -> Result<Dim, Error> {
-        let bare = self.layout(cell, MathStyle::Display)?;
+        let bare = self.clean_math_component(cell, MathStyle::Display)?;
         let empty_ord = MathNode::Row(Vec::new());
         let prefixed = match cell {
             MathNode::Row(items) => {
@@ -2844,6 +2844,7 @@ impl<'font, 'state> Engine<'font, 'state> {
         stack: MathBox,
         delims: (Option<char>, Option<char>),
         style: MathStyle,
+        right_null_delimiter: bool,
     ) -> Result<MathBox, Error> {
         let scale = self.params.scale(style);
         let axis = self.params.axis_height.checked_mul(&scale)?;
@@ -2857,6 +2858,8 @@ impl<'font, 'state> Engine<'font, 'state> {
         children.push(stack);
         if let Some(ch) = delims.1 {
             children.push(self.center_delimiter(self.sized_glyph(ch, &needed, style)?, &axis)?);
+        } else if right_null_delimiter {
+            children.push(MathBox::kern(self.null_delimiter_space.clone()));
         }
         shifted_hpack(children)
     }
