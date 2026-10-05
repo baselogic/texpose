@@ -334,3 +334,40 @@ negative value means the converse. Glyph-selection mismatches still withhold
 identity-based geometry in the contractual comparator. The explanation output
 shows paint-index coordinates only to reconstruct the first causal divergence;
 it does not silently declare unlike glyphs geometrically equivalent.
+
+## Stage-7 environment-cell glue closure
+
+`hard-matrix-fractions` exposed a TeXpose parser bug rather than matrix-grid
+geometry. The minimal reproducer is:
+
+```tex
+\begin{matrix}a\,b\end{matrix}
+```
+
+`peel_row_meta` recursively removed nodes through the generic `is_empty_node`
+predicate. That predicate intentionally treats `MathNode::Space(_)` as empty for
+other parser contracts, so using it while peeling row metadata discarded explicit
+math glue from every environment cell. The repair removes only the empty-row
+placeholder produced by row-metadata extraction and leaves ordinary math-space
+nodes intact.
+
+The focused owner is
+`tests/amsmath_grid.rs::environment_cells_preserve_explicit_math_glue`. Across
+STIX Two Math, Libertinus Math, and Fira Math it requires a one-cell matrix
+containing `a\,b` to be exactly `3mu` wider than the corresponding `ab` matrix.
+
+Post-fix stress measurements for `hard-matrix-fractions` are:
+
+```text
+profile      width signed     ascent signed    descent signed   <=0.050em census
+STIX         +0.000036em       -0.000001em      -0.000001em      78/93
+Libertinus   +0.000039em       -0.000002em      +0.000001em      80/93
+Fira         +0.000034em       +0.014500em      +0.014501em      85/93
+```
+
+Before the repair the width deficit was approximately `-0.16663em` in all three
+profiles, matching the lost `3mu`. The outer-width mismatch is therefore closed.
+Positioned glyph identity counts remain unchanged (`72/93`, `81/93`, `92/93`):
+STIX and Libertinus still contain their already-classified G5 accent selections,
+and Fira still has the blocking overbrace pair `2016/2014`. Stage 7 does not
+reclassify those glyph-selection mismatches.

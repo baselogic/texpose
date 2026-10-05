@@ -1973,7 +1973,7 @@ fn peel_row_meta(node: MathNode, number: &mut EqNumber, labels: &mut Vec<String>
             let mut kept = Vec::new();
             for it in items {
                 let p = peel_row_meta(it, number, labels);
-                if !is_empty_node(&p) {
+                if !is_row_meta_placeholder(&p) {
                     kept.push(p);
                 }
             }
@@ -1981,6 +1981,10 @@ fn peel_row_meta(node: MathNode, number: &mut EqNumber, labels: &mut Vec<String>
         }
         other => other,
     }
+}
+
+fn is_row_meta_placeholder(node: &MathNode) -> bool {
+    matches!(node, MathNode::Row(items) if items.is_empty())
 }
 
 fn finish_env_row(cells: Vec<MathNode>, number: EqNumber, labels: Vec<String>) -> EnvRow {

@@ -25,6 +25,33 @@ fn profile_fonts() -> [(&'static str, MathFont); 3] {
     ]
 }
 
+#[test]
+fn environment_cells_preserve_explicit_math_glue() {
+    for (name, font) in profile_fonts() {
+        let params = MathParams::from_font(&font).expect("MATH constants");
+        let expected_thin = params
+            .mu(MathStyle::Text)
+            .expect("textstyle mu")
+            .checked_mul(&Dim::from_i64(3))
+            .expect("3mu");
+
+        let plain = parse(r"\begin{matrix}ab\end{matrix}").expect("plain matrix");
+        let spaced = parse(r"\begin{matrix}a\,b\end{matrix}").expect("spaced matrix");
+        let plain = layout_with_em_size_pt(&plain, &font, MathStyle::Display, &Dim::from_i64(10))
+            .unwrap_or_else(|error| panic!("{name} plain matrix: {error}"));
+        let spaced = layout_with_em_size_pt(&spaced, &font, MathStyle::Display, &Dim::from_i64(10))
+            .unwrap_or_else(|error| panic!("{name} spaced matrix: {error}"));
+        let actual = sub(&spaced.width, &plain.width);
+
+        assert!(
+            actual.eq_dim(&expected_thin),
+            "{name} explicit thin space in a matrix cell: {} != {}",
+            actual.to_dec_string(),
+            expected_thin.to_dec_string()
+        );
+    }
+}
+
 fn add(a: &Dim, b: &Dim) -> Dim {
     a.checked_add(b).unwrap()
 }
