@@ -196,6 +196,22 @@ OpenType rule. They freeze the measured cross-engine differences while the
 existing focused MathKern tests continue to own TeXpose behavior. Each ceiling
 is stale-sensitive and applies only to its named STIX stress case.
 
+### G7 ExtendedShape superscript-policy divergence
+
+STIX `hard-sum-substack` has aligned outer geometry (`0.000026em` width,
+`0.000000em` ascent, `0.000003em` descent) and aligned topology/glyph identity,
+but its denominator contains `(...)^2`. The right parenthesis is covered by the
+font's `ExtendedShapeCoverage`. TeXpose therefore applies the published
+`superscriptBaselineDropMax` rule to that extended-shape base. The pinned
+LuaLaTeX reference instead places the superscript using
+`superscriptShiftUpCramped`, which shifts the denominator's ordinary glyphs as a
+consequence of the fraction-gap repair while leaving the final outer box nearly
+unchanged.
+
+The measured maximum is `0.239700em` in `glyph-baseline`. Stage 13b records only
+a `0.239800em` stress positioned-trace ceiling. It does not add an outer
+geometry deviation or weaken G7 ExtendedShape behavior.
+
 ## Collection-face identity
 
 The generic oracle accepts `--font` and `--face-index`. TeXpose parses exactly

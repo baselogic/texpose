@@ -346,6 +346,7 @@ PROFILES: dict[str, MathProfile] = {
         stress_trace_deviations=(
             ("hard-logit", 0.4501),
             ("hard-wide-expression", 0.3499),
+            ("hard-sum-substack", 0.2398),
         ),
         reference_environment_sha256=REFERENCE_ENVIRONMENT_SHA256,
     ),

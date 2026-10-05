@@ -344,8 +344,10 @@ hard-aligned-model             0.079861em
 ```
 
 These remain G12 work after the listed classifications. Stage 13a additionally
-classifies only STIX `hard-wide-expression`; it does not approve ExtendedShape,
-overbrace, delimiter-selection, alignment, radical, or any other residual.
+classifies only STIX `hard-wide-expression`. Stage 13b below classifies one
+positioned-only ExtendedShape policy split in `hard-sum-substack`; it does not
+approve alignment, radical, overbrace, delimiter-selection, or any other
+residual.
 
 ## Closure protocol
 
@@ -864,3 +866,72 @@ Reopen this decision if the published OpenType rule changes, LuaTeX returns to
 the minimum-of-sums rule, TeXpose no longer selects the specified minimum, the
 measured case ceases to exhibit the repeated per-`b_i` step, or either delta
 exceeds its ceiling. All other G12 residuals remain separate work.
+
+## Stage-13b STIX ExtendedShape superscript-policy classification
+
+Stage 13b closes one G7 **classification** without changing TeXpose layout. The
+measured stress case is:
+
+```tex
+\sum_{\substack{1\le i\le n\\1\le j\le m\\i\ne j}}\frac{x_i-x_j}{1+(x_i-x_j)^2}
+```
+
+Outer geometry is already aligned: TeXpose/reference differ by only
+`+0.000026em` width, `+0.000000em` ascent, and `-0.000003em` descent, with
+identical glyph/rule counts (`29/29`, `1/1`). The positioned trace is also
+topology- and identity/order-aligned for all 30 primitives. The first 19
+primitives -- the sum, its three-row substack, the fraction numerator, and the
+fraction rule -- agree to rounding noise. This rules out G8 lower-limit and G10
+substack placement as the source.
+
+The divergence starts in the fraction denominator. Primitives 20 through 28,
+which contain `1+(x_i-x_j)`, all share the same signed baseline delta of
+`-0.239700em`. The final superscript glyph at primitive 29 does not share that
+translation: its baseline is `-0.395700em` in TeXpose versus `-0.409999em` in
+the reference. Relative to the right-parenthesis base at primitive 28, TeXpose
+therefore raises `2` by exactly `0.506000em`, while the reference raises it by
+approximately `0.252001em`. The different superscript height changes the
+denominator box height; fraction gap enforcement then moves the ordinary
+denominator glyphs in the opposite direction, which is why the outer fraction
+geometry remains nearly unchanged.
+
+The STIX Two Math 2.13 fixture makes the policy split explicit. Its MATH table
+contains:
+
+```text
+superscriptShiftUpCramped   = 252 units = 0.252em
+superscriptBaselineDropMax  = 230 units = 0.230em
+```
+
+Glyph `1065`, the right parenthesis in the trace, is present in
+`ExtendedShapeCoverage`. Its ink height in this context is `0.736em`, so the
+published extended-shape baseline-drop constraint gives
+`0.736 - 0.230 = 0.506em`, exactly the TeXpose relative superscript shift. The
+pinned reference's `0.252001em` relative shift instead matches
+`superscriptShiftUpCramped`.
+
+This distinction is specification-owned. OpenType MATH states that
+`superscriptBaselineDropMax` is checked for bases treated as a box or extended
+shape, and its ExtendedShape section explains that ordinary vertical positioning
+algorithms are not appropriate for those glyphs:
+
+```text
+https://learn.microsoft.com/en-us/typography/opentype/spec/math
+```
+
+TeXpose's G7 contract intentionally integrates `ExtendedShapeCoverage` into
+vertical script positioning. Current LuaTeX's `make_scripts` takes a different
+path for a glyph node: it skips the base-box baseline-drop initialization and
+then applies `sup_shift_up(cur_style)` / `SuperscriptShiftUpCramped` as the
+minimum script shift. That behavior explains the pinned LuaHBTeX 1.25.7 trace;
+it is reference behavior, not authority to weaken the published G7 contract.
+
+Stage 13b therefore adds only a STIX stress positioned-trace ceiling of
+`0.239800em` for `hard-sum-substack`. No outer geometry ceiling is needed, no
+structural or glyph-selection difference is permitted, and the global
+`0.050em` geometry tolerance is unchanged.
+
+Reopen this decision if the OpenType ExtendedShape script rule changes, if the
+STIX parenthesis leaves `ExtendedShapeCoverage`, if the pinned reference begins
+using the baseline-drop rule, if TeXpose ceases to apply it, or if the positioned
+delta exceeds the ceiling. All other G12 residuals remain separate work.
