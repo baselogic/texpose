@@ -3828,7 +3828,7 @@ fn accent_candidates(kind: AccentKind) -> &'static [char] {
         AccentKind::Acute => &['´', '\u{0301}'],
         AccentKind::Grave => &['`', '\u{0300}'],
         AccentKind::Tilde | AccentKind::WideTilde => &['\u{0303}', '˜'],
-        AccentKind::Bar => &['¯', '\u{0304}'],
+        AccentKind::Bar => &['\u{0304}', '¯'],
         AccentKind::Vec | AccentKind::Overrightarrow => &['\u{20D7}', '→', '\u{27F6}'],
         AccentKind::Overleftarrow => &['\u{20D6}', '←', '\u{27F5}'],
         AccentKind::Overleftrightarrow => &['\u{20E1}', '↔', '\u{27F7}'],

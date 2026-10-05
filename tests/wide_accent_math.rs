@@ -239,6 +239,46 @@ fn hat_tilde_accents_follow_math_attachment_and_accent_base_height() {
 }
 
 #[test]
+fn bar_uses_unicode_math_combining_macron_across_verification_fonts() {
+    for (profile, bytes) in [
+        ("stix", common::STIX_TWO_MATH_OTF),
+        ("libertinus", LIBERTINUS_MATH_OTF),
+        ("fira", FIRA_MATH_OTF),
+    ] {
+        let face = ttf_parser::Face::parse(bytes, 0).expect("verification font face");
+        let combining = face
+            .glyph_index('\u{0304}')
+            .expect("verification font combining macron");
+        let spacing = face
+            .glyph_index('¯')
+            .expect("verification font spacing macron");
+        assert_ne!(
+            combining, spacing,
+            "{profile}: fixture must distinguish combining and spacing macron glyphs"
+        );
+
+        let font = MathFont::from_bytes(bytes)
+            .unwrap_or_else(|error| panic!("{profile}: MATH font construction failed: {error}"));
+        let (_, _, accent) = accent_branches(r"\bar y", MathStyle::Text, &font);
+        let (_, accent_ch, accent_glyph_id) =
+            single_glyph_x(&accent).expect("bar accent must be a single glyph");
+
+        assert_eq!(
+            accent_ch, '\u{0304}',
+            "{profile}: unicode-math defines \\bar as U+0304"
+        );
+        assert_eq!(
+            accent_glyph_id, combining.0,
+            "{profile}: bar must select the combining-macron glyph"
+        );
+        assert_ne!(
+            accent_glyph_id, spacing.0,
+            "{profile}: spacing macron must not shadow the combining accent"
+        );
+    }
+}
+
+#[test]
 fn script_style_hat_attachment_uses_script_scale() {
     let font = common::stix_two_math().expect("STIX Two Math fixture");
     let params = MathParams::from_font(&font).expect("OpenType MATH constants");
