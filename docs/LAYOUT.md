@@ -54,6 +54,14 @@ TeXpose then applies OpenType `MathKernInfo` to each direct-glyph side of the at
 
 Superscript and subscript horizontal origins are represented independently. A base italic correction therefore never shifts a paired subscript merely because a superscript is also present.
 
+## Large operators and integrals
+
+N-ary operator glyphs are centered on the style-scaled `AxisHeight` before dependent material is attached. In display style, `displayOperatorMinHeight` selects the tightest available vertical variant whose MATH `advanceMeasurement` reaches the target; if no ready-made variant reaches it, the ordinary vertical assembly/fallback contract applies. Text, script, and scriptscript styles retain their ordinary-size construction but use the same axis-centering rule.
+
+Side scripts on sums/products forced with `\nolimits` and on integrals use the ordinary script attachment path. This keeps G7 `ExtendedShapeCoverage`, baseline-drop constraints, MathKern, `spaceAfterScript`, and independent super/sub horizontal origins authoritative rather than maintaining a second integral-only placement algorithm. When a side subscript is present, TeX82 `op_noad` semantics backtrack the common script-slot origin by one operator italic correction while retaining that correction in the superscript-versus-subscript horizontal separation. Intrinsic vertical shifts on nested operators are preserved when those operators become scripts or limits.
+
+Above/below limits use `upperLimitGapMin`, `upperLimitBaselineRiseMin`, `lowerLimitGapMin`, and `lowerLimitBaselineDropMin` as independent vertical constraints. The base operator's MATH italic correction shifts the upper limit right by one half and the lower limit left by one half. The logical stack width remains the maximum participant width as in TeX; the half-italic offset may therefore protrude past that frame. A wide limit (including `\substack`) centers the operator nucleus without duplicating its axis shift.
+
 ## Missing-glyph degradation
 
 A missing cmap entry for a Unicode scalar required by ordinary math or literal-text layout is recoverable. The diagnostic-aware entry points return `LayoutDiagnostic::MissingGlyph { ch }` in deterministic traversal order and continue layout. The existing convenience entry points (`layout`, `layout_with_em_size_pt`, numbering variants, and `layout_with_max_depth`) preserve their `MathBox` return type and deliberately discard recoverable diagnostics; callers that need to surface degradation must use the corresponding `*_with_diagnostics` entry point.

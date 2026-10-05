@@ -1408,7 +1408,7 @@ impl<'font, 'state> Engine<'font, 'state> {
                 .script_placement
                 .superscript_bottom_min
                 .checked_mul(&s)?;
-            sup_shift = sup_shift.max_ref(&sp.depth.checked_add(&min_bottom)?);
+            sup_shift = sup_shift.max_ref(&effective_depth(sp)?.checked_add(&min_bottom)?);
 
             if base_uses_ink_box {
                 let base_top = base.height.checked_add(&base.shift)?.clamp_nonneg();
@@ -1422,7 +1422,8 @@ impl<'font, 'state> Engine<'font, 'state> {
 
         if let Some(sb) = &sub_laid {
             let max_top = self.script_placement.subscript_top_max.checked_mul(&s)?;
-            sub_shift = sub_shift.max_ref(&sb.height.checked_sub(&max_top)?.clamp_nonneg());
+            sub_shift =
+                sub_shift.max_ref(&effective_height(sb)?.checked_sub(&max_top)?.clamp_nonneg());
 
             if base_uses_ink_box {
                 let base_depth = base.depth.checked_sub(&base.shift)?.clamp_nonneg();
@@ -1469,20 +1470,41 @@ impl<'font, 'state> Engine<'font, 'state> {
 
         if let Some(sp) = sup_laid {
             let lead = sup_offset.checked_sub(&common_offset)?;
-            slot_w = slot_w.max_ref(&lead.checked_add(&sp.width)?);
-            slot_h = slot_h.max_ref(&sp.height.checked_add(&sup_shift)?);
-            slot_d = slot_d.max_ref(&sp.depth.checked_sub(&sup_shift)?.clamp_nonneg());
-            slot_kids.push(position_script(sp, lead)?.with_shift(sup_shift));
+            let mut branch = position_script(sp, lead)?;
+            let branch_shift = branch.shift.checked_add(&sup_shift)?;
+            slot_w = slot_w.max_ref(&branch.width);
+            branch.shift = branch_shift;
+            slot_h = slot_h.max_ref(&effective_height(&branch)?);
+            slot_d = slot_d.max_ref(&effective_depth(&branch)?);
+            slot_kids.push(branch);
         }
         if let Some(sb) = sub_laid {
             let lead = sub_offset.checked_sub(&common_offset)?;
-            slot_w = slot_w.max_ref(&lead.checked_add(&sb.width)?);
-            slot_h = slot_h.max_ref(&sb.height.checked_sub(&sub_shift)?.clamp_nonneg());
-            slot_d = slot_d.max_ref(&sb.depth.checked_add(&sub_shift)?);
-            slot_kids.push(position_script(sb, lead)?.with_shift(-sub_shift));
+            let mut branch = position_script(sb, lead)?;
+            let branch_shift = branch.shift.checked_sub(&sub_shift)?;
+            slot_w = slot_w.max_ref(&branch.width);
+            branch.shift = branch_shift;
+            slot_h = slot_h.max_ref(&effective_height(&branch)?);
+            slot_d = slot_d.max_ref(&effective_depth(&branch)?);
+            slot_kids.push(branch);
         }
 
+        // TeX82 make_op removes an operator nucleus italic correction from
+        // the common width when a subscript is present without stacked limits,
+        // while retaining that correction as the horizontal separation between
+        // the superscript and subscript origins. Keep the shared G7 attachment
+        // machinery, but backtrack the whole script slot by the operator italic
+        // correction before applying the independent super/sub offsets.
+        let operator_backtrack = if class == Some(AtomKind::Op) && sub.is_some() {
+            -base.italic.clone()
+        } else {
+            Dim::zero()
+        };
+
         let mut kids = vec![base.clone()];
+        if !operator_backtrack.is_zero() {
+            kids.push(MathBox::kern(operator_backtrack.clone()));
+        }
         if !common_offset.is_zero() {
             kids.push(MathBox::kern(common_offset.clone()));
         }
@@ -1500,6 +1522,7 @@ impl<'font, 'state> Engine<'font, 'state> {
 
         let width = base
             .width
+            .checked_add(&operator_backtrack)?
             .checked_add(&common_offset)?
             .checked_add(&slot_w)?
             .checked_add(&after)?;
@@ -1630,8 +1653,8 @@ impl<'font, 'state> Engine<'font, 'state> {
 
         let gap = sup_shift
             .checked_add(sub_shift)?
-            .checked_sub(&sp.depth)?
-            .checked_sub(&sb.height)?;
+            .checked_sub(&effective_depth(sp)?)?
+            .checked_sub(&effective_height(sb)?)?;
         let min_gap = self.params.sub_superscript_gap_min.checked_mul(scale)?;
 
         if gap < min_gap {
@@ -1639,7 +1662,7 @@ impl<'font, 'state> Engine<'font, 'state> {
         }
 
         if direct_character_nucleus {
-            let current_bottom = sup_shift.checked_sub(&sp.depth)?;
+            let current_bottom = sup_shift.checked_sub(&effective_depth(sp)?)?;
             let target_bottom = self
                 .script_placement
                 .superscript_bottom_max_with_subscript
@@ -1941,22 +1964,11 @@ impl<'font, 'state> Engine<'font, 'state> {
         } else {
             Dim::zero()
         };
-        let mut op = self.sized_glyph(ch, &min_h, style)?;
+        let op = self.center_large_operator_on_axis(self.sized_glyph(ch, &min_h, style)?, style)?;
         if placement == LimitPlacement::Side {
             return self.attach_limits(op, upper, lower, style, (lower_style, upper_style), false);
         }
 
-        // Operators with above/below limits are boxed on the OpenType MATH
-        // axis before the already-normalized limit fields are positioned.
-        let axis = self
-            .params
-            .axis_height
-            .checked_mul(&self.params.scale(style))?;
-        let center = op
-            .height
-            .checked_sub(&op.depth)?
-            .checked_div(&Dim::from_i64(2))?;
-        op.shift = axis.checked_sub(&center)?;
         self.attach_large_op_limits(op, upper, lower, style, upper_style, lower_style)
     }
 
@@ -1984,163 +1996,30 @@ impl<'font, 'state> Engine<'font, 'state> {
         } else {
             Dim::zero()
         };
-        let mut op = self.sized_glyph(ch, &min_h, style)?;
+        let op = self.center_large_operator_on_axis(self.sized_glyph(ch, &min_h, style)?, style)?;
 
         if placement == LimitPlacement::Limits {
-            let axis = self
-                .params
-                .axis_height
-                .checked_mul(&self.params.scale(style))?;
-            let center = op
-                .height
-                .checked_sub(&op.depth)?
-                .checked_div(&Dim::from_i64(2))?;
-            op.shift = axis.checked_sub(&center)?;
             return self.attach_large_op_limits(op, upper, lower, style, upper_style, lower_style);
         }
 
-        if !style.is_display() || (lower.is_none() && upper.is_none()) {
-            return self.attach_limits(op, upper, lower, style, (lower_style, upper_style), false);
-        }
-
-        self.attach_integral_scripts(op, lower, upper, style, lower_style, upper_style)
+        self.attach_limits(op, upper, lower, style, (lower_style, upper_style), false)
     }
 
-    fn attach_integral_scripts(
+    fn center_large_operator_on_axis(
         &self,
         mut op: MathBox,
-        sub: Option<&MathNode>,
-        sup: Option<&MathNode>,
         style: MathStyle,
-        sub_style: MathStyle,
-        sup_style: MathStyle,
-    ) -> Result<Item, Error> {
-        let scale = self.params.scale(style);
-
-        let sup_laid = match sup {
-            Some(node) => Some(self.layout(node, sup_style)?),
-            None => None,
-        };
-        let sub_laid = match sub {
-            Some(node) => Some(self.layout(node, sub_style)?),
-            None => None,
-        };
-
-        // Display integrals are enlarged no-limits operators. Center the
-        // nucleus on the MATH axis, then use the OpenType baseline-drop
-        // constants for side scripts. Italic correction offsets only the
-        // superscript branch and is removed from the common operator width.
-        let axis = self.params.axis_height.checked_mul(&scale)?;
+    ) -> Result<MathBox, Error> {
+        let axis = self
+            .params
+            .axis_height
+            .checked_mul(&self.params.scale(style))?;
         let center = op
             .height
             .checked_sub(&op.depth)?
             .checked_div(&Dim::from_i64(2))?;
         op.shift = axis.checked_sub(&center)?;
-
-        let base_height = op.height.checked_add(&op.shift)?.clamp_nonneg();
-        let base_depth = op.depth.checked_sub(&op.shift)?.clamp_nonneg();
-
-        let mut sup_shift = Dim::zero();
-        if let Some(sup_box) = &sup_laid {
-            let standard = if style.is_cramped() {
-                self.params
-                    .superscript_shift_up_cramped
-                    .checked_mul(&scale)?
-            } else {
-                self.params.superscript_shift_up.checked_mul(&scale)?
-            };
-            let drop_max = self
-                .script_placement
-                .superscript_baseline_drop_max
-                .checked_mul(&scale)?;
-            let from_base = base_height.checked_sub(&drop_max)?;
-            let bottom_min = self
-                .script_placement
-                .superscript_bottom_min
-                .checked_mul(&scale)?;
-            let from_bottom = sup_box.depth.checked_add(&bottom_min)?;
-            sup_shift = standard.max_ref(&from_base).max_ref(&from_bottom);
-        }
-
-        let mut sub_shift = Dim::zero();
-        if let Some(sub_box) = &sub_laid {
-            let standard = self.params.subscript_shift_down.checked_mul(&scale)?;
-            let drop_min = self
-                .script_placement
-                .subscript_baseline_drop_min
-                .checked_mul(&scale)?;
-            let from_base = base_depth.checked_add(&drop_min)?;
-            let top_max = self
-                .script_placement
-                .subscript_top_max
-                .checked_mul(&scale)?;
-            let from_top = sub_box.height.checked_sub(&top_max)?.clamp_nonneg();
-            sub_shift = standard.max_ref(&from_base).max_ref(&from_top);
-        }
-
-        self.enforce_paired_script_constraints(
-            sup_laid.as_ref(),
-            sub_laid.as_ref(),
-            &scale,
-            true,
-            &mut sup_shift,
-            &mut sub_shift,
-        )?;
-
-        let italic = op.italic.clone();
-        let mut slot_width = Dim::zero();
-        let mut slot_height = Dim::zero();
-        let mut slot_depth = Dim::zero();
-        let mut slot_children = Vec::new();
-
-        if let Some(sup_box) = sup_laid {
-            let mut branch = sup_box.with_shift(sup_shift);
-            if !italic.is_zero() {
-                let vertical_shift = branch.shift.clone();
-                branch.shift = Dim::zero();
-                branch = MathBox::hpack(vec![MathBox::kern(italic.clone()), branch])?;
-                branch.shift = vertical_shift;
-            }
-            slot_width = slot_width.max_ref(&branch.width);
-            slot_height =
-                slot_height.max_ref(&branch.height.checked_add(&branch.shift)?.clamp_nonneg());
-            slot_depth =
-                slot_depth.max_ref(&branch.depth.checked_sub(&branch.shift)?.clamp_nonneg());
-            slot_children.push(branch);
-        }
-
-        if let Some(sub_box) = sub_laid {
-            let branch = sub_box.with_shift(-sub_shift);
-            slot_width = slot_width.max_ref(&branch.width);
-            slot_height =
-                slot_height.max_ref(&branch.height.checked_add(&branch.shift)?.clamp_nonneg());
-            slot_depth =
-                slot_depth.max_ref(&branch.depth.checked_sub(&branch.shift)?.clamp_nonneg());
-            slot_children.push(branch);
-        }
-
-        let slot = MathBox {
-            width: slot_width,
-            height: slot_height,
-            depth: slot_depth,
-            italic: Dim::zero(),
-            shift: Dim::zero(),
-            content: BoxContent::Overlap(slot_children),
-        };
-        let after = self.params.space_after_script.checked_mul(&scale)?;
-        let mut children = vec![op];
-        if !italic.is_zero() {
-            children.push(MathBox::kern(-italic));
-        }
-        children.push(slot);
-        if !after.is_zero() {
-            children.push(MathBox::kern(after));
-        }
-
-        Ok(Item {
-            class: Some(AtomKind::Op),
-            bx: shifted_hpack(children)?,
-        })
+        Ok(op)
     }
 
     fn attach_large_op_limits(
@@ -2166,6 +2045,7 @@ impl<'font, 'state> Engine<'font, 'state> {
             None => None,
         };
 
+        let half_italic = op.italic.checked_div(&Dim::from_i64(2))?;
         let mut width = op.width.clone();
         if let Some(ref o) = over_b {
             width = width.max_ref(&o.width);
@@ -2176,7 +2056,9 @@ impl<'font, 'state> Engine<'font, 'state> {
 
         let mut height = op_h.clone();
         let mut depth = op_d.clone();
-        let mut centered_op = center_in(op, &width)?;
+        let mut centered_source = op;
+        centered_source.shift = Dim::zero();
+        let mut centered_op = center_in(centered_source, &width)?;
         centered_op.shift = op_shift;
         let mut kids = vec![centered_op];
 
@@ -2187,10 +2069,12 @@ impl<'font, 'state> Engine<'font, 'state> {
             // Baseline-rise and edge-gap minima
             // are independent constraints. Limit depth participates only
             // in the edge-gap inequality.
-            let offset = rise.max_ref(&gap.checked_add(&ob.depth)?);
+            let over_height = effective_height(&ob)?;
+            let over_depth = effective_depth(&ob)?;
+            let offset = rise.max_ref(&gap.checked_add(&over_depth)?);
             let sh = op_h.checked_add(&offset)?;
-            height = height.max_ref(&sh.checked_add(&ob.height)?);
-            kids.push(center_in(ob, &width)?.with_shift(sh));
+            height = height.max_ref(&sh.checked_add(&over_height)?);
+            kids.push(center_in_with_offset(ob, &width, &half_italic)?.with_shift(sh));
         }
 
         if let Some(ub) = under_b {
@@ -2199,10 +2083,12 @@ impl<'font, 'state> Engine<'font, 'state> {
 
             // The lower relation mirrors the upper relation: limit ascent
             // participates only in the edge-gap inequality.
-            let offset = drop.max_ref(&gap.checked_add(&ub.height)?);
+            let under_height = effective_height(&ub)?;
+            let under_depth = effective_depth(&ub)?;
+            let offset = drop.max_ref(&gap.checked_add(&under_height)?);
             let sh = op_d.checked_add(&offset)?;
-            depth = depth.max_ref(&sh.checked_add(&ub.depth)?);
-            kids.push(center_in(ub, &width)?.with_shift(-sh));
+            depth = depth.max_ref(&sh.checked_add(&under_depth)?);
+            kids.push(center_in_with_offset(ub, &width, &(-half_italic.clone()))?.with_shift(-sh));
         }
 
         Ok(Item {
@@ -3394,6 +3280,14 @@ impl<'font, 'state> Engine<'font, 'state> {
     }
 }
 
+fn effective_height(math_box: &MathBox) -> Result<Dim, NumericError> {
+    Ok(math_box.height.checked_add(&math_box.shift)?.clamp_nonneg())
+}
+
+fn effective_depth(math_box: &MathBox) -> Result<Dim, NumericError> {
+    Ok(math_box.depth.checked_sub(&math_box.shift)?.clamp_nonneg())
+}
+
 fn direct_glyph(math_box: &MathBox) -> Option<(u16, &Dim)> {
     match &math_box.content {
         BoxContent::Glyph {
@@ -3403,11 +3297,23 @@ fn direct_glyph(math_box: &MathBox) -> Option<(u16, &Dim)> {
     }
 }
 
-fn position_script(script: MathBox, leading_kern: Dim) -> Result<MathBox, Error> {
+fn position_script(mut script: MathBox, leading_kern: Dim) -> Result<MathBox, Error> {
     if leading_kern.is_zero() {
         return Ok(script);
     }
-    Ok(MathBox::hpack(vec![MathBox::kern(leading_kern), script])?)
+    let intrinsic_shift = script.shift.clone();
+    script.shift = Dim::zero();
+    let height = script.height.clone();
+    let depth = script.depth.clone();
+    let packed = MathBox::hpack(vec![MathBox::kern(leading_kern), script])?;
+    Ok(MathBox {
+        width: packed.width,
+        height,
+        depth,
+        italic: Dim::zero(),
+        shift: intrinsic_shift,
+        content: packed.content,
+    })
 }
 
 fn shifted_hpack(children: Vec<MathBox>) -> Result<MathBox, Error> {
@@ -3589,6 +3495,33 @@ fn center_in(inner: MathBox, width: &Dim) -> Result<MathBox, Error> {
         inner,
         MathBox::kern(extra.checked_sub(&half)?),
     ])?;
+    Ok(MathBox {
+        width: packed.width,
+        height: h,
+        depth: d,
+        italic: Dim::zero(),
+        shift: Dim::zero(),
+        content: packed.content,
+    })
+}
+
+fn center_in_with_offset(
+    inner: MathBox,
+    width: &Dim,
+    center_offset: &Dim,
+) -> Result<MathBox, Error> {
+    let extra = width.checked_sub(&inner.width)?;
+    let left = extra
+        .checked_div(&Dim::from_i64(2))?
+        .checked_add(center_offset)?;
+    let right = extra.checked_sub(&left)?;
+
+    // Keep the TeX operator-stack logical width fixed while shifting the
+    // limit inside that frame. A half-italic offset may therefore make one
+    // padding kern negative; this is intentional protrusion, not extra width.
+    let h = effective_height(&inner)?;
+    let d = effective_depth(&inner)?;
+    let packed = MathBox::hpack(vec![MathBox::kern(left), inner, MathBox::kern(right)])?;
     Ok(MathBox {
         width: packed.width,
         height: h,

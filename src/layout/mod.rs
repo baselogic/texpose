@@ -242,7 +242,8 @@ impl MathBox {
         })
     }
 
-    /// Pack boxes in a row. Width sums; height and depth are maxima.
+    /// Pack boxes in a row. Width sums; height and depth are maxima after
+    /// applying each child baseline shift.
     ///
     /// # Errors
     ///
@@ -254,8 +255,8 @@ impl MathBox {
         let mut depth = Dim::zero();
         for c in &children {
             width = width.checked_add(&c.width)?;
-            height = height.max_ref(&c.height);
-            depth = depth.max_ref(&c.depth);
+            height = height.max_ref(&c.height.checked_add(&c.shift)?.clamp_nonneg());
+            depth = depth.max_ref(&c.depth.checked_sub(&c.shift)?.clamp_nonneg());
         }
         Ok(Self {
             width,
@@ -321,6 +322,19 @@ impl MathBox {
 mod tests {
     use super::MathBox;
     use crate::{Dim, NumericError};
+
+    #[test]
+    fn hpack_accounts_for_child_baseline_shift() {
+        let raised =
+            MathBox::rule(Dim::one(), Dim::from_i64(2), Dim::from_i64(3)).with_shift(Dim::one());
+        let lowered = MathBox::rule(Dim::one(), Dim::from_i64(4), Dim::from_i64(5))
+            .with_shift(-Dim::from_i64(2));
+        let packed = MathBox::hpack(vec![raised, lowered]).unwrap();
+
+        assert_eq!(packed.width, Dim::from_i64(2));
+        assert_eq!(packed.height, Dim::from_i64(3));
+        assert_eq!(packed.depth, Dim::from_i64(7));
+    }
 
     #[test]
     fn hpack_propagates_exact_width_overflow() {
