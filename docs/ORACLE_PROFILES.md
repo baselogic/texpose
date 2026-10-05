@@ -88,20 +88,21 @@ exemption rather than carrying historical allowance indefinitely.
 ## Stress evidence
 
 Stress remains diagnostic evidence for primitive investigation, nightly runs,
-and release candidates. The 2026-10-05 G12 stage-1 measurement on the pinned
+and release candidates. The 2026-10-05 G12 stage-4 measurement on the pinned
 MiKTeX reference environment is intentionally not normalized into large profile
 exemptions:
 
 | Profile | Raw cases <= 0.050em | p50 | p90 | p95 | p99 | max | positioned kind-topology mismatches |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| STIX Two Math | 75/93 | 0.000012 | 0.261050 | 0.331992 | 0.828115 | 0.828115 | 0 |
+| STIX Two Math | 77/93 | 0.000012 | 0.261050 | 0.331992 | 0.828115 | 0.828115 | 0 |
 | Libertinus Math | 79/93 | 0.000012 | 0.056999 | 0.166628 | 0.390829 | 0.390829 | 0 |
 | Fira Math | 84/93 | 0.000011 | 0.039574 | 0.133440 | 0.422560 | 0.422560 | 0 |
 
 The remaining large stress deltas are G12 work inventory, not justification to
-raise the global tolerance. Indexed radicals at multiple physical sizes, aligned
-and matrix composites, and extreme script geometry remain strong discriminators
-for later causal fixes.
+raise the global tolerance. `docs/G12_STRESS_CLOSURE.md` owns the stage-4
+classification and exact unresolved inventory. Indexed radicals at multiple
+physical sizes, aligned and matrix composites, delimiter/evaluation cases, and
+extreme script geometry remain strong discriminators for later causal fixes.
 
 ## Independent style sizes
 
@@ -218,20 +219,21 @@ profile stale.
 A ceiling that is exceeded fails. A ceiling that is no longer needed also fails
 as stale, forcing its removal instead of preserving historical tolerance.
 
-Stress remains diagnostic and deliberately has no large positioned-trace
-allowlist. The same G12 stage-1 measurement produced:
+Stress remains diagnostic by default and still has no geometry blanket
+allowlist. After G12 stages 1--4 the pinned measurement is:
 
 | Profile | Kind topology | Glyph identity/order aligned | Geometry comparable | p50 | p90 | p95 | p99 | max |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| STIX Two Math | 93/93 | 69/93 | 69/93 | 0.000011 | 0.239700 | 0.884822 | 1.032257 | 1.032257 |
-| Libertinus Math | 93/93 | 79/93 | 79/93 | 0.000011 | 0.100003 | 0.167500 | 0.390833 | 0.390833 |
-| Fira Math | 93/93 | 87/93 | 87/93 | 0.000011 | 0.060921 | 0.133440 | 0.422560 | 0.422560 |
+| STIX Two Math | 93/93 | 72/93 | 72/93 | 0.000012 | 0.068988 | 0.138649 | 0.512941 | 0.512941 |
+| Libertinus Math | 93/93 | 81/93 | 81/93 | 0.000012 | 0.050336 | 0.137598 | 0.390833 | 0.390833 |
+| Fira Math | 93/93 | 92/93 | 92/93 | 0.000011 | 0.105500 | 0.134398 | 0.422560 | 0.422560 |
 
 The previous post-G11 measurement had kind topology `88/93` in every profile.
-Stage 1 removes all five positioned kind-topology mismatches, including the
-`hard-overset-fraction` mixed `rule/glyph` ordering difference, without changing
-outer geometry. Remaining glyph selection/order and placement deltas stay
-discriminating evidence for the next G12 repairs.
+Stage 1 removed all five topology mismatches. Stage 2 corrected `\partial`,
+stage 3 corrected `\bar`, and stage 4 corrected vertical-assembly paint order.
+Stage 5 records exact specification-owned stress glyph deviations separately from
+unresolved signatures. It does not waive outer geometry. The complete evidence,
+classification, and reopening conditions live in `docs/G12_STRESS_CLOSURE.md`.
 
 ## Evidence parser hardening
 
@@ -265,7 +267,7 @@ The generated LuaLaTeX probe deliberately does not load `microtype` and contains
 hard failure if `microtype` is already loaded after begin-document hooks. The oracle
 measures natural math boxes; microtypographic protrusion/expansion is outside that
 contract and must not become an ambient input. This exclusion is part of profile
-protocol `oracle-v9`.
+protocol `oracle-v10`.
 
 ## Gate separation
 
@@ -291,7 +293,10 @@ uv run --script tools\verify.py math --profile fira --fail-on-delta
 
 Stress (`--stress`) remains investigation/nightly/release-candidate evidence and
 does not acquire a blanket allowlist merely to make the current Phase G backlog
-green.
+green. `--stress --fail-on-delta` is a G12 closure check: it validates exact
+ratified glyph signatures, rejects the explicit unresolved glyph inventory, and
+rejects unbounded positioned/outer geometry. It is intentionally not promoted to
+the stable gate until G12 is actually closed.
 
 The verifier-side environment identity is pinned. Repository CI provisioning of
 the pinned reference environment is a Phase K3 task. The current Windows evidence
@@ -309,5 +314,7 @@ uv run --script tools\verify.py math --profile fira --fail-on-delta
 ```
 
 Stress can be run with `--stress`; its current deltas are intentionally left
-visible rather than blanket-approved. Positioned traces are now part of the
-canonical contractual gate as described above, while stress remains diagnostic.
+visible rather than blanket-approved. Positioned traces are part of the canonical
+contractual gate. A named stress run with `--fail-on-delta` additionally consumes
+the exact G12 deviation/inventory records and remains red while unresolved
+selection or geometry exists.

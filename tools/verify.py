@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Iterable
 
 ROOT = Path(__file__).resolve().parent.parent
-PROFILE_REVISION = "oracle-v9"
+PROFILE_REVISION = "oracle-v10"
 CANONICAL_CENSUS_SHA256 = "cc94469fc91882057326e233c4d00fd91cb19614256e393c0fede884d4ba8c88"
 STRESS_CENSUS_SHA256 = "f2144d4c75dab742ff2fa1642ce29e391382f6b600c44ee01f6d6004ee203108"
 CANONICAL_ALIAS_CENSUS_SHA256 = CANONICAL_CENSUS_SHA256
@@ -42,6 +42,56 @@ LIBERTINUS_CANONICAL_TRACE_GLYPH_MISMATCHES = (
 )
 
 FIRA_CANONICAL_TRACE_GLYPH_MISMATCHES = ()
+
+STIX_STRESS_TRACE_GLYPH_DEVIATIONS = (
+    ("accent-hat-j", ((0, 4800, 732),)),
+    ("accent-widehat-j", ((0, 1395, 732),)),
+    ("accent-widehat-xyz", ((0, 1399, 1398),)),
+    ("accent-widetilde-xyz", ((0, 1409, 1408),)),
+    ("accent-widehat-script", ((0, 1395, 732),)),
+    ("hard-accent-nested", ((0, 1399, 1398), (1, 1409, 1408), (2, 1399, 1398))),
+    ("hard-accent-deep-script", ((0, 1398, 1397),)),
+    ("hard-matrix-fractions", ((17, 1395, 732), (49, 1409, 1408))),
+    ("hard-aligned-model", ((0, 1395, 732), (40, 1395, 732))),
+    ("hard-overset-fraction", ((0, 1399, 1398),)),
+    ("hard-stat-r2", ((14, 1395, 732),)),
+)
+
+STIX_STRESS_TRACE_GLYPH_INVENTORY = (
+    ("hard-brutal-core", ((22, 1397, 1396), (28, 1409, 1408), (53, 1304, 1305), (77, 1316, 1317))),
+    ("size-frac-6pt", ((0, 3326, 4670), (1, 1196, 4532), (2, 3327, 4671), (4, 3328, 4672), (5, 1196, 4532), (6, 3329, 4673))),
+    ("size-nested-frac-6pt", ((0, 1138, 4523), (1, 1196, 4532), (2, 4421, 4670), (4, 4422, 4671), (6, 1138, 4523), (7, 1196, 4532), (8, 4423, 4672), (10, 4424, 4673))),
+    ("size-nested-frac-20pt", ((2, 4421, 3326), (4, 4422, 3327), (8, 4423, 3328), (10, 4424, 3329))),
+    ("size-nested-frac-40pt", ((2, 4421, 3326), (4, 4422, 3327), (8, 4423, 3328), (10, 4424, 3329))),
+    ("size-delim-6pt", ((1, 3326, 4670), (2, 1196, 4532), (3, 3327, 4671), (5, 3328, 4672), (6, 1196, 4532), (7, 3329, 4673))),
+    ("size-radical-frac-6pt", ((0, 1659, 1660), (2, 3326, 4670), (3, 1196, 4532), (4, 3327, 4671), (6, 3328, 4672), (7, 1196, 4532), (8, 3329, 4673))),
+    ("size-indexed-radical-6pt", ((5, 1657, 6458), (7, 3354, 4699))),
+    ("size-indexed-radical-20pt", ((0, 4523, 1138), (1, 4532, 1196), (2, 4729, 4015), (4, 4524, 1139))),
+    ("size-indexed-radical-40pt", ((0, 4523, 1138), (1, 4532, 1196), (2, 4729, 4015), (4, 4524, 1139))),
+)
+
+LIBERTINUS_STRESS_TRACE_GLYPH_DEVIATIONS = (
+    ("accent-widehat-j", ((0, 4071, 701),)),
+    ("accent-widehat-xyz", ((0, 4075, 4074),)),
+    ("accent-widetilde-xyz", ((0, 4217, 4216),)),
+    ("accent-widehat-script", ((0, 4071, 701),)),
+    ("hard-accent-nested", ((0, 4074, 4073), (1, 4216, 4215), (2, 4074, 4073))),
+    ("hard-accent-fraction", ((0, 4075, 4074),)),
+    ("hard-accent-deep-script", ((0, 4074, 4073),)),
+    ("hard-matrix-fractions", ((17, 4071, 701), (53, 4217, 4216))),
+    ("hard-aligned-model", ((0, 4071, 701), (40, 4071, 701))),
+    ("hard-overset-fraction", ((0, 4074, 4073),)),
+    ("hard-brutal-core", ((22, 4073, 4072),)),
+)
+
+LIBERTINUS_STRESS_TRACE_GLYPH_INVENTORY = (
+    ("hard-stat-r2", ((10, 3798, 9), (14, 4071, 701), (17, 3799, 10))),
+)
+
+FIRA_STRESS_TRACE_GLYPH_DEVIATIONS = ()
+FIRA_STRESS_TRACE_GLYPH_INVENTORY = (
+    ("hard-matrix-fractions", ((29, 2016, 2014),)),
+)
 
 
 class OracleError(RuntimeError):
@@ -76,6 +126,9 @@ class MathProfile:
     documented_deviations: tuple[tuple[str, Deviation], ...]
     canonical_trace_glyph_mismatches: tuple[tuple[str, tuple[tuple[int, int, int], ...]], ...]
     canonical_trace_deviations: tuple[tuple[str, float], ...]
+    stress_trace_glyph_deviations: tuple[tuple[str, tuple[tuple[int, int, int], ...]], ...]
+    stress_trace_glyph_inventory: tuple[tuple[str, tuple[tuple[int, int, int], ...]], ...]
+    stress_trace_deviations: tuple[tuple[str, float], ...]
     reference_environment_sha256: str | None
 
 
@@ -94,6 +147,9 @@ class RunSpec:
     documented_deviations: tuple[tuple[str, Deviation], ...]
     canonical_trace_glyph_mismatches: tuple[tuple[str, tuple[tuple[int, int, int], ...]], ...]
     canonical_trace_deviations: tuple[tuple[str, float], ...]
+    stress_trace_glyph_deviations: tuple[tuple[str, tuple[tuple[int, int, int], ...]], ...]
+    stress_trace_glyph_inventory: tuple[tuple[str, tuple[tuple[int, int, int], ...]], ...]
+    stress_trace_deviations: tuple[tuple[str, float], ...]
     reference_environment_sha256: str | None
     contractual_profile: bool
     collection: bool
@@ -243,6 +299,9 @@ PROFILES: dict[str, MathProfile] = {
         ),
         canonical_trace_glyph_mismatches=STIX_CANONICAL_TRACE_GLYPH_MISMATCHES,
         canonical_trace_deviations=(),
+        stress_trace_glyph_deviations=STIX_STRESS_TRACE_GLYPH_DEVIATIONS,
+        stress_trace_glyph_inventory=STIX_STRESS_TRACE_GLYPH_INVENTORY,
+        stress_trace_deviations=(),
         reference_environment_sha256=REFERENCE_ENVIRONMENT_SHA256,
     ),
     "libertinus": MathProfile(
@@ -279,6 +338,9 @@ PROFILES: dict[str, MathProfile] = {
         ),
         canonical_trace_glyph_mismatches=LIBERTINUS_CANONICAL_TRACE_GLYPH_MISMATCHES,
         canonical_trace_deviations=(),
+        stress_trace_glyph_deviations=LIBERTINUS_STRESS_TRACE_GLYPH_DEVIATIONS,
+        stress_trace_glyph_inventory=LIBERTINUS_STRESS_TRACE_GLYPH_INVENTORY,
+        stress_trace_deviations=(),
         reference_environment_sha256=REFERENCE_ENVIRONMENT_SHA256,
     ),
     "fira": MathProfile(
@@ -301,6 +363,9 @@ PROFILES: dict[str, MathProfile] = {
         documented_deviations=(),
         canonical_trace_glyph_mismatches=FIRA_CANONICAL_TRACE_GLYPH_MISMATCHES,
         canonical_trace_deviations=(),
+        stress_trace_glyph_deviations=FIRA_STRESS_TRACE_GLYPH_DEVIATIONS,
+        stress_trace_glyph_inventory=FIRA_STRESS_TRACE_GLYPH_INVENTORY,
+        stress_trace_deviations=(),
         reference_environment_sha256=REFERENCE_ENVIRONMENT_SHA256,
     ),
 }
@@ -427,48 +492,83 @@ def validate_profile(profile: MathProfile) -> None:
             fail(f"empty deviation policy in profile {profile.name}: {case_name}")
         if not deviation.note.strip():
             fail(f"undocumented deviation in profile {profile.name}: {case_name}")
-    seen_trace_glyph_cases: set[str] = set()
-    for case_name, mismatches in profile.canonical_trace_glyph_mismatches:
-        if not re.fullmatch(r"[A-Za-z0-9_-]+", case_name):
-            fail(
-                f"invalid positioned glyph-mismatch case in profile {profile.name}: "
-                f"{case_name}"
-            )
-        if case_name in seen_trace_glyph_cases:
-            fail(f"duplicate positioned glyph-mismatch case in profile {profile.name}: {case_name}")
-        seen_trace_glyph_cases.add(case_name)
-        if not mismatches:
-            fail(f"empty positioned glyph-mismatch signature in profile {profile.name}: {case_name}")
-        previous_index = -1
-        for index, texpose_gid, reference_gid in mismatches:
-            if index <= previous_index:
+    def validate_trace_signatures(
+        label: str,
+        entries: tuple[tuple[str, tuple[tuple[int, int, int], ...]], ...],
+    ) -> set[str]:
+        seen: set[str] = set()
+        for case_name, mismatches in entries:
+            if not re.fullmatch(r"[A-Za-z0-9_-]+", case_name):
                 fail(
-                    f"non-increasing positioned glyph paint index in profile {profile.name}: "
-                    f"{case_name} -> {index}"
+                    f"invalid {label} positioned glyph-mismatch case in profile "
+                    f"{profile.name}: {case_name}"
                 )
-            previous_index = index
-            if not (0 <= texpose_gid <= 0xFFFF and 0 <= reference_gid <= 0xFFFF):
+            if case_name in seen:
                 fail(
-                    f"out-of-range positioned glyph id in profile {profile.name}: "
-                    f"{case_name} -> {texpose_gid}/{reference_gid}"
+                    f"duplicate {label} positioned glyph-mismatch case in profile "
+                    f"{profile.name}: {case_name}"
                 )
-            if texpose_gid == reference_gid:
+            seen.add(case_name)
+            if not mismatches:
                 fail(
-                    f"non-mismatch positioned glyph signature in profile {profile.name}: "
-                    f"{case_name} -> {texpose_gid}/{reference_gid}"
+                    f"empty {label} positioned glyph-mismatch signature in profile "
+                    f"{profile.name}: {case_name}"
                 )
-    seen_trace_deviations: set[str] = set()
-    for case_name, ceiling in profile.canonical_trace_deviations:
-        if not re.fullmatch(r"[A-Za-z0-9_-]+", case_name):
-            fail(f"invalid positioned trace deviation in profile {profile.name}: {case_name}")
-        if case_name in seen_trace_deviations:
-            fail(f"duplicate positioned trace deviation in profile {profile.name}: {case_name}")
-        seen_trace_deviations.add(case_name)
-        if not math.isfinite(ceiling) or ceiling <= profile.canonical_tolerance:
-            fail(
-                f"invalid positioned trace ceiling in profile {profile.name}: "
-                f"{case_name} -> {ceiling}"
-            )
+            previous_index = -1
+            for index, texpose_gid, reference_gid in mismatches:
+                if index <= previous_index:
+                    fail(
+                        f"non-increasing {label} positioned glyph paint index in profile "
+                        f"{profile.name}: {case_name} -> {index}"
+                    )
+                previous_index = index
+                if not (0 <= texpose_gid <= 0xFFFF and 0 <= reference_gid <= 0xFFFF):
+                    fail(
+                        f"out-of-range {label} positioned glyph id in profile "
+                        f"{profile.name}: {case_name} -> {texpose_gid}/{reference_gid}"
+                    )
+                if texpose_gid == reference_gid:
+                    fail(
+                        f"non-mismatch {label} positioned glyph signature in profile "
+                        f"{profile.name}: {case_name} -> {texpose_gid}/{reference_gid}"
+                    )
+        return seen
+
+    validate_trace_signatures("canonical", profile.canonical_trace_glyph_mismatches)
+    stress_deviation_cases = validate_trace_signatures(
+        "stress deviation", profile.stress_trace_glyph_deviations
+    )
+    stress_inventory_cases = validate_trace_signatures(
+        "stress inventory", profile.stress_trace_glyph_inventory
+    )
+    overlap = stress_deviation_cases & stress_inventory_cases
+    if overlap:
+        fail(
+            f"stress positioned glyph cases cannot be both deviation and inventory in "
+            f"profile {profile.name}: " + ", ".join(sorted(overlap))
+        )
+    for label, tolerance, entries in (
+        ("canonical", profile.canonical_tolerance, profile.canonical_trace_deviations),
+        ("stress", profile.stress_tolerance, profile.stress_trace_deviations),
+    ):
+        seen_trace_deviations: set[str] = set()
+        for case_name, ceiling in entries:
+            if not re.fullmatch(r"[A-Za-z0-9_-]+", case_name):
+                fail(
+                    f"invalid {label} positioned trace deviation in profile "
+                    f"{profile.name}: {case_name}"
+                )
+            if case_name in seen_trace_deviations:
+                fail(
+                    f"duplicate {label} positioned trace deviation in profile "
+                    f"{profile.name}: {case_name}"
+                )
+            seen_trace_deviations.add(case_name)
+            if not math.isfinite(ceiling) or ceiling <= tolerance:
+                fail(
+                    f"invalid {label} positioned trace ceiling in profile {profile.name}: "
+                    f"{case_name} -> {ceiling}"
+                )
     if profile.reference_environment_sha256 is not None and not re.fullmatch(
         r"[0-9a-f]{64}", profile.reference_environment_sha256
     ):
@@ -525,12 +625,11 @@ def resolve_run_spec(args: argparse.Namespace) -> RunSpec:
             ),
             tolerance=tolerance,
             documented_deviations=profile.documented_deviations,
-            canonical_trace_glyph_mismatches=(
-                profile.canonical_trace_glyph_mismatches if not args.stress else ()
-            ),
-            canonical_trace_deviations=(
-                profile.canonical_trace_deviations if not args.stress else ()
-            ),
+            canonical_trace_glyph_mismatches=profile.canonical_trace_glyph_mismatches,
+            canonical_trace_deviations=profile.canonical_trace_deviations,
+            stress_trace_glyph_deviations=profile.stress_trace_glyph_deviations,
+            stress_trace_glyph_inventory=profile.stress_trace_glyph_inventory,
+            stress_trace_deviations=profile.stress_trace_deviations,
             reference_environment_sha256=profile.reference_environment_sha256,
             contractual_profile=True,
             collection=fixture.suffix.lower() in {".ttc", ".otc"},
@@ -560,6 +659,9 @@ def resolve_run_spec(args: argparse.Namespace) -> RunSpec:
         documented_deviations=(),
         canonical_trace_glyph_mismatches=(),
         canonical_trace_deviations=(),
+        stress_trace_glyph_deviations=(),
+        stress_trace_glyph_inventory=(),
+        stress_trace_deviations=(),
         reference_environment_sha256=None,
         contractual_profile=False,
         collection=font_path.suffix.lower() in {".ttc", ".otc"} or face_index > 0,
@@ -1331,20 +1433,32 @@ def print_positioned_trace_diagnostics(
             )
 
 
-def validate_canonical_positioned_contract(
-    spec: RunSpec, trace_deltas: list[TraceCaseDelta]
+def validate_positioned_contract(
+    spec: RunSpec, trace_deltas: list[TraceCaseDelta], *, stress: bool = False
 ) -> list[str]:
+    scope = "stress" if stress else "canonical"
     topology_mismatches = [
         delta.name for delta in trace_deltas if not delta.topology_matches
     ]
     if topology_mismatches:
         fail(
-            "canonical positioned topology mismatches: "
+            f"{scope} positioned topology mismatches: "
             + ", ".join(topology_mismatches)
         )
 
-    expected_glyph_signatures = dict(spec.canonical_trace_glyph_mismatches)
-    observed_glyph_signatures = {
+    if stress:
+        deviation_entries = spec.stress_trace_glyph_deviations
+        inventory_entries = spec.stress_trace_glyph_inventory
+        trace_deviation_entries = spec.stress_trace_deviations
+    else:
+        deviation_entries = spec.canonical_trace_glyph_mismatches
+        inventory_entries = ()
+        trace_deviation_entries = spec.canonical_trace_deviations
+
+    expected_deviations = dict(deviation_entries)
+    expected_inventory = dict(inventory_entries)
+    expected_signatures = {**expected_deviations, **expected_inventory}
+    observed_signatures = {
         delta.name: tuple(
             (mismatch.index, mismatch.texpose_glyph_id, mismatch.reference_glyph_id)
             for mismatch in delta.glyph_mismatches
@@ -1352,39 +1466,46 @@ def validate_canonical_positioned_contract(
         for delta in trace_deltas
         if delta.glyph_mismatches
     }
-    expected_glyph_cases = set(expected_glyph_signatures)
-    observed_glyph_cases = set(observed_glyph_signatures)
-    new_glyph_cases = observed_glyph_cases - expected_glyph_cases
-    repaired_glyph_cases = expected_glyph_cases - observed_glyph_cases
-    changed_glyph_cases = {
+    expected_cases = set(expected_signatures)
+    observed_cases = set(observed_signatures)
+    new_cases = observed_cases - expected_cases
+    repaired_cases = expected_cases - observed_cases
+    changed_cases = {
         case_name
-        for case_name in expected_glyph_cases & observed_glyph_cases
-        if expected_glyph_signatures[case_name] != observed_glyph_signatures[case_name]
+        for case_name in expected_cases & observed_cases
+        if expected_signatures[case_name] != observed_signatures[case_name]
     }
-    if new_glyph_cases or repaired_glyph_cases or changed_glyph_cases:
+    if new_cases or repaired_cases or changed_cases:
         pieces = []
-        if new_glyph_cases:
+        if new_cases:
             pieces.append(
-                "new positioned glyph/order mismatch cases: "
-                + ", ".join(sorted(new_glyph_cases))
+                f"new {scope} positioned glyph/order mismatch cases: "
+                + ", ".join(sorted(new_cases))
             )
-        if repaired_glyph_cases:
+        if repaired_cases:
             pieces.append(
-                "documented positioned glyph/order mismatch cases are no longer observed: "
-                + ", ".join(sorted(repaired_glyph_cases))
+                f"documented {scope} positioned glyph/order mismatch cases are no longer "
+                "observed: " + ", ".join(sorted(repaired_cases))
             )
-        if changed_glyph_cases:
+        if changed_cases:
             pieces.append(
-                "positioned glyph/order mismatch signatures changed: "
-                + ", ".join(sorted(changed_glyph_cases))
+                f"{scope} positioned glyph/order mismatch signatures changed: "
+                + ", ".join(sorted(changed_cases))
             )
         fail("; ".join(pieces))
 
-    ceilings = dict(spec.canonical_trace_deviations)
+    unresolved_cases = set(expected_inventory) & observed_cases
+    if unresolved_cases:
+        fail(
+            f"unresolved {scope} positioned glyph/order mismatch cases: "
+            + ", ".join(sorted(unresolved_cases))
+        )
+
+    ceilings = dict(trace_deviation_entries)
     unknown_ceilings = set(ceilings) - {delta.name for delta in trace_deltas}
     if unknown_ceilings:
         fail(
-            "profile documents unknown positioned trace cases: "
+            f"profile documents unknown {scope} positioned trace cases: "
             + ", ".join(sorted(unknown_ceilings))
         )
 
@@ -1408,15 +1529,16 @@ def validate_canonical_positioned_contract(
     stale_ceilings = set(ceilings) - observed_ceiling_cases
     if stale_ceilings:
         fail(
-            "documented positioned trace deviations are no longer observed: "
+            f"documented {scope} positioned trace deviations are no longer observed: "
             + ", ".join(sorted(stale_ceilings))
         )
     if unapproved:
         fail(
-            f"positioned geometry exceeded {spec.tolerance}em without a bounded "
+            f"{scope} positioned geometry exceeded {spec.tolerance}em without a bounded "
             "trace deviation: " + ", ".join(unapproved)
         )
     return approved
+
 
 def geometry_deviation_is_approved(
     delta: float, tolerance: float, deviation: Deviation | None
@@ -1661,6 +1783,12 @@ def gate_math(
                     "documented deviations are no longer observed: "
                     + ", ".join(sorted(stale_deviations))
                 )
+        approved_trace: list[str] = []
+        if args.fail_on_delta and spec.contractual_profile:
+            approved_trace = validate_positioned_contract(
+                spec, trace_deltas, stress=args.stress
+            )
+
         if args.fail_on_delta and (unapproved_geometry or unapproved_structural):
             pieces = []
             if unapproved_geometry:
@@ -1672,18 +1800,20 @@ def gate_math(
                 pieces.append("structure mismatches: " + ", ".join(unapproved_structural))
             fail("; ".join(pieces))
 
-        if args.fail_on_delta and spec.contractual_profile and not args.stress:
-            approved_trace = validate_canonical_positioned_contract(spec, trace_deltas)
-            if approved_trace:
-                ceilings = dict(spec.canonical_trace_deviations)
-                by_name = {delta.name: delta for delta in trace_deltas}
-                print("bounded positioned trace deviations:", file=sys.stderr)
-                for name in approved_trace:
-                    print(
-                        f"  {name}: {by_name[name].maximum:.6f}em "
-                        f"<= {ceilings[name]:.6f}em",
-                        file=sys.stderr,
-                    )
+        if approved_trace:
+            ceilings = dict(
+                spec.stress_trace_deviations
+                if args.stress
+                else spec.canonical_trace_deviations
+            )
+            by_name = {delta.name: delta for delta in trace_deltas}
+            print("bounded positioned trace deviations:", file=sys.stderr)
+            for name in approved_trace:
+                print(
+                    f"  {name}: {by_name[name].maximum:.6f}em "
+                    f"<= {ceilings[name]:.6f}em",
+                    file=sys.stderr,
+                )
 
 
 def self_test() -> None:
@@ -1741,6 +1871,9 @@ def self_test() -> None:
         documented_deviations=(),
         canonical_trace_glyph_mismatches=(),
         canonical_trace_deviations=(),
+        stress_trace_glyph_deviations=(),
+        stress_trace_glyph_inventory=(),
+        stress_trace_deviations=(),
         reference_environment_sha256=None,
         contractual_profile=False,
         collection=False,
@@ -1789,6 +1922,9 @@ def self_test() -> None:
         documented_deviations=(),
         canonical_trace_glyph_mismatches=(),
         canonical_trace_deviations=(),
+        stress_trace_glyph_deviations=(),
+        stress_trace_glyph_inventory=(),
+        stress_trace_deviations=(),
         reference_environment_sha256=None,
         contractual_profile=False,
         collection=False,
@@ -2022,10 +2158,10 @@ def self_test() -> None:
             canonical_trace_deviations=(),
             contractual_profile=True,
         )
-        if validate_canonical_positioned_contract(reorder_spec, [reordered_delta]):
+        if validate_positioned_contract(reorder_spec, [reordered_delta]):
             fail("self-test exact reorder unexpectedly reported a trace deviation")
         try:
-            validate_canonical_positioned_contract(
+            validate_positioned_contract(
                 reorder_spec, [reordered_offset_delta]
             )
         except OracleError:
@@ -2037,7 +2173,7 @@ def self_test() -> None:
             reorder_spec,
             canonical_trace_deviations=(("two-glyphs", 0.11),),
         )
-        if validate_canonical_positioned_contract(
+        if validate_positioned_contract(
             bounded_reorder_spec, [reordered_offset_delta]
         ) != ["two-glyphs"]:
             fail("self-test bounded identity-realigned reorder was rejected")
@@ -2075,10 +2211,10 @@ def self_test() -> None:
             canonical_trace_deviations=(),
             contractual_profile=True,
         )
-        if validate_canonical_positioned_contract(duplicate_spec, [duplicate_delta]):
+        if validate_positioned_contract(duplicate_spec, [duplicate_delta]):
             fail("self-test documented duplicate-glyph reorder was rejected")
         try:
-            validate_canonical_positioned_contract(
+            validate_positioned_contract(
                 replace(
                     duplicate_spec,
                     canonical_trace_deviations=(("duplicate-glyphs", 0.11),),
@@ -2135,7 +2271,7 @@ def self_test() -> None:
             canonical_trace_deviations=(),
             contractual_profile=True,
         )
-        if validate_canonical_positioned_contract(mixed_rule_spec, [mixed_rule_delta]):
+        if validate_positioned_contract(mixed_rule_spec, [mixed_rule_delta]):
             fail("self-test documented mixed glyph/rule reorder was rejected")
 
         trace_spec = replace(
@@ -2190,13 +2326,40 @@ def self_test() -> None:
                 maximum_reference_index=0,
             ),
         ]
-        if validate_canonical_positioned_contract(trace_spec, trace_contract) != [
+        if validate_positioned_contract(trace_spec, trace_contract) != [
             "case-2"
         ]:
             fail("self-test positioned trace ceiling was not reported")
 
+        stress_inventory_spec = replace(
+            spec,
+            stress_trace_glyph_deviations=(),
+            stress_trace_glyph_inventory=(("case-1", ((0, 1, 2),)),),
+            stress_trace_deviations=(),
+            contractual_profile=True,
+        )
         try:
-            validate_canonical_positioned_contract(
+            validate_positioned_contract(
+                stress_inventory_spec, [trace_contract[0]], stress=True
+            )
+        except OracleError as error:
+            if "unresolved stress positioned glyph/order mismatch cases: case-1" not in str(error):
+                fail("self-test stress inventory failed for the wrong reason")
+        else:
+            fail("self-test unresolved stress glyph inventory was accepted")
+
+        stress_deviation_spec = replace(
+            stress_inventory_spec,
+            stress_trace_glyph_deviations=(("case-1", ((0, 1, 2),)),),
+            stress_trace_glyph_inventory=(),
+        )
+        if validate_positioned_contract(
+            stress_deviation_spec, [trace_contract[0]], stress=True
+        ):
+            fail("self-test stress glyph deviation unexpectedly reported geometry")
+
+        try:
+            validate_positioned_contract(
                 replace(
                     trace_spec,
                     canonical_trace_deviations=(("case-1", 0.08),),
@@ -2248,7 +2411,7 @@ def self_test() -> None:
         )
         for candidate in rejected_trace_contracts:
             try:
-                validate_canonical_positioned_contract(trace_spec, candidate)
+                validate_positioned_contract(trace_spec, candidate)
             except OracleError:
                 pass
             else:
@@ -2344,6 +2507,9 @@ def self_test() -> None:
             documented_deviations=(),
             canonical_trace_glyph_mismatches=(),
             canonical_trace_deviations=(),
+            stress_trace_glyph_deviations=(),
+            stress_trace_glyph_inventory=(),
+            stress_trace_deviations=(),
             reference_environment_sha256=None,
             contractual_profile=False,
             collection=True,
@@ -2384,6 +2550,9 @@ def self_test() -> None:
         documented_deviations=(),
         canonical_trace_glyph_mismatches=(),
         canonical_trace_deviations=(),
+        stress_trace_glyph_deviations=(),
+        stress_trace_glyph_inventory=(),
+        stress_trace_deviations=(),
         reference_environment_sha256=None,
     )
     try:
