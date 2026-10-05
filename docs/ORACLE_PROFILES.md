@@ -39,8 +39,8 @@ environment identity.
 
 All three profiles currently use:
 
-- canonical census: 21 measurements / 21 aliases;
-- stress census: 89 measurements / 94 aliases;
+- canonical census: 25 measurements / 25 aliases;
+- stress census: 93 measurements / 98 aliases;
 - canonical tolerance: `0.050em`;
 - stress diagnostic tolerance: `0.050em`.
 
@@ -54,9 +54,9 @@ Measured on the reference environment above:
 
 | Profile | Raw cases <= 0.050em | p50 | p90 | p95 | p99 | max |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| STIX Two Math | 20/21 | 0.000011 | 0.001001 | 0.015001 | 0.079999 | 0.079999 |
-| Libertinus Math | 20/21 | 0.000006 | 0.000014 | 0.001001 | 0.056999 | 0.056999 |
-| Fira Math | 21/21 | 0.000001 | 0.000013 | 0.000013 | 0.035988 | 0.035988 |
+| STIX Two Math | 24/25 | 0.000011 | 0.001001 | 0.015001 | 0.079999 | 0.079999 |
+| Libertinus Math | 24/25 | 0.000006 | 0.000016 | 0.001001 | 0.056999 | 0.056999 |
+| Fira Math | 25/25 | 0.000001 | 0.000013 | 0.000013 | 0.000014 | 0.000014 |
 
 The raw count remains visible even when a bounded deviation is documented. A
 profile exemption therefore cannot turn an out-of-tolerance raw case into a
@@ -88,21 +88,20 @@ exemption rather than carrying historical allowance indefinitely.
 ## Stress evidence
 
 Stress remains diagnostic evidence for primitive investigation, nightly runs,
-and release candidates. The table below is the pre-G9 whole-corpus snapshot; it is
-kept as investigation context rather than presented as the current post-G9 fraction
-measurement. G12 owns the next complete stress-baseline refresh. The measured state
-is intentionally not normalized into large profile exemptions:
+and release candidates. The 2026-10-05 G12 stage-1 measurement on the pinned
+MiKTeX reference environment is intentionally not normalized into large profile
+exemptions:
 
-| Profile | Raw cases <= 0.050em | p50 | p90 | p95 | p99 | max | structural mismatches |
+| Profile | Raw cases <= 0.050em | p50 | p90 | p95 | p99 | max | positioned kind-topology mismatches |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| STIX Two Math | 67/89 | 0.000020 | 0.304690 | 0.349773 | 0.828115 | 0.828115 | 2 |
-| Libertinus Math | 68/89 | 0.000014 | 0.126376 | 0.167502 | 0.390829 | 0.390829 | 2 |
-| Fira Math | 75/89 | 0.000012 | 0.119971 | 0.134397 | 0.422560 | 0.422560 | 2 |
+| STIX Two Math | 75/93 | 0.000012 | 0.261050 | 0.331992 | 0.828115 | 0.828115 | 0 |
+| Libertinus Math | 79/93 | 0.000012 | 0.056999 | 0.166628 | 0.390829 | 0.390829 | 0 |
+| Fira Math | 84/93 | 0.000011 | 0.039574 | 0.133440 | 0.422560 | 0.422560 | 0 |
 
-The large stress deltas are work inventory for Phase G, not justification to
-raise the global tolerance. In particular, 6pt indexed radicals, brace/underbrace
-construction, matrices/aligned material, and composite-script geometry remain
-strong discriminators for later primitive fixes.
+The remaining large stress deltas are G12 work inventory, not justification to
+raise the global tolerance. Indexed radicals at multiple physical sizes, aligned
+and matrix composites, and extreme script geometry remain strong discriminators
+for later causal fixes.
 
 ## Independent style sizes
 
@@ -166,14 +165,14 @@ mismatch itself remains contractual. Selection changes, duplicate glyph IDs, and
 reordered mixed glyph/rule traces remain non-comparable rather than inventing a
 coordinate or rule-rectangle pairing.
 
-The 2026-10-04 canonical measurement on the pinned MiKTeX reference environment
-produced:
+The 2026-10-05 G12 stage-1 canonical measurement on the pinned MiKTeX reference
+environment produced:
 
 | Profile | Kind topology | Glyph identity/order aligned | Geometry comparable | p50 | p90 | p95 | p99 | max |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| STIX Two Math | 21/21 | 14/21 | 16/21 | 0.000011 | 0.001500 | 0.014000 | 0.014000 | 0.014000 |
-| Libertinus Math | 21/21 | 14/21 | 16/21 | 0.000011 | 0.008799 | 0.062399 | 0.062399 | 0.062399 |
-| Fira Math | 21/21 | 14/21 | 20/21 | 0.000001 | 0.000013 | 0.007199 | 0.036000 | 0.036000 |
+| STIX Two Math | 25/25 | 20/25 | 20/25 | 0.000003 | 0.000013 | 0.000014 | 0.000014 | 0.000014 |
+| Libertinus Math | 25/25 | 21/25 | 21/25 | 0.000011 | 0.000015 | 0.008799 | 0.008799 | 0.008799 |
+| Fira Math | 25/25 | 25/25 | 25/25 | 0.000003 | 0.000015 | 0.007199 | 0.007199 | 0.007199 |
 
 The percentile/max columns cover geometry-comparable traces after the verifier's
 strict unique-glyph realignment for pure reorders. Realignment does not erase the
@@ -184,31 +183,24 @@ profile whose exact mismatch signature is already documented; a new, repaired, o
 changed signature still fails. The exact mismatch signatures remain contractual. A
 diagnostic glyph pair is always written as `TeXpose/reference`.
 
-The same seven canonical cases are currently not glyph identity/order aligned for
-all three profiles:
+G12 stage 1 removes the canonical paint-order mismatches for upper stacks.
+`display-sum`, `display-sum-limits`, and every Fira canonical accent trace are now
+identity/order aligned. The remaining canonical differences are glyph-selection
+differences rather than paint-order differences:
 
 ```text
-display-sum-limits
-display-sum
-accent-hat-j
-accent-widehat-j
-accent-widehat-xyz
-accent-widetilde-xyz
-accent-widehat-script
+STIX: accent-hat-j, accent-widehat-j, accent-widehat-xyz, accent-widetilde-xyz, accent-widehat-script
+Libertinus: accent-widehat-j, accent-widehat-xyz, accent-widetilde-xyz, accent-widehat-script
+Fira: none
 ```
 
-These are Phase G work inventory, not assertions that either paint order or glyph
-selection is already correct. Contractual canonical runs pin the exact typed mismatch
-signature for each profile as `(paint index, TeXpose glyph ID, reference glyph
-ID)`. A new case, repaired case, added/removed mismatch within an existing case,
-or changed glyph pair fails until the profile baseline is reviewed explicitly.
-STIX, Libertinus, and Fira now contain 20 glyph/order mismatch positions each
-across the same seven case names. Under those exact signatures,
-STIX has two paint-order-only cases and five glyph-selection cases; Libertinus has
-three paint-order-only cases and four glyph-selection cases; Fira has seven
-paint-order-only cases.
-This is intentionally more discriminating than a case-name allowlist while avoiding
-an opaque whole-trace hash.
+Contractual canonical runs pin the exact typed mismatch signature for each profile
+as `(paint index, TeXpose glyph ID, reference glyph ID)`. A new case, repaired case,
+added/removed mismatch within an existing case, or changed glyph pair fails until the
+profile baseline is reviewed explicitly. The stage-1 measurement leaves five mismatch
+positions for STIX, four for Libertinus, and none for Fira. All remaining positions
+are glyph-selection differences. This is intentionally more discriminating than a
+case-name allowlist while avoiding an opaque whole-trace hash.
 
 For every geometry-comparable canonical trace the normal `0.050em` tolerance
 applies. A pure reorder is geometry-comparable only under the strict glyph-only,
@@ -227,16 +219,19 @@ A ceiling that is exceeded fails. A ceiling that is no longer needed also fails
 as stale, forcing its removal instead of preserving historical tolerance.
 
 Stress remains diagnostic and deliberately has no large positioned-trace
-allowlist. The same measurement produced:
+allowlist. The same G12 stage-1 measurement produced:
 
 | Profile | Kind topology | Glyph identity/order aligned | Geometry comparable | p50 | p90 | p95 | p99 | max |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| STIX Two Math | 84/89 | 52/84 | 56/84 | 0.000012 | 0.349772 | 1.032257 | 1.032257 | 1.032257 |
-| Libertinus Math | 84/89 | 62/84 | 66/84 | 0.000013 | 0.137598 | 0.190000 | 0.390833 | 0.390833 |
-| Fira Math | 84/89 | 62/84 | 72/84 | 0.000012 | 0.127000 | 0.134398 | 0.422560 | 0.422560 |
+| STIX Two Math | 93/93 | 69/93 | 69/93 | 0.000011 | 0.239700 | 0.884822 | 1.032257 | 1.032257 |
+| Libertinus Math | 93/93 | 79/93 | 79/93 | 0.000011 | 0.100003 | 0.167500 | 0.390833 | 0.390833 |
+| Fira Math | 93/93 | 87/93 | 87/93 | 0.000011 | 0.060921 | 0.133440 | 0.422560 | 0.422560 |
 
-The large stress topology, identity, and placement deltas remain discriminating
-evidence for the primitive-by-primitive repairs in Phase G.
+The previous post-G11 measurement had kind topology `88/93` in every profile.
+Stage 1 removes all five positioned kind-topology mismatches, including the
+`hard-overset-fraction` mixed `rule/glyph` ordering difference, without changing
+outer geometry. Remaining glyph selection/order and placement deltas stay
+discriminating evidence for the next G12 repairs.
 
 ## Evidence parser hardening
 

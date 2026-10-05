@@ -76,8 +76,8 @@ fn limit_branches(tree: &MathBox) -> (&MathBox, &MathBox, &MathBox) {
     let BoxContent::Overlap(branches) = &tree.content else {
         panic!("display sum with limits must be an overlap");
     };
-    let [base, upper, lower] = branches.as_slice() else {
-        panic!("display sum must contain base, upper limit, and lower limit");
+    let [upper, base, lower] = branches.as_slice() else {
+        panic!("display sum must contain upper limit, base, and lower limit");
     };
     (base, upper, lower)
 }

@@ -57,8 +57,24 @@ fn accent_branches(source: &str, style: MathStyle, font: &MathFont) -> (MathBox,
     let BoxContent::Overlap(children) = &tree.content else {
         panic!("accent did not produce an overlap");
     };
+    let [accent, base] = children.as_slice() else {
+        panic!("top-accent overlap did not contain accent then base");
+    };
+    (tree.clone(), base.clone(), accent.clone())
+}
+
+fn under_accent_branches(
+    source: &str,
+    style: MathStyle,
+    font: &MathFont,
+) -> (MathBox, MathBox, MathBox) {
+    let ast = parse(source).expect("parse under-accent case");
+    let tree = layout(&ast, font, style).expect("layout under-accent case");
+    let BoxContent::Overlap(children) = &tree.content else {
+        panic!("under-accent did not produce an overlap");
+    };
     let [base, accent] = children.as_slice() else {
-        panic!("accent overlap did not contain exactly two branches");
+        panic!("under-accent overlap did not contain base then accent");
     };
     (tree.clone(), base.clone(), accent.clone())
 }
@@ -366,7 +382,7 @@ fn wide_accents_fall_back_to_the_base_glyph_when_the_font_has_no_construction() 
         let BoxContent::Overlap(children) = &output.math_box.content else {
             panic!("{source}: accent did not produce an overlap");
         };
-        let [_, accent] = children.as_slice() else {
+        let [accent, _] = children.as_slice() else {
             panic!("{source}: accent overlap did not contain exactly two branches");
         };
         let (_, actual_ch, actual_id) =
@@ -427,7 +443,7 @@ fn top_and_bottom_stretchy_accents_use_accent_geometry_not_bar_spacing() {
     }
 
     for source in [r"\underleftarrow{J}", r"\underbrace{J}"] {
-        let (_, base, accent) = accent_branches(source, MathStyle::Text, &font);
+        let (_, base, accent) = under_accent_branches(source, MathStyle::Text, &font);
         let expected = -add(&base.depth, &accent.height);
         let actual = sub(&accent.shift, &base.shift);
         assert!(

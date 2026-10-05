@@ -270,8 +270,8 @@ fn accent_children(source: &str, style: MathStyle, font: &MathFont) -> (u16, u16
     };
     assert_eq!(children.len(), 2, "accent overlap has base and accent");
     (
-        first_glyph_id(&children[0]).expect("accent base glyph"),
-        first_glyph_id(&children[1]).expect("accent glyph"),
+        first_glyph_id(&children[1]).expect("accent base glyph"),
+        first_glyph_id(&children[0]).expect("accent glyph"),
     )
 }
 

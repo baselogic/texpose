@@ -14,6 +14,8 @@ All validated face design-unit conversion used by layout goes through one `MathF
 
 The public `MathFont::horizontal_assembly_parts` method remains a compatibility view that explicitly returns raw font units. It is not used by layout and is not a second layout-unit conversion path. Both that compatibility view and the typed layout path reject assembly part counts above the internal `MAX_ASSEMBLY_PARTS` budget before proportional allocation.
 
+`BoxContent::Overlap` child order is backend paint order. When an overlap represents a TeX vertical stack rather than a deliberate overprint, TeXpose stores visible branches in the final top-to-bottom node order. Upper accents, overlines, and upper limits therefore precede their nucleus/base; lower accents, underlines, and lower limits follow it. This ordering is observable even when outer geometry is unchanged, so the positioned oracle treats it as part of the display-list contract.
+
 ## Bounded glyph assemblies
 
 Horizontal and vertical OpenType MATH assemblies share one exact bounded solver. For each requested extent, TeXpose validates every part's full advance, connector lengths, and reserved part flags, enforces `MathVariants.minConnectorOverlap`, rejects constructions without an extender, and computes the legal minimum/maximum assembly advance for an extender repetition count without materializing the repeated sequence. Extenders are added in uniform rounds, preserving the OpenType part order. The solver establishes monotonic legal growth, then uses a bounded binary search for the first repetition count whose legal interval reaches the target.

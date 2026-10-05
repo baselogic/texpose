@@ -2025,7 +2025,7 @@ impl<'font, 'state> Engine<'font, 'state> {
         centered_source.shift = Dim::zero();
         let mut centered_op = center_in(centered_source, &width)?;
         centered_op.shift = op_shift;
-        let mut kids = vec![centered_op];
+        let mut kids = Vec::with_capacity(3);
 
         if let Some(ob) = over_b {
             let gap = self.params.upper_limit_gap_min.checked_mul(&s)?;
@@ -2041,6 +2041,8 @@ impl<'font, 'state> Engine<'font, 'state> {
             height = height.max_ref(&sh.checked_add(&over_height)?);
             kids.push(center_in_with_offset(ob, &width, &half_italic)?.with_shift(sh));
         }
+
+        kids.push(centered_op);
 
         if let Some(ub) = under_b {
             let gap = self.params.lower_limit_gap_min.checked_mul(&s)?;
@@ -2119,7 +2121,8 @@ impl<'font, 'state> Engine<'font, 'state> {
         }
         let mut height = op_h.clone();
         let mut depth = op_d.clone();
-        let mut kids = vec![center_in(op, &width)?];
+        let centered_op = center_in(op, &width)?;
+        let mut kids = Vec::with_capacity(3);
         if let Some(ob) = over_b {
             let gap = self.params.upper_limit_gap_min.checked_mul(&s)?;
             let rise = self.params.upper_limit_baseline_rise_min.checked_mul(&s)?;
@@ -2130,6 +2133,7 @@ impl<'font, 'state> Engine<'font, 'state> {
             height = height.max_ref(&sh.checked_add(&over_height)?);
             kids.push(center_in(ob, &width)?.with_shift(sh));
         }
+        kids.push(centered_op);
         if let Some(ub) = under_b {
             let gap = self.params.lower_limit_gap_min.checked_mul(&s)?;
             let drop = self.params.lower_limit_baseline_drop_min.checked_mul(&s)?;
@@ -2602,6 +2606,7 @@ impl<'font, 'state> Engine<'font, 'state> {
             let shift = b.height.checked_add(&gap)?;
             MathBox::rule(width.clone(), thick, Dim::zero()).with_shift(shift)
         };
+        let layers = if under { vec![b, bar] } else { vec![bar, b] };
         Ok(Item {
             class: Some(AtomKind::Ord),
             bx: MathBox {
@@ -2610,7 +2615,7 @@ impl<'font, 'state> Engine<'font, 'state> {
                 depth,
                 italic: Dim::zero(),
                 shift: Dim::zero(),
-                content: BoxContent::Overlap(vec![b, bar]),
+                content: BoxContent::Overlap(layers),
             },
         })
     }
@@ -3622,13 +3627,14 @@ fn overlay_accent(
     let height = base.height.max_ref(&acc_top);
     let depth = base.depth.max_ref(&(-acc_bot).clamp_nonneg());
     let italic = acc.italic.clone();
+    let accent = shift_x(acc, x_off)?.with_shift(raise);
     Ok(MathBox {
         width,
         height,
         depth,
         italic,
         shift: Dim::zero(),
-        content: BoxContent::Overlap(vec![base, shift_x(acc, x_off)?.with_shift(raise)]),
+        content: BoxContent::Overlap(vec![accent, base]),
     })
 }
 

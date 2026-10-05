@@ -123,6 +123,7 @@ pub enum BoxContent {
     /// Background color (`\colorbox`). Inner glyphs keep the default fill.
     BackColor(Color, Box<MathBox>),
     /// Children share the left edge; each child's [`MathBox::shift`] is its baseline.
+    /// Child order is paint order.
     Overlap(Vec<MathBox>),
     /// Diagonal or free line in em, relative to the box left and baseline (`y` up).
     Line {

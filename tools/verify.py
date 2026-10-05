@@ -27,61 +27,21 @@ STRESS_ALIAS_CENSUS_SHA256 = "d59a05fab134f3a74e16e11ce9750e01963511b846bbd8dd42
 KNOWN_CAPABILITIES = frozenset({"math-font", "canonical-corpus", "stress-corpus"})
 REFERENCE_ENVIRONMENT_SHA256 = "b621bc874d9749432eca9f8a66a8bc8ffd72afda0ef8de8624f6a2c2171acbdf"
 STIX_CANONICAL_TRACE_GLYPH_MISMATCHES = (
-    ("display-sum-limits", ((0, 1647, 4437), (1, 4437, 1647))),
-    ("display-sum", ((0, 1647, 4437), (1, 4437, 1647))),
-    ("accent-hat-j", ((0, 3309, 732), (1, 4800, 3309))),
-    ("accent-widehat-j", ((0, 3309, 732), (1, 1395, 3309))),
-    (
-        "accent-widehat-xyz",
-        ((0, 3323, 1398), (1, 3324, 3323), (2, 3325, 3324), (3, 1399, 3325)),
-    ),
-    (
-        "accent-widetilde-xyz",
-        ((0, 3323, 1408), (1, 3324, 3323), (2, 3325, 3324), (3, 1409, 3325)),
-    ),
-    (
-        "accent-widehat-script",
-        ((0, 3354, 732), (1, 4275, 3354), (2, 4430, 4275), (3, 1395, 4430)),
-    ),
+    ("accent-hat-j", ((0, 4800, 732),)),
+    ("accent-widehat-j", ((0, 1395, 732),)),
+    ("accent-widehat-xyz", ((0, 1399, 1398),)),
+    ("accent-widetilde-xyz", ((0, 1409, 1408),)),
+    ("accent-widehat-script", ((0, 1395, 732),)),
 )
 
 LIBERTINUS_CANONICAL_TRACE_GLYPH_MISMATCHES = (
-    ("display-sum-limits", ((0, 3985, 2758), (1, 2758, 3985))),
-    ("display-sum", ((0, 3985, 2758), (1, 2758, 3985))),
-    ("accent-hat-j", ((0, 2729, 701), (1, 701, 2729))),
-    ("accent-widehat-j", ((0, 2729, 701), (1, 4071, 2729))),
-    (
-        "accent-widehat-xyz",
-        ((0, 2743, 4074), (1, 2744, 2743), (2, 2745, 2744), (3, 4075, 2745)),
-    ),
-    (
-        "accent-widetilde-xyz",
-        ((0, 2743, 4216), (1, 2744, 2743), (2, 2745, 2744), (3, 4217, 2745)),
-    ),
-    (
-        "accent-widehat-script",
-        ((0, 2768, 701), (1, 19, 2768), (2, 2753, 19), (3, 4071, 2753)),
-    ),
+    ("accent-widehat-j", ((0, 4071, 701),)),
+    ("accent-widehat-xyz", ((0, 4075, 4074),)),
+    ("accent-widetilde-xyz", ((0, 4217, 4216),)),
+    ("accent-widehat-script", ((0, 4071, 701),)),
 )
 
-FIRA_CANONICAL_TRACE_GLYPH_MISMATCHES = (
-    ("display-sum-limits", ((0, 1584, 1216), (1, 1216, 1584))),
-    ("display-sum", ((0, 1584, 1216), (1, 1216, 1584))),
-    ("accent-hat-j", ((0, 1187, 285), (1, 285, 1187))),
-    ("accent-widehat-j", ((0, 1187, 285), (1, 285, 1187))),
-    (
-        "accent-widehat-xyz",
-        ((0, 1201, 285), (1, 1202, 1201), (2, 1203, 1202), (3, 285, 1203)),
-    ),
-    (
-        "accent-widetilde-xyz",
-        ((0, 1201, 286), (1, 1202, 1201), (2, 1203, 1202), (3, 286, 1203)),
-    ),
-    (
-        "accent-widehat-script",
-        ((0, 1226, 285), (1, 19, 1226), (2, 1211, 19), (3, 285, 1211)),
-    ),
-)
+FIRA_CANONICAL_TRACE_GLYPH_MISMATCHES = ()
 
 
 class OracleError(RuntimeError):

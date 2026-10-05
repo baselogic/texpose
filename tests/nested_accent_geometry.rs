@@ -45,8 +45,8 @@ fn assert_hat_tilde_layer(
         panic!("hat/tilde accent must be an overlap");
     };
 
-    let [base, accent] = children.as_slice() else {
-        panic!("hat/tilde overlap must contain base and accent branches");
+    let [accent, base] = children.as_slice() else {
+        panic!("hat/tilde overlap must contain accent and base branches");
     };
 
     let scale = params.scale(style);
