@@ -98,10 +98,11 @@ environment measures:
 | Fira Math | 88/93 | 0.000011 | 0.012744 | 0.072184 | 0.422560 | 0.422560 | 0 |
 
 The raw count remains a measurement and is never rewritten by deviations. Stage
-11 introduces bounded, stress-specific G6 reference-size-policy records. Stage
-12a adds one bounded STIX G7 MathKern-policy record for `hard-logit`, grounded in
-the published OpenType minimum-of-two-sums algorithm. Neither stage raises the
-global `0.050em` tolerance or affects canonical profiles.
+11 introduces bounded, stress-specific G6 reference-size-policy records. Stages
+12a and 13a add bounded STIX G7 MathKern-policy records for `hard-logit` and
+`hard-wide-expression`, grounded in the published OpenType minimum-of-two-sums
+algorithm. These classifications do not raise the global `0.050em` tolerance or
+affect canonical profiles.
 `docs/G12_STRESS_CLOSURE.md` owns the exact evidence tuple and the remaining
 blocking inventory.
 
@@ -161,13 +162,21 @@ The complete per-case classification is in `docs/G12_STRESS_CLOSURE.md`.
 
 ### G7 MathKern policy divergence
 
-For STIX `hard-logit`, TeXpose follows the published OpenType MATH MathKern
-algorithm: evaluate the two correction-height sums and apply their minimum. The
-pinned LuaLaTeX reference places the affected scripts farther right even though
-glyph identity, vertical position, and script scale remain aligned. The first
-divergence is the subscript in `Y_i`; the full stress case measures
-`0.449940em` outer width and `0.449941em` positioned x delta. Stage 12a records
-both with a `0.450100em` stress-only ceiling.
+TeXpose follows the published OpenType MATH MathKern algorithm: evaluate the two
+correction-height sums and apply their minimum. The pinned LuaLaTeX reference
+uses LuaTeX's current greater-sum selection on the affected STIX scripts while
+glyph identity, vertical position, and script scale remain aligned.
+
+For `hard-logit`, the first divergence is the subscript in `Y_i`; the full stress
+case measures `0.449940em` outer width and `0.449941em` positioned x delta.
+Stage 12a records both with a `0.450100em` stress-only ceiling.
+
+For `hard-wide-expression`, the `a_1` through `a_{10}` prefix remains aligned to
+rounding noise. The first `b_1` base is still aligned, but its subscript origin is
+`0.503000em` after the base in TeXpose and `0.537999em` in the reference. The
+approximately `0.035em` difference repeats once per `b_i`, yielding
+`0.349773em` outer width and `0.349772em` positioned x delta after ten terms.
+Stage 13a records both with a `0.349900em` stress-only ceiling.
 
 The specification text is:
 
@@ -182,10 +191,10 @@ behavior is:
 https://github.com/MicrosoftDocs/typography-issues/issues/1147
 ```
 
-This record does not make LuaLaTeX or Word authoritative over the published
-OpenType rule. It freezes the measured cross-engine difference while the
-existing focused MathKern tests continue to own TeXpose behavior. The ceiling is
-stale-sensitive and applies only to this STIX stress case.
+These records do not make LuaLaTeX or Word authoritative over the published
+OpenType rule. They freeze the measured cross-engine differences while the
+existing focused MathKern tests continue to own TeXpose behavior. Each ceiling
+is stale-sensitive and applies only to its named STIX stress case.
 
 ## Collection-face identity
 
@@ -281,11 +290,12 @@ After G12 stage 10 the pinned positioned measurement is:
 Stage 5 records exact specification-owned stress glyph deviations separately from
 unresolved signatures. Stage 11 extends that mechanism with bounded stress-only
 outer geometry and positioned-trace ceilings for the proven G6 physical-size
-policy divergence. Stage 12a uses the same bounded mechanism for the proven STIX
-G7 `hard-logit` MathKern-policy divergence. A ceiling is accepted only in stress
-scope, fails if exceeded, and fails stale once the measured difference no longer
-requires it. The complete evidence, classification, and reopening conditions
-live in `docs/G12_STRESS_CLOSURE.md`.
+policy divergence. Stages 12a and 13a use the same bounded mechanism for the
+proven STIX G7 `hard-logit` and `hard-wide-expression` MathKern-policy
+divergences. A ceiling is accepted only in stress scope, fails if exceeded, and
+fails stale once the measured difference no longer requires it. The complete
+evidence, classification, and reopening conditions live in
+`docs/G12_STRESS_CLOSURE.md`.
 
 ## Evidence parser hardening
 

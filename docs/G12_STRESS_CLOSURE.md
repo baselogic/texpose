@@ -293,6 +293,7 @@ The following stress-only outer ceilings are bounded profile records:
 | Profile | Case | Observed maximum | Ceiling | Cause |
 | --- | --- | ---: | ---: | --- |
 | STIX | `hard-logit` | 0.449940em | 0.450100em | G7 OpenType MathKern minimum-of-sums |
+| STIX | `hard-wide-expression` | 0.349773em | 0.349900em | G7 OpenType MathKern minimum-of-sums |
 | STIX | `size-frac-6pt` | 0.331992em | 0.332100em | G6 reference-size policy |
 | STIX | `size-nested-frac-6pt` | 0.291390em | 0.291500em | G6 reference-size policy |
 | STIX | `size-delim-6pt` | 0.331991em | 0.332100em | G6 reference-size policy |
@@ -323,7 +324,6 @@ the remaining **unwaived** outer geometry above `0.050em` is:
 STIX:
 
 ```text
-hard-wide-expression           0.349773em
 hard-aligned-model             0.214347em
 hard-stat-r2                   0.209959em
 hard-depth-typography          0.068974em
@@ -343,9 +343,9 @@ Fira:
 hard-aligned-model             0.079861em
 ```
 
-These remain G12 work. Stage 12a classifies only STIX `hard-logit`; it does not
-approve `hard-wide-expression`, ExtendedShape, overbrace, delimiter-selection,
-or any other residual.
+These remain G12 work after the listed classifications. Stage 13a additionally
+classifies only STIX `hard-wide-expression`; it does not approve ExtendedShape,
+overbrace, delimiter-selection, alignment, radical, or any other residual.
 
 ## Closure protocol
 
@@ -797,7 +797,70 @@ difference.
 Reopen this decision if the published OpenType rule changes, if TeXpose no longer
 selects the specified minimum, if the pinned reference converges, or if the
 measured delta exceeds the ceiling. The verifier's stale-ceiling checks force
-review if the difference disappears. `hard-wide-expression`,
+review if the difference disappears. At Stage 12a, `hard-wide-expression`,
 `hard-aligned-model`, `hard-stat-r2`, `hard-depth-typography`,
-`hard-script-on-delimited`, and the unresolved glyph inventories remain separate
-G12 work.
+`hard-script-on-delimited`, and the unresolved glyph inventories remained separate
+G12 work; Stage 13a below reclassifies only `hard-wide-expression`.
+
+## Stage-13a STIX repeated-subscript MathKern policy classification
+
+Stage 13a closes a second G7 **classification** without changing TeXpose layout.
+The measured stress case is:
+
+```tex
+a_1+a_2+a_3+a_4+a_5+a_6+a_7+a_8+a_9+a_{10}+b_1+b_2+b_3+b_4+b_5+b_6+b_7+b_8+b_9+b_{10}
+```
+
+Outer geometry is `41.677643em` in TeXpose versus `42.027415em` in the pinned
+LuaLaTeX reference, a signed width delta of `-0.349773em`. Ascent and descent
+remain aligned within `0.000001em`; glyph and rule counts are identical
+(`61/61`, `0/0`). The positioned trace is topology- and identity/order-aligned
+for all 61 glyphs, with a maximum `glyph-x` delta of `0.349772em`.
+
+The first causal divergence occurs only after the complete `a_1` through
+`a_{10}` prefix. Primitive 31, the first `b`, is aligned to `0.000113em`. At
+primitive 32, its `1` subscript keeps the same glyph (`4274`), baseline
+(`-0.210000em` versus `-0.210001em`), and scale (`0.700000`) but appears at
+`22.184044em` in TeXpose versus `22.218930em` in the reference. Relative to the
+base origin, TeXpose places that subscript at `+0.503000em` while the reference
+uses `+0.537999em`, exposing an approximately `+0.035em` horizontal MathKern
+difference before the following `+` is laid out.
+
+The same step repeats once for every subsequent `b_i`. After `b_2` the cumulative
+position difference is approximately `0.070em`, after `b_5` approximately
+`0.175em`, and after `b_9` approximately `0.315em`; `b_{10}` reaches the measured
+`0.349772em` positioned maximum. `SpaceAfterScript` cannot be the first cause
+because the divergence is already present at each subscript glyph before the
+following inter-atom content. Base italic correction is likewise not the cause:
+the subscript default origin is the base advance, and the extra reference offset
+is the height-dependent MathKern adjustment.
+
+The governing rule is the same G7 contract already used for Stage 12a. OpenType
+MATH requires the subscript algorithm to evaluate the two bottom-right/top-left
+correction-height sums and apply their **minimum**:
+
+```text
+https://learn.microsoft.com/en-us/typography/opentype/spec/math
+```
+
+TeXpose implements that rule with `first.min_ref(&second)`. Its focused STIX
+contracts in `tests/math_kern.rs` prove independently that either correction
+height can win when it is the smaller sum. The pinned LuaLaTeX reference follows
+a different policy. Current LuaTeX source computes the same two sums but replaces
+the first when the second is greater than or equal to it (`>=`); the TeX Live
+change that introduced this behavior explicitly changed the former `<` comparison
+to `>=` for both superscripts and subscripts:
+
+```text
+https://ftp.tug.org/pipermail/tex-live-commits/2025-March/033321.html
+```
+
+Stage 13a therefore adds two STIX stress-only, stale-sensitive records for
+`hard-wide-expression`: an outer ceiling of `0.349900em` and a positioned-trace
+ceiling of `0.349900em`. Neither permits structural or glyph-selection
+differences. The raw `<=0.050em` census is unchanged by this classification.
+
+Reopen this decision if the published OpenType rule changes, LuaTeX returns to
+the minimum-of-sums rule, TeXpose no longer selects the specified minimum, the
+measured case ceases to exhibit the repeated per-`b_i` step, or either delta
+exceeds its ceiling. All other G12 residuals remain separate work.

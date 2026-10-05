@@ -117,10 +117,9 @@ G6_REFERENCE_SIZE_POLICY_NOTE = (
 G7_MATH_KERN_POLICY_NOTE = (
     "G7 follows the published OpenType MATH MathKern algorithm: evaluate the two "
     "correction-height sums and apply their minimum. The pinned LuaLaTeX reference "
-    "places STIX hard-logit scripts farther right; its first divergence is the Y_i "
-    "subscript while glyph identity, baseline, and scale remain aligned. The bounded "
-    "ceiling records that external MathKern-policy difference without weakening the "
-    "OpenType minimum-of-sums contract."
+    "uses LuaTeX's current greater-sum MathKern selection on the affected STIX "
+    "scripts. The bounded ceiling records that external policy difference without "
+    "weakening the OpenType minimum-of-sums contract."
 )
 
 
@@ -331,6 +330,7 @@ PROFILES: dict[str, MathProfile] = {
         ),
         stress_deviations=(
             ("hard-logit", Deviation(0.4501, False, G7_MATH_KERN_POLICY_NOTE)),
+            ("hard-wide-expression", Deviation(0.3499, False, G7_MATH_KERN_POLICY_NOTE)),
             ("size-frac-6pt", Deviation(0.3321, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
             ("size-nested-frac-6pt", Deviation(0.2915, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
             ("size-delim-6pt", Deviation(0.3321, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
@@ -343,7 +343,10 @@ PROFILES: dict[str, MathProfile] = {
         canonical_trace_deviations=(),
         stress_trace_glyph_deviations=STIX_STRESS_TRACE_GLYPH_DEVIATIONS,
         stress_trace_glyph_inventory=STIX_STRESS_TRACE_GLYPH_INVENTORY,
-        stress_trace_deviations=(("hard-logit", 0.4501),),
+        stress_trace_deviations=(
+            ("hard-logit", 0.4501),
+            ("hard-wide-expression", 0.3499),
+        ),
         reference_environment_sha256=REFERENCE_ENVIRONMENT_SHA256,
     ),
     "libertinus": MathProfile(
