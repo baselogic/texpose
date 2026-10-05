@@ -1433,6 +1433,121 @@ def print_positioned_trace_diagnostics(
             )
 
 
+def format_signed_delta(value: float) -> str:
+    return f"{value:+.6f}"
+
+
+def case_explanation_lines(
+    case: dict[str, object], reference: dict[str, object]
+) -> list[str]:
+    name = str(case["name"])
+    source = str(case["source"])
+    text_em = float(reference["text_em"])
+    if not math.isfinite(text_em) or text_em <= 0:
+        fail(f"invalid reference text em while explaining {name}")
+
+    lines = [f"  {name}", f"    source: {source}"]
+    for field in ("width", "ascent", "descent"):
+        actual = float(case[field])
+        expected = float(reference[field])
+        lines.append(
+            f"    {field}: TeXpose {actual:.6f} | reference {expected:.6f} | "
+            f"signed {format_signed_delta(actual - expected)}em"
+        )
+
+    lines.append(
+        "    counts: "
+        f"glyphs {int(case['glyphs'])}/{int(reference['glyphs'])} | "
+        f"rules {int(case['rules'])}/{int(reference['rules'])}"
+    )
+    script_em = float(reference["script_em"])
+    scriptscript_em = float(reference["scriptscript_em"])
+    lines.append(
+        "    reference math sizes: "
+        f"text {text_em:.0f}sp | "
+        f"script {script_em:.0f}sp ({script_em / text_em:.6f}em) | "
+        f"scriptscript {scriptscript_em:.0f}sp ({scriptscript_em / text_em:.6f}em)"
+    )
+
+    actual_trace = case["trace"]
+    expected_trace = reference["trace"]
+    if not isinstance(actual_trace, list) or not isinstance(expected_trace, list):
+        fail(f"internal positioned trace container is invalid for {name}")
+    lines.append(
+        f"    trace primitives: {len(actual_trace)}/{len(expected_trace)}"
+    )
+
+    count = max(len(actual_trace), len(expected_trace))
+    for index in range(count):
+        if index >= len(actual_trace):
+            lines.append(f"      {index}: missing TeXpose primitive")
+            continue
+        if index >= len(expected_trace):
+            lines.append(f"      {index}: missing reference primitive")
+            continue
+        left = actual_trace[index]
+        right = expected_trace[index]
+        left_kind = str(left["kind"])
+        right_kind = str(right["kind"])
+        if left_kind != right_kind:
+            lines.append(f"      {index}: kind {left_kind}/{right_kind}")
+            continue
+
+        if left_kind == "glyph":
+            actual_x = float(left["x"])
+            reference_x = float(right["x_sp"]) / text_em
+            actual_baseline = float(left["baseline"])
+            reference_baseline = float(right["baseline_sp"]) / text_em
+            actual_scale = float(left["scale"])
+            reference_scale = float(right["font_size_sp"]) / text_em
+            lines.append(
+                f"      {index}: glyph {int(left['glyph_id'])}/{int(right['glyph_id'])} | "
+                f"x {actual_x:.6f}/{reference_x:.6f} "
+                f"({format_signed_delta(actual_x - reference_x)}) | "
+                f"baseline {actual_baseline:.6f}/{reference_baseline:.6f} "
+                f"({format_signed_delta(actual_baseline - reference_baseline)}) | "
+                f"scale {actual_scale:.6f}/{reference_scale:.6f} "
+                f"({format_signed_delta(actual_scale - reference_scale)})"
+            )
+        elif left_kind == "rule":
+            fields = (
+                ("x", "x_sp"),
+                ("bottom", "bottom_sp"),
+                ("width", "width_sp"),
+                ("height", "height_sp"),
+            )
+            rendered = []
+            for actual_field, reference_field in fields:
+                actual_value = float(left[actual_field])
+                reference_value = float(right[reference_field]) / text_em
+                rendered.append(
+                    f"{actual_field} {actual_value:.6f}/{reference_value:.6f} "
+                    f"({format_signed_delta(actual_value - reference_value)})"
+                )
+            lines.append(f"      {index}: rule | " + " | ".join(rendered))
+        else:
+            fail(f"unknown positioned primitive kind while explaining {name}: {left_kind}")
+
+    return lines
+
+
+def print_case_explanations(
+    requested: list[str],
+    cases: dict[str, dict[str, object]],
+    reference: dict[str, dict[str, object]],
+) -> None:
+    if not requested:
+        return
+    unique = list(dict.fromkeys(requested))
+    unknown = [name for name in unique if name not in cases]
+    if unknown:
+        fail("unknown --explain-case: " + ", ".join(unknown))
+    print("case explanations (signed deltas are TeXpose-reference):", file=sys.stderr)
+    for name in unique:
+        for line in case_explanation_lines(cases[name], reference[name]):
+            print(line, file=sys.stderr)
+
+
 def validate_positioned_contract(
     spec: RunSpec, trace_deltas: list[TraceCaseDelta], *, stress: bool = False
 ) -> list[str]:
@@ -1577,6 +1692,9 @@ def gate_math(
         fail("tolerance must be finite/nonnegative")
     if not 1 <= args.top_worst <= 100:
         fail("--top-worst must be 1..100")
+    for case_name in args.explain_case:
+        if not re.fullmatch(r"[A-Za-z0-9_-]+", case_name):
+            fail(f"invalid --explain-case name: {case_name}")
 
     require_file(ROOT / "Cargo.toml")
     require_file(ROOT / "tools" / "math_compare.lua")
@@ -1737,6 +1855,7 @@ def gate_math(
         )
         print_aggregate_diagnostics(spec, deltas)
         print_positioned_trace_diagnostics(trace_deltas, args.top_worst)
+        print_case_explanations(args.explain_case, cases, reference)
 
         if approved_geometry:
             print("bounded geometry deviations:", file=sys.stderr)
@@ -2051,6 +2170,15 @@ def self_test() -> None:
         numeric_delta = compare_positioned_trace(cases["case-1"], numeric_reference)
         if numeric_delta.maximum_field != "glyph-x" or abs(numeric_delta.maximum - 0.1) > 1e-12:
             fail("self-test positioned numeric delta was not localized")
+
+        explanation = case_explanation_lines(cases["case-1"], numeric_reference)
+        if not any("signed +0.900000em" in line for line in explanation):
+            fail("self-test case explanation lost signed outer geometry")
+        if not any(
+            "glyph 42/42" in line and "x 0.000000/0.100000 (-0.100000)" in line
+            for line in explanation
+        ):
+            fail("self-test case explanation lost signed positioned geometry")
 
         exhaustive_case = {
             "name": "two-glyphs",
@@ -2578,6 +2706,16 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     math_parser.add_argument("--stress", action="store_true")
     math_parser.add_argument("--tolerance", type=float)
     math_parser.add_argument("--top-worst", type=int, default=12)
+    math_parser.add_argument(
+        "--explain-case",
+        action="append",
+        default=[],
+        metavar="CASE",
+        help=(
+            "emit full signed outer/positioned diagnostics for CASE; "
+            "repeat to explain multiple cases without weakening corpus validation"
+        ),
+    )
     math_parser.add_argument("--fail-on-delta", action="store_true")
 
     sub.add_parser("self-test", help="exercise the oracle evidence parsers")

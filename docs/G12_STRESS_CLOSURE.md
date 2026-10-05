@@ -298,3 +298,39 @@ uv run --script tools\verify.py math --profile fira --stress --top-worst 100
 fast gate. It rejects exact inventory signatures until they are either repaired
 or reclassified with the complete roadmap evidence tuple, and it still rejects
 unbounded geometry above profile tolerance.
+
+## Stage-6 causal explanation workflow
+
+G12 investigations must not infer a primitive cause from an outer-box maximum.
+The verifier therefore provides a diagnostic-only `--explain-case CASE` option.
+It does not filter the corpus, alter the profile census, relax any contract, or
+change `--fail-on-delta`. The normal complete run is still executed and
+validated. After comparison, each requested case additionally reports:
+
+```text
+source formula
+signed width/ascent/descent as TeXpose - LuaLaTeX
+reference text/script/scriptscript math sizes
+complete positioned primitive sequence
+for every glyph: ID, x, baseline, scale and signed deltas
+for every rule: x, bottom, width, height and signed deltas
+```
+
+The option is repeatable so one full stress execution can gather several
+candidate roots without weakening census evidence. Example:
+
+```powershell
+uv run --script tools\verify.py math --profile fira --stress `
+  --explain-case hard-aligned-model `
+  --explain-case hard-delim-eval `
+  --explain-case hard-matrix-fractions `
+  --explain-case size-indexed-radical-6pt `
+  --explain-case hard-logit
+```
+
+Signed values are diagnostic evidence, not tolerances. A positive value means
+TeXpose is farther right/larger/higher than the reference for that field; a
+negative value means the converse. Glyph-selection mismatches still withhold
+identity-based geometry in the contractual comparator. The explanation output
+shows paint-index coordinates only to reconstruct the first causal divergence;
+it does not silently declare unlike glyphs geometrically equivalent.
