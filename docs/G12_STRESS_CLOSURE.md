@@ -464,3 +464,64 @@ geometry deviation, Libertinus 24/25 with its existing approved G5 geometry
 deviation, and Fira 25/25 with no approved geometry deviation. Positioned glyph
 identity/order classifications also remain unchanged at 72/93, 81/93, and
 92/93 respectively.
+
+## Stage-10 clean-script terminal-italic closure
+
+Stage 10 closes a horizontal-width loss in cleaned script boxes. The minimal
+reproducer is a scripted box whose one-glyph script has non-zero MATH italics
+correction, for example with Fira Math:
+
+```tex
+\frac{a}{b}_E
+```
+
+TeXpose previously laid out the script through the ordinary script style and
+kept the terminal glyph's MATH italics correction only as `MathBox::italic`
+metadata. Script attachment then consumed `width` plus `SpaceAfterScript`, so
+the terminal italic extent was lost from the cleaned script-box width. LuaTeX's
+`clean_box` packages the math list before removing its terminal italic-correction
+node, which leaves that correction represented in the packaged box width.
+
+The repair adds the terminal math italic extent to the cleaned script component
+and clears the metadata copy while deliberately preserving direct
+`BoxContent::Glyph` content. Preserving the direct glyph is part of the contract:
+subsequent MathKern lookup must still be able to inspect the script glyph rather
+than seeing an opaque box.
+
+The focused owner is
+`tests/script_space_after.rs::script_clean_box_keeps_terminal_math_italic_in_its_width`.
+With Fira Math it checks both subscript and superscript paths and derives the
+expected width as the base width plus script glyph width, the script glyph's
+terminal MATH italics correction, and parent-style `SpaceAfterScript`. Existing
+`tests/math_kern.rs` remains green and therefore independently protects the
+requirement that this cleaning step not hide a direct script glyph from MathKern.
+
+Post-fix focal stress measurements are:
+
+```text
+profile      hard-script-extreme width   hard-logit width       hard-aligned-model width
+STIX         +0.000001em                  -0.449940em             -0.209908em
+Libertinus   +0.000002em                  +0.000064em             +0.000084em
+Fira         +0.000000em                  -0.019945em             +0.000084em
+```
+
+The overall `<=0.050em` stress census is now:
+
+```text
+STIX         79/93
+Libertinus   85/93
+Fira         88/93
+```
+
+This stage therefore closes the terminal-script-italic component but does not
+classify unrelated residuals. In particular, STIX `hard-logit` still contains a
+large horizontal MathKern-policy difference, and Libertinus/Fira
+`hard-aligned-model` retain vertical differences (`0.185999em` and `0.079861em`
+respectively) after their horizontal width is effectively aligned. Those are
+separate contracts for later G12 classification.
+
+Canonical runs remain unchanged at STIX 24/25 with its existing approved G5
+geometry deviation, Libertinus 24/25 with its existing approved G5 geometry
+deviation, and Fira 25/25 with no approved geometry deviation. Positioned glyph
+identity/order classifications are unchanged because Stage 10 changes script-box
+width only, not glyph selection or paint order.

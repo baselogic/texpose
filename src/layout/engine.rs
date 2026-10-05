@@ -999,6 +999,18 @@ impl<'font, 'state> Engine<'font, 'state> {
         }
     }
 
+    fn clean_script_component(&self, node: &MathNode, style: MathStyle) -> Result<MathBox, Error> {
+        let mut bx = self.layout(node, style)?;
+        if row_needs_math_italic_kern(node) && !bx.italic.is_zero() {
+            // TeX clean_box keeps a terminal math-character italic correction
+            // in the script box width. Preserve direct Glyph content here so
+            // MathKern can still inspect the script glyph after cleaning.
+            bx.width = bx.width.checked_add(&bx.italic)?;
+            bx.italic = Dim::zero();
+        }
+        Ok(bx)
+    }
+
     fn over_under(
         &self,
         base: &MathNode,
@@ -1357,13 +1369,13 @@ impl<'font, 'state> Engine<'font, 'state> {
             } else {
                 self.params.superscript_shift_up.checked_mul(&s)?
             };
-            Some(self.layout(e, sup_style)?)
+            Some(self.clean_script_component(e, sup_style)?)
         } else {
             None
         };
         let sub_laid = if let Some(u) = sub {
             sub_shift = self.params.subscript_shift_down.checked_mul(&s)?;
-            Some(self.layout(u, sub_style)?)
+            Some(self.clean_script_component(u, sub_style)?)
         } else {
             None
         };

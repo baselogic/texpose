@@ -2,6 +2,8 @@ mod common;
 
 use texpose::{layout, parse, Dim, MathFont, MathParams, MathStyle};
 
+const FIRA: &[u8] = include_bytes!("fixtures/fonts/fira-math/FiraMath-Regular.otf");
+
 fn add(a: &Dim, b: &Dim) -> Dim {
     a.checked_add(b).unwrap()
 }
@@ -35,4 +37,32 @@ fn space_after_script_uses_parent_style_scale() {
         scripted.width.to_dec_string(),
         expected_width.to_dec_string()
     );
+}
+
+#[test]
+fn script_clean_box_keeps_terminal_math_italic_in_its_width() {
+    let font = MathFont::from_bytes(FIRA).expect("Fira Math fixture");
+    let params = MathParams::from_font(&font).expect("OpenType MATH constants");
+    let base = layout_source(r"\frac{a}{b}", MathStyle::Text, &font);
+    let after = mul(&params.space_after_script, &params.scale(MathStyle::Text));
+
+    for (source, script_style) in [
+        (r"\frac{a}{b}_E", MathStyle::ScriptCramped),
+        (r"\frac{a}{b}^E", MathStyle::Script),
+    ] {
+        let script = layout_source("E", script_style, &font);
+        assert!(
+            script.italic > Dim::zero(),
+            "fixture must expose terminal script italic correction"
+        );
+        let expected = add(
+            &add(&base.width, &add(&script.width, &script.italic)),
+            &after,
+        );
+        let actual = layout_source(source, MathStyle::Text, &font);
+        assert_eq!(
+            actual.width, expected,
+            "{source}: script clean box lost terminal math italic"
+        );
+    }
 }
