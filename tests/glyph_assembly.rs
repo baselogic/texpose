@@ -153,6 +153,52 @@ fn vertical_delimiter_assembly_grows_beyond_prebuilt_variants() {
 }
 
 #[test]
+fn vertical_assembly_overlap_paints_top_to_bottom() {
+    let font = common::stix_two_math().expect("STIX Two Math");
+    let ast = parse(r"\left\{\rule{0pt}{5em}x\right\}").expect("tall brace assembly source");
+    let output = layout_with_diagnostics(&ast, &font, MathStyle::Display)
+        .expect("tall brace assembly layout");
+
+    assert!(
+        output.diagnostics.is_empty(),
+        "valid STIX brace assembly must not degrade: {:?}",
+        output.diagnostics
+    );
+    let BoxContent::HList(children) = &output.math_box.content else {
+        panic!("delimited expression must be a horizontal list");
+    };
+    let left = children.first().expect("left brace box");
+    let BoxContent::Overlap(parts) = &left.content else {
+        panic!("tall left brace must use a vertical MATH assembly");
+    };
+    assert!(parts.len() >= 3, "brace assembly must contain multiple parts");
+
+    let glyph_ids: Vec<u16> = parts
+        .iter()
+        .map(|part| {
+            let BoxContent::Glyph { ch, glyph_id, .. } = &part.content else {
+                panic!("vertical assembly part must be a glyph");
+            };
+            assert_eq!(*ch, '{');
+            *glyph_id
+        })
+        .collect();
+    let top_hook = font.glyph('\u{23A7}').expect("left brace upper hook").glyph_id;
+    let bottom_hook = font.glyph('\u{23A9}').expect("left brace lower hook").glyph_id;
+
+    assert_eq!(
+        glyph_ids.first().copied(),
+        Some(top_hook),
+        "Overlap traversal must start with the topmost assembly part"
+    );
+    assert_eq!(
+        glyph_ids.last().copied(),
+        Some(bottom_hook),
+        "Overlap traversal must end with the bottommost assembly part"
+    );
+}
+
+#[test]
 fn horizontal_overbrace_assembly_uses_repeated_parts_without_degradation() {
     let font = common::stix_two_math().expect("STIX Two Math");
     let ast = parse(r"\overbrace{abcdefghijklmnopqrstuvwxyz}").expect("horizontal assembly source");

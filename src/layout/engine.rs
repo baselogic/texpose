@@ -1896,6 +1896,13 @@ impl<'font, 'state> Engine<'font, 'state> {
         if origin != advance {
             return Ok(None);
         }
+
+        // OpenType stores vertical assembly parts bottom-to-top, which is the
+        // order used above to solve their origins. `Overlap` children are paint
+        // order, while TeX vertical lists traverse top-to-bottom; reverse only
+        // after placement so paint order changes without changing geometry.
+        children.reverse();
+
         Ok(Some(MathBox {
             width,
             height: advance,
