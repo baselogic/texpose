@@ -1624,22 +1624,24 @@ impl<'font, 'state> Engine<'font, 'state> {
 
         if gap < min_gap {
             *sub_shift = sub_shift.checked_add(&min_gap.checked_sub(&gap)?)?;
-        }
 
-        if direct_character_nucleus {
-            let current_bottom = sup_shift.checked_sub(&effective_depth(sp)?)?;
-            let target_bottom = self
-                .script_placement
-                .superscript_bottom_max_with_subscript
-                .checked_mul(scale)?;
+            // `SuperscriptBottomMaxWithSubscript` redistributes an actual gap
+            // repair; it is not an independent minimum superscript position.
+            if direct_character_nucleus {
+                let current_bottom = sup_shift.checked_sub(&effective_depth(sp)?)?;
+                let target_bottom = self
+                    .script_placement
+                    .superscript_bottom_max_with_subscript
+                    .checked_mul(scale)?;
 
-            if current_bottom < target_bottom {
-                let raise = target_bottom.checked_sub(&current_bottom)?;
-                let lowered_subscript = sub_shift.checked_sub(&raise)?;
+                if current_bottom < target_bottom {
+                    let raise = target_bottom.checked_sub(&current_bottom)?;
+                    let lowered_subscript = sub_shift.checked_sub(&raise)?;
 
-                if lowered_subscript >= Dim::zero() {
-                    *sup_shift = sup_shift.checked_add(&raise)?;
-                    *sub_shift = lowered_subscript;
+                    if lowered_subscript >= Dim::zero() {
+                        *sup_shift = sup_shift.checked_add(&raise)?;
+                        *sub_shift = lowered_subscript;
+                    }
                 }
             }
         }

@@ -4,6 +4,8 @@ use core::cmp::Ordering;
 
 use texpose::{layout, parse, BoxContent, Dim, MathBox, MathFont, MathParams, MathStyle};
 
+const FIRA: &[u8] = include_bytes!("fixtures/fonts/fira-math/FiraMath-Regular.otf");
+
 fn add(a: &Dim, b: &Dim) -> Dim {
     a.checked_add(b).unwrap()
 }
@@ -122,29 +124,29 @@ fn paired_scripts_obey_open_type_vertical_constraints() {
 
     let min_gap = mul(&params.sub_superscript_gap_min, &scale);
 
-    if gap.cmp(&min_gap) == Ordering::Less {
-        expected_lower = add(&expected_lower, &sub(&min_gap, &gap));
-    }
-
     let legacy_upper = expected_upper.clone();
 
     let legacy_lower = expected_lower.clone();
 
-    let current_bottom = sub(&expected_upper, &upper.depth);
+    if gap.cmp(&min_gap) == Ordering::Less {
+        expected_lower = add(&expected_lower, &sub(&min_gap, &gap));
 
-    let paired_bottom = mul(
-        &fu(constants.superscript_bottom_max_with_subscript().value),
-        &scale,
-    );
+        let current_bottom = sub(&expected_upper, &upper.depth);
 
-    if current_bottom.cmp(&paired_bottom) == Ordering::Less {
-        let raise = sub(&paired_bottom, &current_bottom);
-        let lowered_subscript = sub(&expected_lower, &raise);
+        let paired_bottom = mul(
+            &fu(constants.superscript_bottom_max_with_subscript().value),
+            &scale,
+        );
 
-        if lowered_subscript.cmp(&Dim::zero()) != Ordering::Less {
-            expected_upper = add(&expected_upper, &raise);
+        if current_bottom.cmp(&paired_bottom) == Ordering::Less {
+            let raise = sub(&paired_bottom, &current_bottom);
+            let lowered_subscript = sub(&expected_lower, &raise);
 
-            expected_lower = lowered_subscript;
+            if lowered_subscript.cmp(&Dim::zero()) != Ordering::Less {
+                expected_upper = add(&expected_upper, &raise);
+
+                expected_lower = lowered_subscript;
+            }
         }
     }
 
@@ -170,6 +172,76 @@ fn paired_scripts_obey_open_type_vertical_constraints() {
     assert!(
         actual_lower.eq_dim(&expected_lower_shift),
         "subscript shift was {}, expected {}",
+        actual_lower.to_dec_string(),
+        expected_lower_shift.to_dec_string()
+    );
+}
+
+#[test]
+fn paired_bottom_max_only_redistributes_an_actual_gap_repair() {
+    let font = MathFont::from_bytes(FIRA).expect("Fira Math fixture");
+    let params = MathParams::from_font(&font).expect("OpenType MATH constants");
+    let constants = font
+        .face()
+        .tables()
+        .math
+        .and_then(|math| math.constants)
+        .expect("fixture font MATH constants");
+    let units_per_em = font.units_per_em();
+    let fu = |value: i16| Dim::from_font_units(i64::from(value), units_per_em).expect("font units");
+    let scale = params.scale(MathStyle::Text);
+
+    let upper = layout_source("F", MathStyle::Script, &font);
+    let lower = layout_source("B", MathStyle::ScriptCramped, &font);
+
+    let mut expected_upper = mul(&params.superscript_shift_up, &scale);
+    let min_bottom = mul(&fu(constants.superscript_bottom_min().value), &scale);
+    expected_upper = expected_upper.max_ref(&add(&upper.depth, &min_bottom));
+
+    let mut expected_lower = mul(&params.subscript_shift_down, &scale);
+    let max_top = mul(&fu(constants.subscript_top_max().value), &scale);
+    expected_lower = expected_lower.max_ref(&sub(&lower.height, &max_top).clamp_nonneg());
+
+    let gap = sub(
+        &sub(&add(&expected_upper, &expected_lower), &upper.depth),
+        &lower.height,
+    );
+    let min_gap = mul(&params.sub_superscript_gap_min, &scale);
+    assert!(
+        gap.cmp(&min_gap) != Ordering::Less,
+        "Fira fixture must already satisfy the paired-script gap"
+    );
+
+    let current_bottom = sub(&expected_upper, &upper.depth);
+    let paired_bottom = mul(
+        &fu(constants.superscript_bottom_max_with_subscript().value),
+        &scale,
+    );
+    assert!(
+        current_bottom.cmp(&paired_bottom) == Ordering::Less,
+        "Fira fixture must expose the obsolete unconditional paired-bottom adjustment"
+    );
+    let raise = sub(&paired_bottom, &current_bottom);
+    assert!(
+        expected_lower.cmp(&raise) != Ordering::Less,
+        "old placement must be able to translate the pair instead of failing closed"
+    );
+
+    let scripted = layout_source("A_B^F", MathStyle::Text, &font);
+    let (actual_upper, actual_lower) =
+        paired_script_shifts(&scripted).expect("paired script overlap");
+
+    assert!(
+        actual_upper.eq_dim(&expected_upper),
+        "superscript shifted without a gap repair: got {}, expected {}",
+        actual_upper.to_dec_string(),
+        expected_upper.to_dec_string()
+    );
+
+    let expected_lower_shift = -expected_lower;
+    assert!(
+        actual_lower.eq_dim(&expected_lower_shift),
+        "subscript shifted without a gap repair: got {}, expected {}",
         actual_lower.to_dec_string(),
         expected_lower_shift.to_dec_string()
     );

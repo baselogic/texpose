@@ -411,3 +411,56 @@ Canonical runs remain unchanged at STIX 24/25 with its existing approved G5
 geometry deviation, Libertinus 24/25 with its existing approved G5 geometry
 deviation, and Fira 25/25 with no approved geometry deviation. Stage 8 does not
 change positioned glyph identity/order classifications.
+
+## Stage-9 paired-script-gap closure
+
+`hard-script-extreme` exposed an ordering bug in the paired subscript/superscript
+vertical adjustment. The minimal reproducer is:
+
+```tex
+A_B^F
+```
+
+OpenType MATH defines `SubSuperscriptGapMin` as the minimum ink gap and
+`SuperscriptBottomMaxWithSubscript` as the highest superscript-bottom level that
+may be used to increase that gap before the subscript is moved down. The latter
+is therefore part of repairing an insufficient paired-script gap, not an
+independent minimum superscript position. LuaTeX's `make_scripts` follows the
+same ordering: it applies the paired-bottom redistribution only inside the
+branch that first detects a `SubSuperscriptGapMin` deficit.
+
+TeXpose previously applied `SuperscriptBottomMaxWithSubscript` even when the
+initial gap already satisfied `SubSuperscriptGapMin`. Fira Math makes this
+observable without another confounder: for `A_B^F` the gap is already legal,
+but the old implementation translated the pair by `0.127em`. The repair keeps
+the redistribution inside the actual gap-repair branch.
+
+The focused owner is
+`tests/script_placement.rs::paired_bottom_max_only_redistributes_an_actual_gap_repair`.
+It derives the initial Fira positions from the font's MATH constants, proves the
+initial gap already satisfies `SubSuperscriptGapMin`, proves the old
+paired-bottom adjustment would still have been available, and then requires the
+laid-out scripts to retain the initial legal positions. The adjacent STIX test
+continues to cover the path where a real gap repair does require the secondary
+redistribution.
+
+Post-fix stress measurements for `hard-script-extreme` are:
+
+```text
+profile      width signed     ascent signed    descent signed   <=0.050em census
+STIX         -0.027499em       +0.000001em      +0.000002em      79/93
+Libertinus   -0.076198em       -0.000001em      +0.000003em      81/93
+Fira         -0.034800em       -0.000002em      -0.000000em      87/93
+```
+
+The Fira positioned baselines now agree to within `0.000002em`, closing the
+previous `0.127em` paired-script translation and moving that stress case below
+tolerance. STIX and Libertinus also have effectively aligned vertical script
+positions; their remaining `hard-script-extreme` width residuals are horizontal
+geometry and are not classified by this stage.
+
+Canonical runs remain unchanged at STIX 24/25 with its existing approved G5
+geometry deviation, Libertinus 24/25 with its existing approved G5 geometry
+deviation, and Fira 25/25 with no approved geometry deviation. Positioned glyph
+identity/order classifications also remain unchanged at 72/93, 81/93, and
+92/93 respectively.
