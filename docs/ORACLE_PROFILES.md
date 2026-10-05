@@ -88,21 +88,20 @@ exemption rather than carrying historical allowance indefinitely.
 ## Stress evidence
 
 Stress remains diagnostic evidence for primitive investigation, nightly runs,
-and release candidates. The 2026-10-05 G12 stage-4 measurement on the pinned
-MiKTeX reference environment is intentionally not normalized into large profile
-exemptions:
+and release candidates. After G12 stage 10, the pinned MiKTeX reference
+environment measures:
 
 | Profile | Raw cases <= 0.050em | p50 | p90 | p95 | p99 | max | positioned kind-topology mismatches |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| STIX Two Math | 77/93 | 0.000012 | 0.261050 | 0.331992 | 0.828115 | 0.828115 | 0 |
-| Libertinus Math | 79/93 | 0.000012 | 0.056999 | 0.166628 | 0.390829 | 0.390829 | 0 |
-| Fira Math | 84/93 | 0.000011 | 0.039574 | 0.133440 | 0.422560 | 0.422560 | 0 |
+| STIX Two Math | 79/93 | 0.000012 | 0.214347 | 0.331991 | 0.828115 | 0.828115 | 0 |
+| Libertinus Math | 85/93 | 0.000011 | 0.003004 | 0.162499 | 0.390829 | 0.390829 | 0 |
+| Fira Math | 88/93 | 0.000011 | 0.012744 | 0.072184 | 0.422560 | 0.422560 | 0 |
 
-The remaining large stress deltas are G12 work inventory, not justification to
-raise the global tolerance. `docs/G12_STRESS_CLOSURE.md` owns the stage-4
-classification and exact unresolved inventory. Indexed radicals at multiple
-physical sizes, aligned and matrix composites, delimiter/evaluation cases, and
-extreme script geometry remain strong discriminators for later causal fixes.
+The raw count remains a measurement and is never rewritten by deviations. Stage
+11 introduces only bounded, stress-specific G6 reference-size-policy records; it
+does not raise the global `0.050em` tolerance and does not affect canonical
+profiles. `docs/G12_STRESS_CLOSURE.md` owns the exact evidence tuple and the
+remaining blocking inventory.
 
 ## Independent style sizes
 
@@ -130,12 +129,33 @@ profiles: the affected stress fraction family maxima are `0.000013em` (STIX),
 respectively.
 
 The remaining physical-size sweep differences are reference-size-policy evidence,
-not a reason to replace TeXpose's MATH scaling contract. At 6pt the pinned reference
-clamps script and scriptscript to 5pt. At 20pt and 40pt, the positioned trace reports
-`0.100003em` glyph-scale deltas for Libertinus nested fractions and `0.020003em` for
-Fira; STIX has selection differences that make those traces non-comparable. These
-size-sweep cases remain explicit G12 profile-classification inventory. G9 adds no
-stress waiver or global tolerance increase for them.
+not a reason to replace TeXpose's MATH scaling contract. OpenType MATH defines
+`scriptPercentScaleDown` and `scriptScriptPercentScaleDown` as the math-engine
+scale factors for first- and second-level scripts, and the `ssty` feature contract
+assumes those percentages are applied by the math engine. The applicable OpenType
+MATH specification is:
+
+```text
+https://learn.microsoft.com/en-us/typography/opentype/spec/math
+```
+
+The pinned `unicode-math` reference declares MATH-derived sizes only for the
+current `\f@size` while `\setmathfont` is established. The stress corpus then
+changes root size per case without re-running `\setmathfont`, so LaTeX resolves
+those other root sizes through its own math-size policy. The source used to verify
+that reference path is:
+
+```text
+https://github.com/latex3/unicode-math/blob/184a23b0cb259d4dc9848ec3db0aa2cd383cae99/um-code-main.dtx
+```
+
+The measured reference sizes are `6pt -> 5pt -> 5pt`, approximately
+`20pt -> 14pt -> 10pt`, and `40pt -> 28pt -> 20pt`. TeXpose instead retains the
+font MATH ratios: STIX `0.70/0.55`, Libertinus `0.80/0.60`, and Fira
+`0.72/0.58`. Stage 11 ratifies only the stress cases whose first divergence was
+reconstructed to that size/`ssty` policy. Stress-only outer and positioned
+ceilings are explicit and stale-sensitive; canonical behavior remains unchanged.
+The complete per-case classification is in `docs/G12_STRESS_CLOSURE.md`.
 
 ## Collection-face identity
 
@@ -219,21 +239,22 @@ profile stale.
 A ceiling that is exceeded fails. A ceiling that is no longer needed also fails
 as stale, forcing its removal instead of preserving historical tolerance.
 
-Stress remains diagnostic by default and still has no geometry blanket
-allowlist. After G12 stages 1--4 the pinned measurement is:
+Stress remains diagnostic by default and has no geometry blanket allowlist.
+After G12 stage 10 the pinned positioned measurement is:
 
 | Profile | Kind topology | Glyph identity/order aligned | Geometry comparable | p50 | p90 | p95 | p99 | max |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| STIX Two Math | 93/93 | 72/93 | 72/93 | 0.000012 | 0.068988 | 0.138649 | 0.512941 | 0.512941 |
-| Libertinus Math | 93/93 | 81/93 | 81/93 | 0.000012 | 0.050336 | 0.137598 | 0.390833 | 0.390833 |
-| Fira Math | 93/93 | 92/93 | 92/93 | 0.000011 | 0.105500 | 0.134398 | 0.422560 | 0.422560 |
+| STIX Two Math | 93/93 | 72/93 | 72/93 | 0.000011 | 0.049855 | 0.138649 | 0.449941 | 0.449941 |
+| Libertinus Math | 93/93 | 81/93 | 81/93 | 0.000011 | 0.016060 | 0.100003 | 0.390833 | 0.390833 |
+| Fira Math | 93/93 | 92/93 | 92/93 | 0.000011 | 0.020003 | 0.133440 | 0.422560 | 0.422560 |
 
-The previous post-G11 measurement had kind topology `88/93` in every profile.
-Stage 1 removed all five topology mismatches. Stage 2 corrected `\partial`,
-stage 3 corrected `\bar`, and stage 4 corrected vertical-assembly paint order.
 Stage 5 records exact specification-owned stress glyph deviations separately from
-unresolved signatures. It does not waive outer geometry. The complete evidence,
-classification, and reopening conditions live in `docs/G12_STRESS_CLOSURE.md`.
+unresolved signatures. Stage 11 extends that mechanism with bounded stress-only
+outer geometry and positioned-trace ceilings for the proven G6 physical-size
+policy divergence. A ceiling is accepted only in stress scope, fails if exceeded,
+and fails stale once the measured difference no longer requires it. The complete
+evidence, classification, and reopening conditions live in
+`docs/G12_STRESS_CLOSURE.md`.
 
 ## Evidence parser hardening
 
@@ -294,9 +315,11 @@ uv run --script tools\verify.py math --profile fira --fail-on-delta
 Stress (`--stress`) remains investigation/nightly/release-candidate evidence and
 does not acquire a blanket allowlist merely to make the current Phase G backlog
 green. `--stress --fail-on-delta` is a G12 closure check: it validates exact
-ratified glyph signatures, rejects the explicit unresolved glyph inventory, and
-rejects unbounded positioned/outer geometry. It is intentionally not promoted to
-the stable gate until G12 is actually closed.
+ratified glyph signatures, bounded stress-only outer/positioned deviations, rejects
+the explicit unresolved glyph inventory, and rejects every other unbounded
+positioned/outer geometry difference. Stress-only deviations are not visible to
+canonical runs. It is intentionally not promoted to the stable gate until G12 is
+actually closed.
 
 The verifier-side environment identity is pinned. Repository CI provisioning of
 the pinned reference environment is a Phase K3 task. The current Windows evidence

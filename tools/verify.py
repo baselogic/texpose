@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Iterable
 
 ROOT = Path(__file__).resolve().parent.parent
-PROFILE_REVISION = "oracle-v10"
+PROFILE_REVISION = "oracle-v11"
 CANONICAL_CENSUS_SHA256 = "cc94469fc91882057326e233c4d00fd91cb19614256e393c0fede884d4ba8c88"
 STRESS_CENSUS_SHA256 = "f2144d4c75dab742ff2fa1642ce29e391382f6b600c44ee01f6d6004ee203108"
 CANONICAL_ALIAS_CENSUS_SHA256 = CANONICAL_CENSUS_SHA256
@@ -55,10 +55,6 @@ STIX_STRESS_TRACE_GLYPH_DEVIATIONS = (
     ("hard-aligned-model", ((0, 1395, 732), (40, 1395, 732))),
     ("hard-overset-fraction", ((0, 1399, 1398),)),
     ("hard-stat-r2", ((14, 1395, 732),)),
-)
-
-STIX_STRESS_TRACE_GLYPH_INVENTORY = (
-    ("hard-brutal-core", ((22, 1397, 1396), (28, 1409, 1408), (53, 1304, 1305), (77, 1316, 1317))),
     ("size-frac-6pt", ((0, 3326, 4670), (1, 1196, 4532), (2, 3327, 4671), (4, 3328, 4672), (5, 1196, 4532), (6, 3329, 4673))),
     ("size-nested-frac-6pt", ((0, 1138, 4523), (1, 1196, 4532), (2, 4421, 4670), (4, 4422, 4671), (6, 1138, 4523), (7, 1196, 4532), (8, 4423, 4672), (10, 4424, 4673))),
     ("size-nested-frac-20pt", ((2, 4421, 3326), (4, 4422, 3327), (8, 4423, 3328), (10, 4424, 3329))),
@@ -68,6 +64,10 @@ STIX_STRESS_TRACE_GLYPH_INVENTORY = (
     ("size-indexed-radical-6pt", ((5, 1657, 6458), (7, 3354, 4699))),
     ("size-indexed-radical-20pt", ((0, 4523, 1138), (1, 4532, 1196), (2, 4729, 4015), (4, 4524, 1139))),
     ("size-indexed-radical-40pt", ((0, 4523, 1138), (1, 4532, 1196), (2, 4729, 4015), (4, 4524, 1139))),
+)
+
+STIX_STRESS_TRACE_GLYPH_INVENTORY = (
+    ("hard-brutal-core", ((22, 1397, 1396), (28, 1409, 1408), (53, 1304, 1305), (77, 1316, 1317))),
 )
 
 LIBERTINUS_STRESS_TRACE_GLYPH_DEVIATIONS = (
@@ -81,7 +81,7 @@ LIBERTINUS_STRESS_TRACE_GLYPH_DEVIATIONS = (
     ("hard-matrix-fractions", ((17, 4071, 701), (53, 4217, 4216))),
     ("hard-aligned-model", ((0, 4071, 701), (40, 4071, 701))),
     ("hard-overset-fraction", ((0, 4074, 4073),)),
-    ("hard-brutal-core", ((22, 4073, 4072),)),
+    ("hard-brutal-core", ((22, 4073, 4072), (28, 4217, 4216))),
 )
 
 LIBERTINUS_STRESS_TRACE_GLYPH_INVENTORY = (
@@ -91,6 +91,28 @@ LIBERTINUS_STRESS_TRACE_GLYPH_INVENTORY = (
 FIRA_STRESS_TRACE_GLYPH_DEVIATIONS = ()
 FIRA_STRESS_TRACE_GLYPH_INVENTORY = (
     ("hard-matrix-fractions", ((29, 2016, 2014),)),
+)
+
+LIBERTINUS_G6_STRESS_TRACE_DEVIATIONS = (
+    ("size-indexed-radical-6pt", 0.3910),
+    ("size-indexed-radical-20pt", 0.1677),
+    ("size-indexed-radical-40pt", 0.1677),
+    ("size-nested-frac-20pt", 0.1002),
+    ("size-nested-frac-40pt", 0.1002),
+)
+
+FIRA_G6_STRESS_TRACE_DEVIATIONS = (
+    ("size-indexed-radical-6pt", 0.4228),
+    ("size-indexed-radical-20pt", 0.1336),
+    ("size-indexed-radical-40pt", 0.1336),
+    ("size-nested-frac-6pt", 0.1135),
+)
+
+G6_REFERENCE_SIZE_POLICY_NOTE = (
+    "G6 keeps OpenType MATH scriptPercentScaleDown/scriptScriptPercentScaleDown "
+    "and ssty semantics. The pinned LuaLaTeX/unicode-math reference resolves "
+    "different physical script sizes after the stress corpus changes root size; "
+    "the bounded ceiling records that reference-size-policy divergence."
 )
 
 
@@ -124,6 +146,7 @@ class MathProfile:
     stress_alias_census_sha256: str
     stress_tolerance: float
     documented_deviations: tuple[tuple[str, Deviation], ...]
+    stress_deviations: tuple[tuple[str, Deviation], ...]
     canonical_trace_glyph_mismatches: tuple[tuple[str, tuple[tuple[int, int, int], ...]], ...]
     canonical_trace_deviations: tuple[tuple[str, float], ...]
     stress_trace_glyph_deviations: tuple[tuple[str, tuple[tuple[int, int, int], ...]], ...]
@@ -145,6 +168,7 @@ class RunSpec:
     alias_census_sha256: str
     tolerance: float
     documented_deviations: tuple[tuple[str, Deviation], ...]
+    stress_deviations: tuple[tuple[str, Deviation], ...]
     canonical_trace_glyph_mismatches: tuple[tuple[str, tuple[tuple[int, int, int], ...]], ...]
     canonical_trace_deviations: tuple[tuple[str, float], ...]
     stress_trace_glyph_deviations: tuple[tuple[str, tuple[tuple[int, int, int], ...]], ...]
@@ -297,6 +321,15 @@ PROFILES: dict[str, MathProfile] = {
                 ),
             ),
         ),
+        stress_deviations=(
+            ("size-frac-6pt", Deviation(0.3321, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
+            ("size-nested-frac-6pt", Deviation(0.2915, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
+            ("size-delim-6pt", Deviation(0.3321, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
+            ("size-radical-frac-6pt", Deviation(0.3251, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
+            ("size-indexed-radical-6pt", Deviation(0.8282, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
+            ("size-indexed-radical-20pt", Deviation(0.2612, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
+            ("size-indexed-radical-40pt", Deviation(0.2612, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
+        ),
         canonical_trace_glyph_mismatches=STIX_CANONICAL_TRACE_GLYPH_MISMATCHES,
         canonical_trace_deviations=(),
         stress_trace_glyph_deviations=STIX_STRESS_TRACE_GLYPH_DEVIATIONS,
@@ -336,11 +369,18 @@ PROFILES: dict[str, MathProfile] = {
                 ),
             ),
         ),
+        stress_deviations=(
+            ("size-indexed-radical-6pt", Deviation(0.3910, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
+            ("size-indexed-radical-20pt", Deviation(0.1677, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
+            ("size-indexed-radical-40pt", Deviation(0.1677, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
+            ("size-nested-frac-20pt", Deviation(0.0508, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
+            ("size-nested-frac-40pt", Deviation(0.0508, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
+        ),
         canonical_trace_glyph_mismatches=LIBERTINUS_CANONICAL_TRACE_GLYPH_MISMATCHES,
         canonical_trace_deviations=(),
         stress_trace_glyph_deviations=LIBERTINUS_STRESS_TRACE_GLYPH_DEVIATIONS,
         stress_trace_glyph_inventory=LIBERTINUS_STRESS_TRACE_GLYPH_INVENTORY,
-        stress_trace_deviations=(),
+        stress_trace_deviations=LIBERTINUS_G6_STRESS_TRACE_DEVIATIONS,
         reference_environment_sha256=REFERENCE_ENVIRONMENT_SHA256,
     ),
     "fira": MathProfile(
@@ -361,11 +401,17 @@ PROFILES: dict[str, MathProfile] = {
         stress_alias_census_sha256=STRESS_ALIAS_CENSUS_SHA256,
         stress_tolerance=0.05,
         documented_deviations=(),
+        stress_deviations=(
+            ("size-indexed-radical-6pt", Deviation(0.4228, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
+            ("size-indexed-radical-20pt", Deviation(0.1336, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
+            ("size-indexed-radical-40pt", Deviation(0.1336, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
+            ("size-nested-frac-6pt", Deviation(0.0724, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
+        ),
         canonical_trace_glyph_mismatches=FIRA_CANONICAL_TRACE_GLYPH_MISMATCHES,
         canonical_trace_deviations=(),
         stress_trace_glyph_deviations=FIRA_STRESS_TRACE_GLYPH_DEVIATIONS,
         stress_trace_glyph_inventory=FIRA_STRESS_TRACE_GLYPH_INVENTORY,
-        stress_trace_deviations=(),
+        stress_trace_deviations=FIRA_G6_STRESS_TRACE_DEVIATIONS,
         reference_environment_sha256=REFERENCE_ENVIRONMENT_SHA256,
     ),
 }
@@ -472,26 +518,43 @@ def validate_profile(profile: MathProfile) -> None:
                 f"unknown capability exclusion in profile {profile.name}: "
                 f"{case_name} -> {capability}"
             )
-    seen_deviations: set[str] = set()
-    for case_name, deviation in profile.documented_deviations:
-        if not re.fullmatch(r"[A-Za-z0-9_-]+", case_name):
-            fail(f"invalid deviation case in profile {profile.name}: {case_name}")
-        if case_name in seen_deviations:
-            fail(f"duplicate deviation case in profile {profile.name}: {case_name}")
-        seen_deviations.add(case_name)
-        if deviation.geometry_ceiling is not None:
-            if (
-                not math.isfinite(deviation.geometry_ceiling)
-                or deviation.geometry_ceiling <= profile.canonical_tolerance
-            ):
-                fail(
-                    f"invalid geometry ceiling in profile {profile.name}: "
-                    f"{case_name} -> {deviation.geometry_ceiling}"
-                )
-        if deviation.geometry_ceiling is None and not deviation.allow_structure:
-            fail(f"empty deviation policy in profile {profile.name}: {case_name}")
-        if not deviation.note.strip():
-            fail(f"undocumented deviation in profile {profile.name}: {case_name}")
+    def validate_deviations(
+        label: str, tolerance: float, entries: tuple[tuple[str, Deviation], ...]
+    ) -> set[str]:
+        seen: set[str] = set()
+        for case_name, deviation in entries:
+            if not re.fullmatch(r"[A-Za-z0-9_-]+", case_name):
+                fail(f"invalid {label} deviation case in profile {profile.name}: {case_name}")
+            if case_name in seen:
+                fail(f"duplicate {label} deviation case in profile {profile.name}: {case_name}")
+            seen.add(case_name)
+            if deviation.geometry_ceiling is not None:
+                if (
+                    not math.isfinite(deviation.geometry_ceiling)
+                    or deviation.geometry_ceiling <= tolerance
+                ):
+                    fail(
+                        f"invalid {label} geometry ceiling in profile {profile.name}: "
+                        f"{case_name} -> {deviation.geometry_ceiling}"
+                    )
+            if deviation.geometry_ceiling is None and not deviation.allow_structure:
+                fail(f"empty {label} deviation policy in profile {profile.name}: {case_name}")
+            if not deviation.note.strip():
+                fail(f"undocumented {label} deviation in profile {profile.name}: {case_name}")
+        return seen
+
+    canonical_deviation_cases = validate_deviations(
+        "canonical", profile.canonical_tolerance, profile.documented_deviations
+    )
+    stress_deviation_cases = validate_deviations(
+        "stress", profile.stress_tolerance, profile.stress_deviations
+    )
+    overlap = canonical_deviation_cases & stress_deviation_cases
+    if overlap:
+        fail(
+            f"geometry cases cannot be both canonical/global and stress-only deviations "
+            f"in profile {profile.name}: " + ", ".join(sorted(overlap))
+        )
     def validate_trace_signatures(
         label: str,
         entries: tuple[tuple[str, tuple[tuple[int, int, int], ...]], ...],
@@ -535,13 +598,13 @@ def validate_profile(profile: MathProfile) -> None:
         return seen
 
     validate_trace_signatures("canonical", profile.canonical_trace_glyph_mismatches)
-    stress_deviation_cases = validate_trace_signatures(
+    stress_glyph_deviation_cases = validate_trace_signatures(
         "stress deviation", profile.stress_trace_glyph_deviations
     )
     stress_inventory_cases = validate_trace_signatures(
         "stress inventory", profile.stress_trace_glyph_inventory
     )
-    overlap = stress_deviation_cases & stress_inventory_cases
+    overlap = stress_glyph_deviation_cases & stress_inventory_cases
     if overlap:
         fail(
             f"stress positioned glyph cases cannot be both deviation and inventory in "
@@ -625,6 +688,7 @@ def resolve_run_spec(args: argparse.Namespace) -> RunSpec:
             ),
             tolerance=tolerance,
             documented_deviations=profile.documented_deviations,
+            stress_deviations=profile.stress_deviations,
             canonical_trace_glyph_mismatches=profile.canonical_trace_glyph_mismatches,
             canonical_trace_deviations=profile.canonical_trace_deviations,
             stress_trace_glyph_deviations=profile.stress_trace_glyph_deviations,
@@ -657,6 +721,7 @@ def resolve_run_spec(args: argparse.Namespace) -> RunSpec:
         ),
         tolerance=tolerance,
         documented_deviations=(),
+        stress_deviations=(),
         canonical_trace_glyph_mismatches=(),
         canonical_trace_deviations=(),
         stress_trace_glyph_deviations=(),
@@ -1655,6 +1720,13 @@ def validate_positioned_contract(
     return approved
 
 
+def scoped_geometry_deviations(spec: RunSpec, *, stress: bool) -> dict[str, Deviation]:
+    entries = [*spec.documented_deviations]
+    if stress:
+        entries.extend(spec.stress_deviations)
+    return dict(entries)
+
+
 def geometry_deviation_is_approved(
     delta: float, tolerance: float, deviation: Deviation | None
 ) -> bool:
@@ -1788,7 +1860,7 @@ def gate_math(
                 file=sys.stderr,
             )
 
-        deviations = dict(spec.documented_deviations)
+        deviations = scoped_geometry_deviations(spec, stress=args.stress)
         unknown_deviations = set(deviations) - set(cases)
         if unknown_deviations:
             fail(
@@ -1895,11 +1967,15 @@ def gate_math(
                 f"profile {spec.name} has no pinned reference-environment identity; "
                 "record measurement evidence before accepting a contractual run"
             )
-        if args.fail_on_delta and spec.contractual_profile and not args.stress:
-            stale_deviations = set(deviations) - observed_deviation_cases
+        if args.fail_on_delta and spec.contractual_profile:
+            scoped_entries = (
+                spec.stress_deviations if args.stress else spec.documented_deviations
+            )
+            stale_deviations = {name for name, _ in scoped_entries} - observed_deviation_cases
             if stale_deviations:
+                scope = "stress" if args.stress else "canonical"
                 fail(
-                    "documented deviations are no longer observed: "
+                    f"documented {scope} deviations are no longer observed: "
                     + ", ".join(sorted(stale_deviations))
                 )
         approved_trace: list[str] = []
@@ -1988,6 +2064,7 @@ def self_test() -> None:
         alias_census_sha256=census_sha256(names),
         tolerance=0.05,
         documented_deviations=(),
+        stress_deviations=(),
         canonical_trace_glyph_mismatches=(),
         canonical_trace_deviations=(),
         stress_trace_glyph_deviations=(),
@@ -1997,6 +2074,20 @@ def self_test() -> None:
         contractual_profile=False,
         collection=False,
     )
+
+    stress_only_spec = replace(
+        spec,
+        documented_deviations=(("case-2", bounded),),
+        stress_deviations=(("case-1", bounded),),
+        contractual_profile=True,
+    )
+    if set(scoped_geometry_deviations(stress_only_spec, stress=False)) != {"case-2"}:
+        fail("self-test stress-only geometry deviation leaked into canonical scope")
+    if set(scoped_geometry_deviations(stress_only_spec, stress=True)) != {
+        "case-1",
+        "case-2",
+    }:
+        fail("self-test stress scope lost global or stress-only geometry deviation")
 
     oracle_source = build_math_tex(
         {
@@ -2039,6 +2130,7 @@ def self_test() -> None:
         alias_census_sha256=census_sha256(grouped_names),
         tolerance=0.05,
         documented_deviations=(),
+        stress_deviations=(),
         canonical_trace_glyph_mismatches=(),
         canonical_trace_deviations=(),
         stress_trace_glyph_deviations=(),
@@ -2486,6 +2578,16 @@ def self_test() -> None:
         ):
             fail("self-test stress glyph deviation unexpectedly reported geometry")
 
+        stress_trace_spec = replace(
+            spec,
+            stress_trace_deviations=(("case-2", 0.08),),
+            contractual_profile=True,
+        )
+        if validate_positioned_contract(
+            stress_trace_spec, [trace_contract[1]], stress=True
+        ) != ["case-2"]:
+            fail("self-test stress positioned trace ceiling was not reported")
+
         try:
             validate_positioned_contract(
                 replace(
@@ -2633,6 +2735,7 @@ def self_test() -> None:
             alias_census_sha256=spec.alias_census_sha256,
             tolerance=0.05,
             documented_deviations=(),
+            stress_deviations=(),
             canonical_trace_glyph_mismatches=(),
             canonical_trace_deviations=(),
             stress_trace_glyph_deviations=(),
@@ -2658,6 +2761,17 @@ def self_test() -> None:
         else:
             fail("self-test wrong LuaTeX collection face accepted")
 
+    overlap_profile = replace(
+        PROFILES["fira"],
+        documented_deviations=(("size-indexed-radical-6pt", bounded),),
+    )
+    try:
+        validate_profile(overlap_profile)
+    except OracleError:
+        pass
+    else:
+        fail("self-test canonical/stress geometry deviation overlap accepted")
+
     bad_profile = MathProfile(
         name="bad",
         fixture="unused",
@@ -2676,6 +2790,7 @@ def self_test() -> None:
         stress_alias_census_sha256=STRESS_ALIAS_CENSUS_SHA256,
         stress_tolerance=0.05,
         documented_deviations=(),
+        stress_deviations=(),
         canonical_trace_glyph_mismatches=(),
         canonical_trace_deviations=(),
         stress_trace_glyph_deviations=(),

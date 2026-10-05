@@ -84,12 +84,9 @@ Stage 4 therefore leaves no kind-topology mismatch in any profile.
 
 ### STIX Two Math
 
-Eleven of the twenty-one observed mismatch cases are owned by an already-tested
-G5 rule. The exact signatures live in `STIX_STRESS_TRACE_GLYPH_DEVIATIONS`.
-The physical-size cases remain blocking inventory: the G6 contract explains the
-TeXpose side, but G12 has not yet supplied a per-case minimal differential
-reproducer and target reconstruction sufficient to waive each downstream glyph
-choice.
+Twenty of the twenty-one observed mismatch cases are now ratified by tested G5 or
+G6 contracts. The exact signatures live in
+`STIX_STRESS_TRACE_GLYPH_DEVIATIONS`.
 
 G5 accent-selection cases:
 
@@ -107,11 +104,23 @@ hard-overset-fraction
 hard-stat-r2
 ```
 
-The G6 / reference-size-policy signatures stay in the blocking inventory below.
-The existing focused Rust tests establish TeXpose's MATH-scale contract, but that
-by itself does not prove that every downstream radical/delimiter glyph difference
-is solely caused by the reference size policy. G12 therefore does not waive those
-cases yet.
+G6 reference-size-policy cases ratified by Stage 11:
+
+```text
+size-frac-6pt
+size-nested-frac-6pt
+size-nested-frac-20pt
+size-nested-frac-40pt
+size-delim-6pt
+size-radical-frac-6pt
+size-indexed-radical-6pt
+size-indexed-radical-20pt
+size-indexed-radical-40pt
+```
+
+The Stage-11 section below records the differential reproducers, first divergent
+primitive, measured style scales, focused contract tests, and bounded outer
+geometry required to move those nine signatures out of inventory.
 
 ### Libertinus Math
 
@@ -131,6 +140,20 @@ hard-aligned-model
 hard-overset-fraction
 hard-brutal-core
 ```
+
+The Stage-11 contractual rerun shows that the stored Libertinus
+`hard-brutal-core` signature was incomplete. Its two observed G5
+accent-selection mismatches are:
+
+```text
+primitive 22: 4073 / 4072
+primitive 28: 4217 / 4216
+```
+
+Primitive 28 carries the same `4217 / 4216` wide-tilde pair already ratified by
+the G5 `accent-widetilde-xyz` contract. Extending the exact signature does not
+classify any delimiter or G7 residual; `hard-stat-r2` remains the only
+Libertinus blocking glyph-inventory case.
 
 ### Fira Math
 
@@ -161,29 +184,6 @@ is reconstructed. Do not infer that the G2 `advanceMeasurement` rule alone
 explains the observed pair: a different requested target can produce the same
 symptom.
 
-### STIX physical-size sweep
-
-The following exact signatures remain blocking even though the upstream G6 size
-policy is already known to differ from the pinned reference:
-
-```text
-size-frac-6pt
-size-nested-frac-6pt
-size-nested-frac-20pt
-size-nested-frac-40pt
-size-delim-6pt
-size-radical-frac-6pt
-size-indexed-radical-6pt
-size-indexed-radical-20pt
-size-indexed-radical-40pt
-```
-
-The minimal TeXpose contract reproducers are the G6 script/`ssty` tests and the
-G9 root-size fraction test. What is still missing for a G12 deviation is the
-minimal **differential** reproducer for each downstream selection, including the
-requested variant extent where a radical or delimiter glyph changes. Until that
-causal link is measured, these signatures remain inventory rather than waivers.
-
 ### Libertinus `hard-stat-r2`
 
 Current stress reproducer: the `hard-stat-r2` row in the stress corpus.
@@ -213,65 +213,68 @@ preserves that uncertainty. A future fix needs a minimal overbrace reproducer an
 the exact TeXpose/reference target width before this pair can move to a deviation
 or be repaired.
 
-## Post-stage-8 outer-geometry inventory
+## Post-stage-10 outer-geometry inventory
 
-Stages 7 and 8 closed `hard-matrix-fractions` and `hard-delim-eval`
-respectively. No new geometry waiver was introduced. The remaining raw cases
-above `0.050em` are:
+After Stages 9 and 10 the raw `<=0.050em` census is `79/93` STIX, `85/93`
+Libertinus, and `88/93` Fira. Stage 11 does not change those raw measurements; it
+classifies only the G6 cases whose first divergence has now been reconstructed.
+The following stress-only outer ceilings are bounded profile records:
+
+| Profile | Case | Observed maximum | Ceiling | Cause |
+| --- | --- | ---: | ---: | --- |
+| STIX | `size-frac-6pt` | 0.331992em | 0.332100em | G6 reference-size policy |
+| STIX | `size-nested-frac-6pt` | 0.291390em | 0.291500em | G6 reference-size policy |
+| STIX | `size-delim-6pt` | 0.331991em | 0.332100em | G6 reference-size policy |
+| STIX | `size-radical-frac-6pt` | 0.324993em | 0.325100em | G6 reference-size policy |
+| STIX | `size-indexed-radical-6pt` | 0.828115em | 0.828200em | G6 reference-size policy |
+| STIX | `size-indexed-radical-20pt` | 0.261050em | 0.261200em | G6 reference-size policy |
+| STIX | `size-indexed-radical-40pt` | 0.261050em | 0.261200em | G6 reference-size policy |
+| Libertinus | `size-indexed-radical-6pt` | 0.390829em | 0.391000em | G6 reference-size policy |
+| Libertinus | `size-indexed-radical-20pt` | 0.167502em | 0.167700em | G6 reference-size policy |
+| Libertinus | `size-indexed-radical-40pt` | 0.167500em | 0.167700em | G6 reference-size policy |
+| Libertinus | `size-nested-frac-20pt` | 0.050606em | 0.050800em | G6 reference-size policy |
+| Libertinus | `size-nested-frac-40pt` | 0.050603em | 0.050800em | G6 reference-size policy |
+| Fira | `size-indexed-radical-6pt` | 0.422560em | 0.422800em | G6 reference-size policy |
+| Fira | `size-indexed-radical-20pt` | 0.133440em | 0.133600em | G6 reference-size policy |
+| Fira | `size-indexed-radical-40pt` | 0.133440em | 0.133600em | G6 reference-size policy |
+| Fira | `size-nested-frac-6pt` | 0.072184em | 0.072400em | G6 reference-size policy |
+
+STIX `size-nested-frac-20pt` and `size-nested-frac-40pt` are below the outer
+tolerance (`0.036408em` and `0.036404em`) but retain exact G6 glyph-selection
+signatures, so they require no outer ceiling. STIX's G6 selection differences
+make those positioned traces non-comparable by design. Libertinus and Fira keep
+identity-comparable size sweeps; their corresponding positioned ceilings are
+recorded separately by `stress_trace_deviations`.
+
+After removing the already-bounded canonical G5 case and the Stage-11 G6 cases,
+the remaining **unwaived** outer geometry above `0.050em` is:
 
 STIX:
 
 ```text
-size-indexed-radical-6pt       0.828115em
-hard-logit                     0.512939em
-hard-aligned-model             0.356907em
+hard-logit                     0.449940em
 hard-wide-expression           0.349773em
-size-frac-6pt                  0.331992em
-size-delim-6pt                 0.331991em
-size-radical-frac-6pt          0.324993em
-size-nested-frac-6pt           0.291390em
-size-indexed-radical-20pt      0.261050em
-size-indexed-radical-40pt      0.261050em
-hard-stat-r2                   0.237959em
-hard-depth-typography          0.103974em
-accent-widehat-j               0.079999em  (existing bounded canonical/G5 deviation)
+hard-aligned-model             0.214347em
+hard-stat-r2                   0.209959em
+hard-depth-typography          0.068974em
 hard-script-on-delimited       0.061649em
 ```
 
 Libertinus:
 
 ```text
-size-indexed-radical-6pt       0.390829em
-hard-aligned-model             0.276717em
-size-indexed-radical-20pt      0.167502em
-size-indexed-radical-40pt      0.167500em
+hard-aligned-model             0.185999em
 hard-stat-r2                   0.162499em
-hard-depth-typography          0.126376em
-hard-script-extreme            0.076198em
-accent-widehat-j               0.056999em  (existing bounded canonical/G5 deviation)
-size-nested-frac-20pt          0.050606em
-size-nested-frac-40pt          0.050603em
-hard-sum-substack              0.050373em
-hard-logit                     0.050335em
 ```
 
 Fira:
 
 ```text
-size-indexed-radical-6pt       0.422560em
-hard-aligned-model             0.169117em
-size-indexed-radical-20pt      0.133440em
-size-indexed-radical-40pt      0.133440em
-hard-script-extreme            0.127000em
-size-nested-frac-6pt           0.072184em
-hard-logit                     0.052344em
+hard-aligned-model             0.079861em
 ```
 
-The cross-profile `hard-aligned-model`, `hard-logit`, and indexed-radical
-families remain the highest-value causal targets. Their repetition across fonts
-is evidence for investigation, not proof of a shared root cause. The
-`accent-widehat-j` entries above are already-bounded G5 deviations rather than
-new G12 blockers.
+These remain G12 work. No G7, overbrace, delimiter-selection, or other residual
+is approved by the G6 records in this stage.
 
 ## Closure protocol
 
@@ -525,3 +528,133 @@ geometry deviation, Libertinus 24/25 with its existing approved G5 geometry
 deviation, and Fira 25/25 with no approved geometry deviation. Positioned glyph
 identity/order classifications are unchanged because Stage 10 changes script-box
 width only, not glyph selection or paint order.
+
+## Stage-11 G6 reference-size-policy classification
+
+Stage 11 closes the previously blocking **classification** of the physical-size
+sweep. It does not change TeXpose layout. The governing TeXpose contract remains
+G6: first-level and second-level scripts use the selected font's OpenType MATH
+`scriptPercentScaleDown` and `scriptScriptPercentScaleDown`, and semantic script
+nesting selects `ssty` level 1 and level 2. OpenType's MATH/`ssty` contract is
+recorded at:
+
+```text
+https://learn.microsoft.com/en-us/typography/opentype/spec/math
+```
+
+The pinned LuaLaTeX reference follows a different path when the stress corpus
+changes root size after math-font setup. `unicode-math` reads the current LaTeX
+math sizes during `\setmathfont`, derives `\DeclareMathSizes` from MATH
+fontdimens 10/11 for that current size, and sets the script/script-script
+`SizeFeatures` thresholds there. Source inspected for this decision:
+
+```text
+https://github.com/latex3/unicode-math/blob/184a23b0cb259d4dc9848ec3db0aa2cd383cae99/um-code-main.dtx
+```
+
+The stress runner subsequently changes root size per case without re-running
+`\setmathfont`. The pinned reference therefore measured:
+
+```text
+root 6pt:  script 5pt  = 0.833333em, scriptscript 5pt  = 0.833333em
+root 20pt: script 14pt = 0.699997em, scriptscript 10pt = 0.500000em
+root 40pt: script 28pt = 0.699997em, scriptscript 20pt = 0.500000em
+```
+
+TeXpose remains font-owned instead: STIX `0.70/0.55`, Libertinus `0.80/0.60`,
+and Fira `0.72/0.58`. The differential evidence now reconstructs the first
+divergence to those ratios rather than merely observing downstream glyphs.
+
+### Minimal differential reproducers and first divergence
+
+The size-sweep cases reduce to three small sources:
+
+```tex
+\frac{a+b}{c+d}
+\frac{1+\frac{a}{b}}{1+\frac{c}{d}}
+\sqrt[\frac{1+\alpha}{2}]{x}
+```
+
+At 6pt, the first fraction source enters script style with reference
+`0.833333em` instead of the font-owned TeXpose ratio; STIX immediately selects
+different `ssty` glyphs. `size-delim-6pt` and `size-radical-frac-6pt` inherit the
+same already-divergent fraction before delimiter/radical geometry is chosen.
+
+The nested-fraction source exposes the next semantic level directly. Examples
+from the Stage-11 positioned traces are Libertinus at 20/40pt
+`0.800000/0.699997` and Fira at 6pt `0.720000/0.833333` on the first inner
+fraction glyph. STIX 20/40pt reaches the same contract through different `ssty`
+glyph identities, so its geometry is intentionally non-comparable rather than
+force-paired.
+
+The indexed-radical source is even more direct because the degree is laid out in
+script-script style. Its first degree glyph measures:
+
+```text
+profile      6pt TeXpose/ref      20pt TeXpose/ref     40pt TeXpose/ref
+STIX         0.55 / 0.833333       0.55 / 0.50          0.55 / 0.50
+Libertinus   0.60 / 0.833333       0.60 / 0.50          0.60 / 0.50
+Fira         0.58 / 0.833333       0.58 / 0.50          0.58 / 0.50
+```
+
+That scale difference occurs before the radical's downstream x origin and width
+diverge. It is therefore the causal first primitive, not a radical-variant
+selection defect.
+
+### Focused TeXpose contracts
+
+The accepted side of the deviation is independently protected by:
+
+```text
+tests/script_style_alternates.rs::script_scales_and_ssty_alternates_follow_each_real_font
+tests/script_style_alternates.rs::actual_script_nesting_selects_level_one_then_level_two
+tests/fraction_semantics.rs::nested_fraction_keeps_math_script_scale_across_root_em_sizes_and_profiles
+tests/radical_geometry.rs::radical_surd_and_rule_geometry_is_root_em_invariant_across_required_sweep
+```
+
+The first two pin the real-font MATH percentages and `ssty` levels. The fraction
+test explicitly runs 6/10/20/40pt and rejects root-size-dependent replacement of
+font MATH script ratios. The radical sweep independently protects root-em
+resolution of the radical itself, preventing this deviation record from masking
+a physical radical-scaling regression.
+
+### Profile records and ceilings
+
+STIX's nine exact size-sweep glyph signatures move from blocking inventory to
+`STIX_STRESS_TRACE_GLYPH_DEVIATIONS`. Its selection-changing traces remain
+non-comparable; seven cases above outer tolerance receive the bounded ceilings
+listed in the post-Stage-10 table above.
+
+Libertinus and Fira do not change glyph identity for these measured size-policy
+cases, so their positioned geometry remains comparable. Stage 11 pins these
+positioned maxima separately:
+
+| Profile | Case | Positioned observed | Ceiling |
+| --- | --- | ---: | ---: |
+| Libertinus | `size-indexed-radical-6pt` | 0.390833em | 0.391000em |
+| Libertinus | `size-indexed-radical-20pt` | 0.167502em | 0.167700em |
+| Libertinus | `size-indexed-radical-40pt` | 0.167500em | 0.167700em |
+| Libertinus | `size-nested-frac-20pt` | 0.100003em | 0.100200em |
+| Libertinus | `size-nested-frac-40pt` | 0.100003em | 0.100200em |
+| Fira | `size-indexed-radical-6pt` | 0.422560em | 0.422800em |
+| Fira | `size-indexed-radical-20pt` | 0.133441em | 0.133600em |
+| Fira | `size-indexed-radical-40pt` | 0.133440em | 0.133600em |
+| Fira | `size-nested-frac-6pt` | 0.113333em | 0.113500em |
+
+The verifier protocol becomes `oracle-v11` and gains stress-only outer geometry
+records. Canonical/global deviations remain a separate field; `self-test` proves
+that a stress-only record cannot leak into canonical scope and that stress
+positioned ceilings are enforced independently. All ceilings remain stale-
+sensitive.
+
+After this reclassification the unresolved positioned glyph inventory is only:
+
+```text
+STIX:       hard-brutal-core
+Libertinus: hard-stat-r2
+Fira:       hard-matrix-fractions
+```
+
+Stage 11 intentionally does **not** classify the remaining G7/MathKern,
+ExtendedShape, overbrace, or delimiter-selection residuals. Those require their
+own complete G12 evidence tuple and remain blocking.
