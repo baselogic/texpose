@@ -178,6 +178,18 @@ approximately `0.035em` difference repeats once per `b_i`, yielding
 `0.349773em` outer width and `0.349772em` positioned x delta after ten terms.
 Stage 13a records both with a `0.349900em` stress-only ceiling.
 
+For `hard-radical-index-complex`, the radical degree, radical assembly, and
+vertical geometry remain aligned. The first case-specific horizontal split is the
+`j` subscript in `y_j^{2n}`. STIX gives the `y` base an advance of `0.510em`.
+TeXpose places `j` `0.409000em` after the `y` origin, so the applied MathKern is
+`-0.101000em`; the reference places it `0.478002em` after the base, corresponding
+to `-0.031998em`. The STIX MATH tables produce the two candidate sums
+`-0.101em` and `-0.032em`, so the measured `0.069002em` local split is exactly
+the same minimum-versus-greater-sum policy difference. Fraction centering and
+radical sizing propagate it to a `0.084481em` positioned maximum while outer
+width remains only `0.030972em`. Stage 13c therefore records only a
+`0.084600em` positioned-trace ceiling.
+
 The specification text is:
 
 ```text
@@ -194,7 +206,9 @@ https://github.com/MicrosoftDocs/typography-issues/issues/1147
 These records do not make LuaLaTeX or Word authoritative over the published
 OpenType rule. They freeze the measured cross-engine differences while the
 existing focused MathKern tests continue to own TeXpose behavior. Each ceiling
-is stale-sensitive and applies only to its named STIX stress case.
+is stale-sensitive and applies only to its named STIX stress case. Stage 13c
+adds no outer geometry deviation because `hard-radical-index-complex` already
+remains below the global `0.050em` outer tolerance.
 
 ### G7 ExtendedShape superscript-policy divergence
 

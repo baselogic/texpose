@@ -345,9 +345,10 @@ hard-aligned-model             0.079861em
 
 These remain G12 work after the listed classifications. Stage 13a additionally
 classifies only STIX `hard-wide-expression`. Stage 13b below classifies one
-positioned-only ExtendedShape policy split in `hard-sum-substack`; it does not
-approve alignment, radical, overbrace, delimiter-selection, or any other
-residual.
+positioned-only ExtendedShape policy split in `hard-sum-substack`; Stage 13c
+classifies one positioned-only MathKern propagation in
+`hard-radical-index-complex`. These stages do not approve alignment, other
+radical residuals, overbrace, delimiter-selection, or any other residual.
 
 ## Closure protocol
 
@@ -935,3 +936,67 @@ Reopen this decision if the OpenType ExtendedShape script rule changes, if the
 STIX parenthesis leaves `ExtendedShapeCoverage`, if the pinned reference begins
 using the baseline-drop rule, if TeXpose ceases to apply it, or if the positioned
 delta exceeds the ceiling. All other G12 residuals remain separate work.
+
+## Stage-13c STIX radical-index MathKern propagation classification
+
+Stage 13c closes one G7 **classification** without changing TeXpose layout. The
+measured stress case is:
+
+```tex
+\sqrt[\frac{1+\alpha}{2}]{\frac{x_i^{2n}+y_j^{2n}}{1+\sqrt{1+z^2}}}
+```
+
+Outer geometry is already within the global tolerance: TeXpose/reference width
+is `7.599739em` versus `7.630711em`, a signed `-0.030972em` delta; ascent and
+descent agree within `0.000001em`, with identical glyph/rule counts (`24/24`,
+`4/4`). The positioned trace is topology- and identity/order-aligned for all 28
+primitives. The radical degree (primitives 0--4) and radical assembly
+(primitives 5--8) agree to at most `0.001000em`, so neither degree placement nor
+G4 radical sizing is the first cause.
+
+The horizontal difference comes from the radicand. Its fraction rule is
+`0.030976em` wider in the reference. The numerator is consequently centered
+about `0.01549em` farther right, which explains the common offset on
+`x_i^{2n}`, the plus sign, and the `y` base. Primitive 18, the `j` subscript in
+`y_j^{2n}`, then adds a distinct local split: its signed x delta is
+`-0.084481em`, approximately `0.069001em` beyond the inherited centering shift.
+Vertical position, glyph identity, and script scale remain aligned.
+
+The pinned STIX Two Math 2.13 MATH data makes this another instance of the G7
+MathKern policy already classified in Stages 12a and 13a. Glyph `3355` (`y`) has
+advance `0.510em` and a bottom-right MathKern table with correction heights
+`0.150em`, `0.283em` and kern values `-0.045em`, `+0.024em`, `+0.060em`. Glyph
+`4432` (the level-1 `j` script alternate) has a constant top-left MathKern of
+`-0.080em`, which contributes `-0.056em` after the `0.700000` script scale. The
+two candidate subscript sums in this measured geometry are therefore:
+
+```text
+first correction-height sum   +0.024 + (-0.056) = -0.032em
+second correction-height sum  -0.045 + (-0.056) = -0.101em
+```
+
+The positioned trace independently exposes those values. Relative to the `y`
+origin, TeXpose places `j` at `+0.409000em`, i.e. `0.510 - 0.101`; the reference
+places it at approximately `+0.478002em`, i.e. `0.510 - 0.031998`. The local
+reference-minus-TeXpose difference is therefore approximately `0.069002em`.
+
+The governing contract remains the published OpenType MATH MathKern algorithm:
+for subscripts, evaluate the two bottom-right/top-left correction-height sums and
+apply their **minimum**. TeXpose does so with `first.min_ref(&second)`, and the
+focused STIX regressions in `tests/math_kern.rs` independently prove both
+possible minimum branches. Current LuaTeX instead replaces the first sum when
+the second is greater than or equal to it, producing the greater-sum reference
+position. This is the same external policy split already ratified for
+`hard-logit` and `hard-wide-expression`; the radical and fraction only propagate
+that local horizontal difference.
+
+Stage 13c therefore adds only a STIX stress positioned-trace ceiling of
+`0.084600em` for `hard-radical-index-complex`. No outer geometry deviation is
+needed, no structural or glyph-selection difference is permitted, and the
+global `0.050em` geometry tolerance is unchanged.
+
+Reopen this decision if the published OpenType MathKern rule changes, LuaTeX
+returns to minimum-of-sums selection, STIX changes the relevant MathKern data,
+TeXpose no longer selects the specified minimum, the first causal split moves
+away from `y_j`, or the positioned delta exceeds the ceiling. All other G12
+residuals remain separate work.
