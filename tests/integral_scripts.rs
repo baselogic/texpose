@@ -275,9 +275,7 @@ fn cramped_script_integral_keeps_operator_box_baseline_drop_after_ssty() {
         .and_then(|info| info.extended_shapes)
         .expect("fixture ExtendedShapeCoverage");
     assert!(
-        extended_shapes
-            .get(ttf_parser::GlyphId(cmap_gid))
-            .is_some(),
+        extended_shapes.get(ttf_parser::GlyphId(cmap_gid)).is_some(),
         "base integral must be an extended shape"
     );
     assert!(
@@ -305,13 +303,8 @@ fn cramped_script_integral_keeps_operator_box_baseline_drop_after_ssty() {
         &mul(&constants.superscript_baseline_drop_max, &scale),
     )
     .clamp_nonneg();
-    let standard_lower = mul(&params.subscript_shift_down, &scale).max_ref(
-        &sub(
-            &lower.height,
-            &mul(&constants.subscript_top_max, &scale),
-        )
-        .clamp_nonneg(),
-    );
+    let standard_lower = mul(&params.subscript_shift_down, &scale)
+        .max_ref(&sub(&lower.height, &mul(&constants.subscript_top_max, &scale)).clamp_nonneg());
     let from_base_lower = add(
         &base_depth,
         &mul(&constants.subscript_baseline_drop_min, &scale),

@@ -2,6 +2,8 @@ mod common;
 
 use texpose::{layout, parse, styled_char, BoxContent, Dim, MathFont, MathStyle, TextStyle};
 
+const FIRA: &[u8] = include_bytes!("fixtures/fonts/fira-math/FiraMath-Regular.otf");
+
 fn add(a: &Dim, b: &Dim) -> Dim {
     a.checked_add(b).unwrap()
 }
@@ -55,6 +57,22 @@ fn rows_add_math_italic_correction_without_duplicating_scripted_nuclei() {
     let expected_sub_row = add(&layout_width("x_2", &font), &y_with_italic);
 
     assert_eq!(layout_width("x_2y", &font), expected_sub_row,);
+}
+
+#[test]
+fn math_alphabet_runs_materialize_character_italic_corrections() {
+    let font = MathFont::from_bytes(FIRA).expect("Fira Math fixture");
+    let expected = "terms"
+        .chars()
+        .map(|ch| {
+            let glyph = font
+                .glyph(styled_char(ch, TextStyle::Rm))
+                .expect("upright math-alphabet glyph");
+            add(&glyph.advance, &font.italic_correction(glyph.glyph_id))
+        })
+        .fold(Dim::zero(), |sum, width| add(&sum, &width));
+
+    assert_eq!(layout_width(r"\mathrm{terms}", &font), expected);
 }
 
 #[test]

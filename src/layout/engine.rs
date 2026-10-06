@@ -646,7 +646,7 @@ impl<'font, 'state> Engine<'font, 'state> {
                     bx,
                 })
             }
-            MathNode::MathAlphabet(s, ts) => self.math_alphabet_run(s, *ts, style),
+            MathNode::MathAlphabet(s, ts) => self.math_alphabet_noad(s, *ts, style),
             MathNode::LiteralText(s) => self.literal_text_run(s, style),
             MathNode::OverUnder(base, over, under) => self.over_under(
                 base,
@@ -808,15 +808,40 @@ impl<'font, 'state> Engine<'font, 'state> {
             SpaceKind::NegThin => Ok(-mu.checked_mul(&Dim::from_i64(3))?),
             SpaceKind::Quad => Ok(self.params.em(style)?),
             SpaceKind::Qquad => Ok(self.params.em(style)?.checked_mul(&Dim::from_i64(2))?),
-            SpaceKind::ControlSpace => Ok(self.params.em(style)?.checked_div(&Dim::from_i64(3))?),
+            // TeX control-space is ordinary interword glue from the current text
+            // font, not math-style mu glue. TeXpose has no independent text-font
+            // metrics, so its established 1/3-em approximation is measured in the
+            // root em and must not shrink again in script/scriptscript styles.
+            SpaceKind::ControlSpace => Ok(self.params.quad.checked_div(&Dim::from_i64(3))?),
             SpaceKind::Hspace(length) => Ok(self.resolve_length(length, style)?),
         }
+    }
+
+    fn math_alphabet_noad(&self, s: &str, ts: TextStyle, style: MathStyle) -> Result<Item, Error> {
+        if ts != TextStyle::Pmb {
+            let mut chars = s.chars();
+            if let (Some(ch), None) = (chars.next(), chars.next()) {
+                if ch != ' ' {
+                    // A one-character explicit math alphabet remains a character
+                    // nucleus. Keep this distinction at the MathAlphabet noad
+                    // boundary so unrelated text-like users of math_alphabet_run
+                    // (operator names, equation numbers, references) stay boxed.
+                    return Ok(Item {
+                        bx: self.glyph(styled_char(ch, ts), style)?,
+                        class: Some(AtomKind::Ord),
+                    });
+                }
+            }
+        }
+
+        self.math_alphabet_run(s, ts, style)
     }
 
     fn math_alphabet_run(&self, s: &str, ts: TextStyle, style: MathStyle) -> Result<Item, Error> {
         if ts == TextStyle::Pmb {
             return self.pmb(s, style);
         }
+
         let mut kids = Vec::new();
         for c in s.chars() {
             if c == ' ' {
@@ -824,7 +849,16 @@ impl<'font, 'state> Engine<'font, 'state> {
                     self.params.mu(style)?.checked_mul(&Dim::from_i64(4))?,
                 ));
             } else {
-                kids.push(self.glyph(styled_char(c, ts), style)?);
+                let glyph = self.glyph(styled_char(c, ts), style)?;
+                let italic = glyph.italic.clone();
+                kids.push(glyph);
+                if !italic.is_zero() {
+                    // TeX math-alphabet letters are still math characters. The
+                    // MATH italic correction of each completed character is part
+                    // of the run advance; dropping it changes later glyph origins
+                    // (for example Fira Math `t`/`r` in `\mathrm{terms}`).
+                    kids.push(MathBox::kern(italic));
+                }
             }
         }
         Ok(Item {
@@ -3932,10 +3966,10 @@ fn math_italic(c: char) -> char {
     }
 }
 
-// TeX appends a math-character italic correction when a bare variable
-// participates directly in a row. Script attachment already owns the
-// correction needed by scripted nuclei, so row packing must not add it
-// again for Superscript/Subscript/SubSup nodes.
+// TeX appends a math-character italic correction when a direct character
+// participates in a row. This includes a one-character explicit math alphabet.
+// Script attachment already owns the correction needed by scripted nuclei, so
+// row packing must not add it again for Superscript/Subscript/SubSup nodes.
 fn row_needs_math_italic_kern(node: &MathNode) -> bool {
     match node {
         MathNode::Atom(ch, class) => *class == AtomKind::Ord && is_default_math_variable(*ch),
@@ -3943,6 +3977,11 @@ fn row_needs_math_italic_kern(node: &MathNode) -> bool {
         MathNode::Symbol(name) => {
             symbol_class(name) == AtomKind::Ord
                 && symbol_char(name).ok().is_some_and(is_default_math_variable)
+        }
+
+        MathNode::MathAlphabet(text, text_style) if *text_style != TextStyle::Pmb => {
+            let mut chars = text.chars();
+            matches!((chars.next(), chars.next()), (Some(ch), None) if ch != ' ')
         }
 
         _ => false,

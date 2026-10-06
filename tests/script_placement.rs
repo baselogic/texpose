@@ -323,3 +323,16 @@ fn explicit_style_declaration_drives_following_script_semantics() {
     assert!(declared.height.eq_dim(&direct.height));
     assert!(declared.depth.eq_dim(&direct.depth));
 }
+
+#[test]
+fn single_character_math_alphabet_remains_a_direct_script_nucleus() {
+    let font = MathFont::from_bytes(FIRA).expect("Fira Math fixture");
+    let direct = layout_source("𝐗_{ij}^{2}", MathStyle::TextCramped, &font);
+    let styled = layout_source(r"\mathbf X_{ij}^{2}", MathStyle::TextCramped, &font);
+
+    let direct_shifts = paired_script_shifts(&direct).expect("direct bold-X paired script shifts");
+    let styled_shifts = paired_script_shifts(&styled).expect("styled bold-X paired script shifts");
+
+    assert!(direct_shifts.0.eq_dim(styled_shifts.0));
+    assert!(direct_shifts.1.eq_dim(styled_shifts.1));
+}

@@ -83,14 +83,15 @@ LIBERTINUS_STRESS_TRACE_GLYPH_DEVIATIONS = (
     ("hard-brutal-core", ((22, 4073, 4072), (28, 4217, 4216))),
 )
 
-LIBERTINUS_STRESS_TRACE_GLYPH_INVENTORY = (
+LIBERTINUS_STRESS_TRACE_GLYPH_DEVIATIONS += (
     ("hard-stat-r2", ((10, 3798, 9), (14, 4071, 701), (17, 3799, 10))),
 )
+LIBERTINUS_STRESS_TRACE_GLYPH_INVENTORY = ()
 
-FIRA_STRESS_TRACE_GLYPH_DEVIATIONS = ()
-FIRA_STRESS_TRACE_GLYPH_INVENTORY = (
+FIRA_STRESS_TRACE_GLYPH_DEVIATIONS = (
     ("hard-matrix-fractions", ((29, 2016, 2014),)),
 )
+FIRA_STRESS_TRACE_GLYPH_INVENTORY = ()
 
 LIBERTINUS_G6_STRESS_TRACE_DEVIATIONS = (
     ("size-indexed-radical-6pt", 0.3910),
@@ -105,6 +106,15 @@ FIRA_G6_STRESS_TRACE_DEVIATIONS = (
     ("size-indexed-radical-20pt", 0.1336),
     ("size-indexed-radical-40pt", 0.1336),
     ("size-nested-frac-6pt", 0.1135),
+)
+
+LIBERTINUS_STRESS_TRACE_DEVIATIONS = LIBERTINUS_G6_STRESS_TRACE_DEVIATIONS + (
+    ("hard-sum-substack", 0.1902),
+)
+
+FIRA_STRESS_TRACE_DEVIATIONS = FIRA_G6_STRESS_TRACE_DEVIATIONS + (
+    ("hard-aligned-model", 0.0801),
+    ("hard-sum-substack", 0.1449),
 )
 
 G6_REFERENCE_SIZE_POLICY_NOTE = (
@@ -136,6 +146,27 @@ STIX_STAT_R2_POLICY_NOTE = (
     "minimum-versus-greater-sum split. Its widehat glyph mismatch is separately "
     "ratified by G5, so no positioned-geometry ceiling is granted. The bounded "
     "outer ceiling does not weaken either underlying contract."
+)
+
+LIBERTINUS_STAT_R2_POLICY_NOTE = (
+    "Libertinus hard-stat-r2 composes the already-ratified G5 widehat selection "
+    "with downstream delimiter growth and the G7 ExtendedShape superscript split "
+    "on (...)^2. The bounded ceiling records only the measured outer propagation; "
+    "the exact glyph signature is independently stale-sensitive."
+)
+
+LIBERTINUS_ALIGNED_MODEL_POLICY_NOTE = (
+    "Libertinus hard-aligned-model composes the ratified G5 widehat selection with "
+    "the G7 ExtendedShape superscript split on (...)^2. The aligned-stack policy "
+    "remains independently tested; the bounded ceiling records only the resulting "
+    "outer centering propagation."
+)
+
+FIRA_ALIGNED_MODEL_POLICY_NOTE = (
+    "Fira hard-aligned-model is identity-aligned and exposes the same G7 "
+    "ExtendedShape superscript policy split on (...)^2, propagated by the tested "
+    "aligned-stack centering rule. The bounded ceiling does not weaken either "
+    "underlying contract."
 )
 
 
@@ -405,6 +436,11 @@ PROFILES: dict[str, MathProfile] = {
             ),
         ),
         stress_deviations=(
+            ("hard-stat-r2", Deviation(0.1627, False, LIBERTINUS_STAT_R2_POLICY_NOTE)),
+            (
+                "hard-aligned-model",
+                Deviation(0.1862, False, LIBERTINUS_ALIGNED_MODEL_POLICY_NOTE),
+            ),
             ("size-indexed-radical-6pt", Deviation(0.3910, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
             ("size-indexed-radical-20pt", Deviation(0.1677, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
             ("size-indexed-radical-40pt", Deviation(0.1677, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
@@ -415,7 +451,7 @@ PROFILES: dict[str, MathProfile] = {
         canonical_trace_deviations=(),
         stress_trace_glyph_deviations=LIBERTINUS_STRESS_TRACE_GLYPH_DEVIATIONS,
         stress_trace_glyph_inventory=LIBERTINUS_STRESS_TRACE_GLYPH_INVENTORY,
-        stress_trace_deviations=LIBERTINUS_G6_STRESS_TRACE_DEVIATIONS,
+        stress_trace_deviations=LIBERTINUS_STRESS_TRACE_DEVIATIONS,
         reference_environment_sha256=REFERENCE_ENVIRONMENT_SHA256,
     ),
     "fira": MathProfile(
@@ -437,6 +473,7 @@ PROFILES: dict[str, MathProfile] = {
         stress_tolerance=0.05,
         documented_deviations=(),
         stress_deviations=(
+            ("hard-aligned-model", Deviation(0.0801, False, FIRA_ALIGNED_MODEL_POLICY_NOTE)),
             ("size-indexed-radical-6pt", Deviation(0.4228, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
             ("size-indexed-radical-20pt", Deviation(0.1336, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
             ("size-indexed-radical-40pt", Deviation(0.1336, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
@@ -446,7 +483,7 @@ PROFILES: dict[str, MathProfile] = {
         canonical_trace_deviations=(),
         stress_trace_glyph_deviations=FIRA_STRESS_TRACE_GLYPH_DEVIATIONS,
         stress_trace_glyph_inventory=FIRA_STRESS_TRACE_GLYPH_INVENTORY,
-        stress_trace_deviations=FIRA_G6_STRESS_TRACE_DEVIATIONS,
+        stress_trace_deviations=FIRA_STRESS_TRACE_DEVIATIONS,
         reference_environment_sha256=REFERENCE_ENVIRONMENT_SHA256,
     ),
 }

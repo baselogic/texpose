@@ -16,6 +16,12 @@ The public `MathFont::horizontal_assembly_parts` method remains a compatibility 
 
 `BoxContent::Overlap` child order is backend paint order. When an overlap represents a TeX vertical stack rather than a deliberate overprint, TeXpose stores visible branches in the final top-to-bottom node order. Upper accents, overlines, and upper limits therefore precede their nucleus/base; lower accents, underlines, and lower limits follow it. This ordering is observable even when outer geometry is unchanged, so the positioned oracle treats it as part of the display-list contract.
 
+## Math alphabets and explicit interword space
+
+A one-character math-alphabet run such as `\mathbf X` remains a direct glyph nucleus after style mapping. Script placement can therefore inspect the actual glyph, use its MATH italic correction/MathKern data, and distinguish ordinary direct-glyph rules from box/`ExtendedShapeCoverage` baseline-drop rules. A multi-character math-alphabet run remains a packed ordinary noad, but each completed glyph contributes its MATH italic correction to the run advance exactly once. This preserves the same per-character horizontal contract as an equivalent row without turning the complete run into a direct-glyph nucleus. `\pmb` remains a constructed box and is intentionally excluded from the direct-glyph fast path.
+
+Control-space `\ ` is ordinary interword space, not mu glue. TeXpose has no independent text-font metrics, so its supported approximation remains one third of the root/current-text em. Unlike `\,`, `\:` and the other math-space commands, that approximation does not shrink again merely because the control space occurs in script or scriptscript math style.
+
 ## Bounded glyph assemblies
 
 Horizontal and vertical OpenType MATH assemblies share one exact bounded solver. For each requested extent, TeXpose validates every part's full advance, connector lengths, and reserved part flags, enforces `MathVariants.minConnectorOverlap`, rejects constructions without an extender, and computes the legal minimum/maximum assembly advance for an extender repetition count without materializing the repeated sequence. Extenders are added in uniform rounds, preserving the OpenType part order. The solver establishes monotonic legal growth, then uses a bounded binary search for the first repetition count whose legal interval reaches the target.

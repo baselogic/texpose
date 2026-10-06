@@ -107,9 +107,12 @@ records for `hard-stat-r2` and `hard-aligned-model`, whose geometry decomposes
 into already-ratified G5/G7 contracts. The Stage-12b semantic repair also moved
 `hard-script-on-delimited` below tolerance; the current post-Stage-13e raw STIX
 outer census is `80/93 <= 0.050em`. These classifications do not raise the global
-`0.050em` tolerance or affect canonical profiles.
-`docs/G12_STRESS_CLOSURE.md` owns the exact evidence tuple and the remaining
-blocking inventory.
+`0.050em` tolerance or affect canonical profiles. The final G12 Libertinus/Fira
+closure block adds no blanket allowance: it repairs the Fira math-alphabet/control-
+space defects, ratifies only the exact Libertinus/Fira G5/G7 signatures whose
+causes are independently owned, and leaves every other stress residual subject
+to the unchanged `0.050em` gate. `docs/G12_STRESS_CLOSURE.md` owns the exact
+evidence tuple and reopening conditions.
 
 ## Independent style sizes
 
@@ -456,8 +459,8 @@ uv run --script tools\verify.py math --profile libertinus --fail-on-delta
 uv run --script tools\verify.py math --profile fira --fail-on-delta
 ```
 
-Stress can be run with `--stress`; its current deltas are intentionally left
-visible rather than blanket-approved. Positioned traces are part of the canonical
-contractual gate. A named stress run with `--fail-on-delta` additionally consumes
-the exact G12 deviation/inventory records and remains red while unresolved
-selection or geometry exists.
+Stress can be run with `--stress`; raw deltas remain visible rather than being
+rewritten by deviations. Positioned traces are part of the canonical contractual
+gate. A named stress run with `--fail-on-delta` additionally consumes the exact G12
+deviation/inventory records and remains red for any unresolved selection or
+unbounded geometry. G12 is closed only by a final all-profile rerun of those gates.

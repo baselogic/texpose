@@ -13,8 +13,9 @@ collapsed into one allowlist:
    roadmap.
 
 The stress oracle remains diagnostic by default. `--stress --fail-on-delta` is
-now a G12 closure check. It is intentionally not a stable green repository gate
-while unresolved inventory remains.
+a G12 closure check. It is intentionally not a stable repository gate merely to
+hide corpus debt; final G12 acceptance still requires every pinned profile to pass
+with only the exact stale-sensitive records documented here.
 
 ## Governing contracts
 
@@ -130,8 +131,10 @@ geometry required to move those nine signatures out of inventory.
 
 ### Libertinus Math
 
-Eleven of the twelve observed mismatch cases are G5 accent-selection cases and
-are pinned in `LIBERTINUS_STRESS_TRACE_GLYPH_DEVIATIONS`:
+All twelve observed mismatch cases are now classified. Eleven are the existing G5
+accent-selection cases and the twelfth, `hard-stat-r2`, is the composite G5/G2/G7
+signature reconstructed in the final cross-profile closure block below. Exact
+signatures are pinned in `LIBERTINUS_STRESS_TRACE_GLYPH_DEVIATIONS`:
 
 ```text
 accent-widehat-j
@@ -157,14 +160,15 @@ primitive 28: 4217 / 4216
 ```
 
 Primitive 28 carries the same `4217 / 4216` wide-tilde pair already ratified by
-the G5 `accent-widetilde-xyz` contract. Extending the exact signature does not
-classify any delimiter or G7 residual; `hard-stat-r2` remains the only
-Libertinus blocking glyph-inventory case.
+the G5 `accent-widetilde-xyz` contract. The final cross-profile closure separately
+classifies `hard-stat-r2`; there is no remaining Libertinus glyph inventory.
 
 ### Fira Math
 
-No remaining positioned glyph mismatch is ratified at stage 5. Fira's one
-remaining case stays in the unresolved inventory below.
+The sole Fira mismatch, `hard-matrix-fractions` primitive 29 (`2016/2014`), is
+now an exact G5 horizontal-variant deviation. The final cross-profile closure
+records the minimal overbrace reproducer and focused contract test. There is no
+remaining Fira glyph inventory.
 
 ## Stage-12b STIX `hard-brutal-core` closure
 
@@ -248,15 +252,22 @@ does not approve any unrelated outer or positioned geometry residual; the next
 contractual run must expose those independently. Reopen this diagnosis if the
 focused operator regression fails or if primitives 53/77 reappear.
 
-## Blocking positioned glyph inventory
+## Resolved positioned glyph inventory
 
-These signatures are preserved exactly but are **not deviations**. A contractual
-stress run must fail while they remain in `*_STRESS_TRACE_GLYPH_INVENTORY`. STIX
-has no entry after Stage 12b.
+The former blocking signatures are now exact, stale-sensitive deviations rather
+than open inventory. This does not make their whole formulas geometry-comparable;
+it only records the classified glyph-selection chain.
 
 ### Libertinus `hard-stat-r2`
 
-Current stress reproducer: the `hard-stat-r2` row in the stress corpus.
+The stress reproducer is:
+
+```tex
+R^2=1-\frac{\sum_{i=1}^{n}\left(y_i-\widehat y_i\right)^2}
+{\sum_{i=1}^{n}\left(y_i-\bar y\right)^2}
+```
+
+The exact signature is:
 
 ```text
 primitive 10: 3798 / 9      parenleft.size1 / parenleft
@@ -264,24 +275,37 @@ primitive 14: 4071 / 701    uni0302.size1 / uni0302
 primitive 17: 3799 / 10     parenright.size1 / parenright
 ```
 
-Primitive 14 is consistent with G5. Primitives 10 and 17 are delimiter selection
-and remain unclassified until the target extent is isolated. The first unresolved
-primitive is 10.
+Primitive 14 is the already-ratified G5 widehat selection. That taller selected
+accent changes the enclosed `\left...\right` target and the pinned reference
+therefore takes the base parentheses while TeXpose takes the first vertical
+variants under its established G2 delimiter target/`advanceMeasurement` rule.
+The superscript on the resulting parenthesized box additionally exposes the same
+G7 box/ExtendedShape baseline-drop policy split measured elsewhere. The formula
+therefore remains non-comparable as a positioned whole; only the exact signature
+and the bounded outer propagation are approved. The focused
+`delimiter_sizing::libertinus_widehat_body_drives_delimiter_variants_by_g2_target`
+regression pins the complete TeXpose-side signature; the underlying G5 wide-accent,
+G2 delimiter-selection, and G7 script-placement tests remain the primary semantic
+owners.
 
 ### Fira `hard-matrix-fractions`
 
-Current stress reproducer: the `hard-matrix-fractions` row in the stress corpus.
+The minimal causal fragment is `\overbrace{a+b+c}` from the matrix third row.
+The exact mismatch is:
 
 ```text
 primitive 29: 2016 / 2014   uni23DE.size9 / uni23DE.size7
 ```
 
-This is an overbrace horizontal-variant difference. The existing evidence is not
-enough to decide whether the cause is variant-selection policy, a different
-requested width, or surrounding matrix/accent geometry. Stage 5 deliberately
-preserves that uncertainty. A future fix needs a minimal overbrace reproducer and
-the exact TeXpose/reference target width before this pair can move to a deviation
-or be repaired.
+Fira Math 0.3.4 publishes a horizontal U+23DE construction with ordered prebuilt
+variants. TeXpose selects from the actual `MathGlyphVariantRecord.advanceMeasurement`
+values, as required by G5/OpenType MATH; the pinned LuaLaTeX reference selects the
+smaller size7 glyph for this target.
+`wide_accent_math::fira_overbrace_prebuilt_variant_follows_math_advance_measurement`
+reads the fixture's MATH records directly, derives the variant from the measured
+base width, and pins glyph 2016. The full matrix outer geometry was already below
+tolerance (`0.000034em` width, `0.014500em` ascent, `0.014501em` descent), so no
+outer or positioned-geometry ceiling is granted.
 
 ## Post-stage-10 outer-geometry inventory
 
@@ -304,11 +328,14 @@ The following stress-only outer ceilings are bounded profile records:
 | STIX | `size-indexed-radical-6pt` | 0.828115em | 0.828200em | G6 reference-size policy |
 | STIX | `size-indexed-radical-20pt` | 0.261050em | 0.261200em | G6 reference-size policy |
 | STIX | `size-indexed-radical-40pt` | 0.261050em | 0.261200em | G6 reference-size policy |
+| Libertinus | `hard-aligned-model` | 0.185999em | 0.186200em | G5 accent + G7 ExtendedShape propagation |
+| Libertinus | `hard-stat-r2` | 0.162499em | 0.162700em | G5 accent/delimiter + G7 ExtendedShape propagation |
 | Libertinus | `size-indexed-radical-6pt` | 0.390829em | 0.391000em | G6 reference-size policy |
 | Libertinus | `size-indexed-radical-20pt` | 0.167502em | 0.167700em | G6 reference-size policy |
 | Libertinus | `size-indexed-radical-40pt` | 0.167500em | 0.167700em | G6 reference-size policy |
 | Libertinus | `size-nested-frac-20pt` | 0.050606em | 0.050800em | G6 reference-size policy |
 | Libertinus | `size-nested-frac-40pt` | 0.050603em | 0.050800em | G6 reference-size policy |
+| Fira | `hard-aligned-model` | 0.079861em | 0.080100em | G7 ExtendedShape/aligned-stack propagation |
 | Fira | `size-indexed-radical-6pt` | 0.422560em | 0.422800em | G6 reference-size policy |
 | Fira | `size-indexed-radical-20pt` | 0.133440em | 0.133600em | G6 reference-size policy |
 | Fira | `size-indexed-radical-40pt` | 0.133440em | 0.133600em | G6 reference-size policy |
@@ -337,30 +364,10 @@ is removed from the blocking inventory without adding a deviation. The current
 raw STIX outer census is therefore `80/93 <= 0.050em`; bounded deviations do not
 rewrite that raw measurement.
 
-Libertinus:
-
-```text
-hard-aligned-model             0.185999em
-hard-stat-r2                   0.162499em
-```
-
-Fira:
-
-```text
-hard-aligned-model             0.079861em
-```
-
-These remain G12 work after the listed classifications. Stage 13a additionally
-classifies only STIX `hard-wide-expression`. Stage 13b below classifies one
-positioned-only ExtendedShape policy split in `hard-sum-substack`; Stage 13c
-classifies one positioned-only MathKern propagation in
-`hard-radical-index-complex`; Stage 13d classifies the same G7 MathKern policy
-split in STIX `hard-depth-typography`, including its bounded outer-width effect;
-Stage 13e classifies the same positioned-only MathKern split in
-`hard-radical-scripted`. Stage 14a below closes the remaining STIX outer
-inventory by decomposing `hard-aligned-model` and `hard-stat-r2` into already
-ratified G5/G7 contracts. These stages do not approve the remaining
-Libertinus/Fira inventories, overbrace selection, or any other residual.
+Libertinus and Fira have no deliberately unclassified outer case in this closure
+candidate. The final all-profile G12 rerun remains authoritative: any new case,
+stale record, changed glyph signature, or delta above a recorded ceiling fails
+the closure gate rather than being absorbed into these classifications.
 
 ## Closure protocol
 
@@ -1203,3 +1210,70 @@ treated as a box or extended shape. Reopen either record if those published
 rules change, LuaTeX converges to them, the relevant STIX MATH data changes,
 TeXpose stops satisfying the focused G5/G7/aligned-stack contracts, the causal
 split moves, or either measured outer delta exceeds its ceiling.
+
+## Final Libertinus/Fira cross-profile closure block
+
+This is one G12 closure block grouped by causal contract, not a sequence of
+case-by-case waivers. The pre-fix full-profile traces left three kinds of work:
+real TeXpose math-alphabet/spacing defects in Fira, already-established G7
+ExtendedShape policy splits, and two exact G5 glyph-selection signatures.
+
+### Semantic repairs: Fira math alphabets and control-space
+
+`hard-brutal-core` exposed a real direct-nucleus bug in
+`\widehat{\mathbf X_{ij}^{2}}`. The bold `X` itself (primitive 23) matched the
+reference, but TeXpose had packed every `MathAlphabet` into an `HList`. G7 then
+misclassified the one-character `\mathbf X` as a box and applied the box
+baseline-drop path. The accent and attached scripts at primitives 22, 24, 25 and
+26 were consequently `0.194000--0.194001em` below the reference even though the
+base glyph was aligned. A one-character non-`\pmb` math alphabet now remains a
+direct glyph nucleus; the focused regression compares paired script shifts for
+the direct U+1D417 bold `X` and `\mathbf X` in Fira `TextCramped`. No deviation is
+added for this case.
+
+`hard-overbrace`, source
+`\overbrace{a+b+c+d+e}^{n\ \mathrm{terms}}`, exposed two independent horizontal
+defects in the annotation. The reference `t` begins about `0.765em` after `n`;
+after the scaled `n` glyph contribution, the residual is one root interword space
+of approximately `0.333em`. TeXpose had incorrectly style-scaled its fixed
+one-third-em control-space approximation to `0.24em` at Fira's `0.72` script
+scale. In the same run, Fira gives upright `t` and `r` a 20-unit MATH italic
+correction; at `0.72` scale each contributes `0.0144em`, exactly the two later
+reference steps that TeXpose had dropped. Control-space therefore keeps the root
+one-third-em approximation, and multi-character math alphabets materialize each
+completed glyph's MATH italic correction once. Focused spacing and row-italic
+regressions own both repairs. No deviation is added for `hard-overbrace`.
+
+### G7 ExtendedShape propagation across profiles
+
+The remaining identity-comparable vertical residuals are the same published
+OpenType MATH baseline-drop policy split already reconstructed for STIX
+`hard-sum-substack`: TeXpose applies `superscriptBaselineDropMax` to a box or
+`ExtendedShapeCoverage` base, while the pinned LuaTeX glyph/simple path uses the
+ordinary cramped superscript shift on the affected `(...)^2`.
+
+The bounded records are deliberately narrow:
+
+| Profile | Case | Scope | Observed | Ceiling |
+| --- | --- | --- | ---: | ---: |
+| Libertinus | `hard-sum-substack` | positioned | 0.190000em | 0.190200em |
+| Libertinus | `hard-aligned-model` | outer only | 0.185999em | 0.186200em |
+| Libertinus | `hard-stat-r2` | outer only | 0.162499em | 0.162700em |
+| Fira | `hard-sum-substack` | positioned | 0.144721em | 0.144900em |
+| Fira | `hard-aligned-model` | outer + positioned | 0.079863em | 0.080100em |
+
+The two Libertinus outer-only cases contain the separately pinned G5 glyph
+signatures above and therefore receive no whole-case positioned ceiling. Fira
+`hard-aligned-model` is identity-aligned, so the same bounded value may protect
+both outer and positioned geometry. The aligned-stack behavior remains owned by
+`amsmath_grid::aligned_uses_jot_lineskip_and_centers_complete_stack`; G7 remains
+owned by `script_placement::extended_shapes_and_box_bases_use_ink_box_baseline_drop_constraints`.
+
+### Acceptance and reopening
+
+The closure candidate is accepted only if canonical and stress `--fail-on-delta`
+runs pass for STIX, Libertinus, and Fira after these semantic repairs. The exact
+glyph records are stale-sensitive and the geometry ceilings do not rewrite raw
+measurements. Reopen this block if a classified glyph pair changes/disappears, a
+recorded delta exceeds its ceiling, the OpenType MATH contracts change, LuaTeX
+converges to those contracts, or either focused semantic regression fails.

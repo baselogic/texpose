@@ -85,6 +85,43 @@ fn glyph_id(bx: &MathBox, expected_ch: char) -> u16 {
     *glyph_id
 }
 
+#[test]
+fn libertinus_widehat_body_drives_delimiter_variants_by_g2_target() {
+    let font = MathFont::from_bytes(LIBERTINUS).expect("Libertinus Math");
+    let params = MathParams::from_font(&font).expect("MATH constants");
+    let style = MathStyle::Text;
+    let scale = params.scale(style);
+    let em_size_pt = Dim::from_i64(10);
+    let axis = params.axis_height.checked_mul(&scale).unwrap();
+
+    let body_ast = parse(r"y_i-\widehat y_i").expect("Libertinus stat-r2 delimiter body");
+    let body = layout_with_em_size_pt(&body_ast, &font, style, &em_size_pt)
+        .expect("Libertinus stat-r2 delimiter body layout");
+    let above = body.height.checked_sub(&axis).unwrap().clamp_nonneg();
+    let below = body.depth.checked_add(&axis).unwrap();
+    let target = tex_delimiter_target(&above.max_ref(&below), &em_size_pt);
+
+    let expected_left = vertical_variants::select_by_advance(&font, '(', &target, &scale);
+    let expected_right = vertical_variants::select_by_advance(&font, ')', &target, &scale);
+    assert_eq!(expected_left, 3798, "pinned Libertinus left variant");
+    assert_eq!(expected_right, 3799, "pinned Libertinus right variant");
+
+    let tree = layout_with_em_size_pt(
+        &parse(r"\left(y_i-\widehat y_i\right)").expect("minimal stat-r2 delimiter reproducer"),
+        &font,
+        style,
+        &em_size_pt,
+    )
+    .expect("minimal stat-r2 delimiter layout");
+    let (left, actual_body, right) = delimited_children(&tree);
+
+    assert_eq!(glyph_id(left, '('), expected_left);
+    assert_eq!(glyph_id(right, ')'), expected_right);
+    assert!(actual_body.width.eq_dim(&body.width));
+    assert!(actual_body.height.eq_dim(&body.height));
+    assert!(actual_body.depth.eq_dim(&body.depth));
+}
+
 fn assert_no_vertical_prebuilt_reaches(font: &MathFont, ch: char, target: &Dim, scale: &Dim) {
     let base = font.glyph(ch).expect("base delimiter glyph");
     let base_span = base

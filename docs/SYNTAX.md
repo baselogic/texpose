@@ -38,7 +38,7 @@ Primary references used by this contract map:
 - **Semantic representation:** stylable mathematical characters become `MathNode::MathAlphabet(String, TextStyle)` while non-stylable syntax keeps its semantic node and styled descendants. Literal text is never rewritten by an enclosing math alphabet.
 - **Malformed-input behavior:** missing arguments return `MalformedArgument`; unknown `\math...` style commands return `UnsupportedCommand` rather than being treated as symbols.
 - **Unsupported forms:** text-font selectors such as `\textrm` / `\textbf`, arbitrary font-family assignment, `\fam`, NFSS declarations, and user-defined alphabet commands are outside this subset and fail as `UnsupportedCommand`.
-- **Primary contract test:** `tests/fraction_semantics.rs::plain_tex_font_switches_and_mbox_are_parsed_without_preprocessing` and `tests/symbol_golds.rs::font_style_letter_classes`.
+- **Primary contract test:** `tests/fraction_semantics.rs::plain_tex_font_switches_and_mbox_are_parsed_without_preprocessing`, `tests/symbol_golds.rs::font_style_letter_classes`, `tests/row_math_italic.rs::math_alphabet_runs_materialize_character_italic_corrections`, and `tests/script_placement.rs::single_character_math_alphabet_remains_a_direct_script_nucleus`.
 - **Governing authority:** TeX/LaTeX math alphabet semantics plus explicit TeXpose supported-subset policy.
 
 ## Scripts and math-style declarations
@@ -134,10 +134,10 @@ Primary references used by this contract map:
 ## Spacing
 
 - **Accepted syntax:** `\,`, `\:`, `\>`, `\;`, `\!`, `\quad`, `\qquad`, control-space `\ `, and `\hspace{length}`. Parsed lengths accept `em`, `mu`, `pt`, and `bp`; omitted unit in this parser path means `em` for compatibility.
-- **Semantic representation:** `MathNode::Space(SpaceKind)` with `Length::{Em, Mu, TexPt, BigPt}` retained until layout.
+- **Semantic representation:** `MathNode::Space(SpaceKind)` with `Length::{Em, Mu, TexPt, BigPt}` retained until layout. Math-space commands are style-scaled through `mu`; control-space `\ ` is the supported one-third root-em interword-space approximation and is not math-style-scaled.
 - **Malformed-input behavior:** invalid numeric text or unsupported units return `MalformedDimension` at the dimension's source span.
 - **Unsupported forms:** other TeX/LaTeX glue syntax, stretch/shrink components, and additional physical units are outside the current contract.
-- **Primary contract test:** `tests/length_units.rs` and spacing golds.
+- **Primary contract test:** `tests/length_units.rs`, `tests/semantic_spacing.rs`, and spacing golds.
 - **Governing authority:** TeX82 math units/spacing and LaTeX physical-unit conventions, narrowed to the four documented units.
 
 ## Colors

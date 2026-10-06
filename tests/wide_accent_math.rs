@@ -396,6 +396,26 @@ fn wide_accents_select_semantic_math_constructions_by_advance_across_fonts() {
 }
 
 #[test]
+fn fira_overbrace_prebuilt_variant_follows_math_advance_measurement() {
+    let font = MathFont::from_bytes(FIRA_MATH_OTF).expect("Fira Math fixture");
+    let (_, base, accent) = accent_branches(r"\overbrace{a+b+c}", MathStyle::Text, &font);
+    let source = '\u{23DE}';
+    let expected = raw_horizontal_variant_for_target(FIRA_MATH_OTF, source, &base.width);
+    let (_, actual_ch, actual) =
+        single_glyph_x(&accent).expect("Fira overbrace must select a prebuilt variant");
+
+    assert_eq!(actual_ch, source);
+    assert_eq!(
+        actual, expected,
+        "Fira overbrace must select by MATH advanceMeasurement"
+    );
+    assert_eq!(
+        actual, 2016,
+        "pinned Fira fixture must keep the G12 overbrace selection signature"
+    );
+}
+
+#[test]
 fn wide_accents_fall_back_to_the_base_glyph_when_the_font_has_no_construction() {
     let font = MathFont::from_bytes(FIRA_MATH_OTF).expect("Fira Math fixture");
 

@@ -41,3 +41,24 @@ fn explicit_glue_does_not_hide_adjacent_noads_from_binary_spacing() {
         );
     }
 }
+
+#[test]
+fn control_space_keeps_root_interword_width_in_script_styles() {
+    let font = common::stix_two_math().expect("STIX Two Math fixture");
+    let expected = Dim::ratio(1, 3).expect("static one-third-em ratio");
+
+    for style in [
+        MathStyle::Display,
+        MathStyle::Text,
+        MathStyle::Script,
+        MathStyle::ScriptScript,
+    ] {
+        let actual = layout_width(r"\ ", style, &font);
+        assert!(
+            actual.eq_dim(&expected),
+            "{style:?}: control-space width was {}, expected root interword width {}",
+            actual.to_dec_string(),
+            expected.to_dec_string()
+        );
+    }
+}
