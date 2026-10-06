@@ -102,8 +102,12 @@ The raw count remains a measurement and is never rewritten by deviations. Stage
 12a, 13a, 13c, 13d, and 13e add bounded STIX G7 MathKern-policy records for
 `hard-logit`, `hard-wide-expression`, `hard-radical-index-complex`,
 `hard-depth-typography`, and `hard-radical-scripted`, grounded in the published
-OpenType minimum-of-two-sums algorithm. These classifications do not raise the global `0.050em` tolerance or
-affect canonical profiles.
+OpenType minimum-of-two-sums algorithm. Stage 14a adds bounded **outer-only**
+records for `hard-stat-r2` and `hard-aligned-model`, whose geometry decomposes
+into already-ratified G5/G7 contracts. The Stage-12b semantic repair also moved
+`hard-script-on-delimited` below tolerance; the current post-Stage-13e raw STIX
+outer census is `80/93 <= 0.050em`. These classifications do not raise the global
+`0.050em` tolerance or affect canonical profiles.
 `docs/G12_STRESS_CLOSURE.md` owns the exact evidence tuple and the remaining
 blocking inventory.
 
@@ -211,6 +215,21 @@ reconstructed for `hard-radical-index-complex`. The measured positioned maximum
 is `0.068988em`, while outer width/ascent/descent remain within `0.000015em`.
 Stage 13e therefore records only a `0.069100em` positioned-trace ceiling.
 
+For `hard-stat-r2`, the first `y_i` places the script `+0.465000em` after
+the `y` origin in TeXpose and approximately `+0.570002em` in the reference.
+STIX's relevant `y` MathKern values are `-0.045em` and `+0.060em`; the same
+approximately `0.105em` step occurs on the second `y_i` in the numerator,
+producing the measured `0.209959em` outer-width difference. The case also carries
+a separately ratified G5 widehat glyph split, so Stage 14a adds only an outer
+ceiling (`0.210100em`) and no positioned ceiling.
+
+For `hard-aligned-model`, six `b_*` subscripts repeat a `-0.015em` versus
+`+0.020em` MathKern choice, producing the measured `0.209908em` width delta.
+Its vertical `0.214347em` maximum is downstream of already-owned child geometry:
+the G5 widehat selection and the same ExtendedShape superscript-policy split
+described below for `(...)^2`. Stage 14a records only a `0.214500em` outer
+ceiling; the G5 glyph mismatch keeps the full positioned trace non-comparable.
+
 The specification text is:
 
 ```text
@@ -246,6 +265,14 @@ unchanged.
 The measured maximum is `0.239700em` in `glyph-baseline`. Stage 13b records only
 a `0.239800em` stress positioned-trace ceiling. It does not add an outer
 geometry deviation or weaken G7 ExtendedShape behavior.
+
+`hard-aligned-model` later exercises the same policy inside the denominator of
+its second aligned row. Relative to the right parenthesis, TeXpose raises the
+superscript `2` by `0.506000em`, while the pinned reference uses approximately
+`0.252001em`. The enclosing aligned stack then propagates the child-box
+difference through its independently tested row-gap and axis-centering policy.
+Stage 14a therefore treats the resulting `0.214347em` outer maximum as bounded
+propagation of existing G5/G7 contracts rather than as a new alignment rule.
 
 ## Collection-face identity
 

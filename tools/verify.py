@@ -122,6 +122,22 @@ G7_MATH_KERN_POLICY_NOTE = (
     "weakening the OpenType minimum-of-sums contract."
 )
 
+STIX_ALIGNED_MODEL_POLICY_NOTE = (
+    "STIX hard-aligned-model composes already-ratified contracts: repeated b_* "
+    "subscripts expose the G7 OpenType-minimum versus LuaTeX-greater-sum MathKern "
+    "split; its widehat glyph pair is the ratified G5 accent-selection split; and "
+    "the denominator (...)^2 exposes the G7 ExtendedShape superscript policy. "
+    "Aligned-stack centering remains protected independently; the bounded ceiling "
+    "records only the measured downstream outer geometry."
+)
+
+STIX_STAT_R2_POLICY_NOTE = (
+    "STIX hard-stat-r2 outer width is two y_i instances of the G7 MathKern "
+    "minimum-versus-greater-sum split. Its widehat glyph mismatch is separately "
+    "ratified by G5, so no positioned-geometry ceiling is granted. The bounded "
+    "outer ceiling does not weaken either underlying contract."
+)
+
 
 class OracleError(RuntimeError):
     pass
@@ -331,6 +347,8 @@ PROFILES: dict[str, MathProfile] = {
         stress_deviations=(
             ("hard-logit", Deviation(0.4501, False, G7_MATH_KERN_POLICY_NOTE)),
             ("hard-wide-expression", Deviation(0.3499, False, G7_MATH_KERN_POLICY_NOTE)),
+            ("hard-aligned-model", Deviation(0.2145, False, STIX_ALIGNED_MODEL_POLICY_NOTE)),
+            ("hard-stat-r2", Deviation(0.2101, False, STIX_STAT_R2_POLICY_NOTE)),
             ("hard-depth-typography", Deviation(0.0691, False, G7_MATH_KERN_POLICY_NOTE)),
             ("size-frac-6pt", Deviation(0.3321, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
             ("size-nested-frac-6pt", Deviation(0.2915, False, G6_REFERENCE_SIZE_POLICY_NOTE)),

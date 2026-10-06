@@ -294,6 +294,8 @@ The following stress-only outer ceilings are bounded profile records:
 | --- | --- | ---: | ---: | --- |
 | STIX | `hard-logit` | 0.449940em | 0.450100em | G7 OpenType MathKern minimum-of-sums |
 | STIX | `hard-wide-expression` | 0.349773em | 0.349900em | G7 OpenType MathKern minimum-of-sums |
+| STIX | `hard-aligned-model` | 0.214347em | 0.214500em | G5 accent + G7 MathKern/ExtendedShape propagation |
+| STIX | `hard-stat-r2` | 0.209959em | 0.210100em | G7 OpenType MathKern minimum-of-sums; G5 glyph split separately ratified |
 | STIX | `hard-depth-typography` | 0.068974em | 0.069100em | G7 OpenType MathKern minimum-of-sums |
 | STIX | `size-frac-6pt` | 0.331992em | 0.332100em | G6 reference-size policy |
 | STIX | `size-nested-frac-6pt` | 0.291390em | 0.291500em | G6 reference-size policy |
@@ -325,10 +327,15 @@ the remaining **unwaived** outer geometry above `0.050em` is:
 STIX:
 
 ```text
-hard-aligned-model             0.214347em
-hard-stat-r2                   0.209959em
-hard-script-on-delimited       0.061649em
+(none)
 ```
+
+The post-Stage-13e rerun also measures `hard-script-on-delimited` at only
+`0.000002em` width, `0.000003em` ascent, and `0.000001em` descent. Its older
+`0.061649em` entry was rendered stale by the Stage-12b operator/script repair and
+is removed from the blocking inventory without adding a deviation. The current
+raw STIX outer census is therefore `80/93 <= 0.050em`; bounded deviations do not
+rewrite that raw measurement.
 
 Libertinus:
 
@@ -350,8 +357,10 @@ classifies one positioned-only MathKern propagation in
 `hard-radical-index-complex`; Stage 13d classifies the same G7 MathKern policy
 split in STIX `hard-depth-typography`, including its bounded outer-width effect;
 Stage 13e classifies the same positioned-only MathKern split in
-`hard-radical-scripted`. These stages do not approve alignment, overbrace,
-delimiter-selection, or any other residual.
+`hard-radical-scripted`. Stage 14a below closes the remaining STIX outer
+inventory by decomposing `hard-aligned-model` and `hard-stat-r2` into already
+ratified G5/G7 contracts. These stages do not approve the remaining
+Libertinus/Fira inventories, overbrace selection, or any other residual.
 
 ## Closure protocol
 
@@ -1098,3 +1107,99 @@ data, TeXpose no longer selects the specified minimum, the first causal split
 moves away from `y_j`, or the positioned delta exceeds the ceiling. The
 remaining G12 work is the non-comparable/outer inventory and cross-profile
 closure, not another geometry-comparable STIX positioned residual.
+
+## Stage-14a STIX non-comparable outer-geometry closure
+
+Stage 14a closes the remaining STIX **outer** geometry inventory without changing
+TeXpose layout. Both cases already contain ratified G5 glyph-selection
+differences, so their full positioned traces remain formally non-comparable and
+Stage 14a adds **no** positioned-trace ceiling. The outer deltas can nevertheless
+be decomposed into independently owned G5/G7 contracts.
+
+### `hard-stat-r2`
+
+The measured stress case is:
+
+```tex
+R^2=1-\frac{\sum_{i=1}^{n}\left(y_i-\widehat y_i\right)^2}
+{\sum_{i=1}^{n}\left(y_i-\bar y\right)^2}
+```
+
+Outer geometry is `10.278011em` by `1.861000em`/`1.313000em` in TeXpose versus
+`10.487970em` by `1.829002em`/`1.313002em` in the pinned reference. The signed
+deltas are therefore `-0.209959em` width, `+0.031998em` ascent, and
+`-0.000002em` descent. Glyph/rule counts agree (`32/32`, `1/1`). Primitive 14
+retains the already-ratified G5 widehat pair `1395/732`, which is why the whole
+case is not eligible for positioned-geometry comparison.
+
+Before that G5 split, the first material horizontal divergence is already
+isolated at primitive 12, the level-1 `i` in the first `y_i`. Relative to the
+`y` origin, TeXpose places `i` at `+0.465000em`; the reference places it at
+approximately `+0.570002em`. STIX gives `y` an advance of `0.510em` and its
+bottom-right MathKern table exposes `-0.045em` and `+0.060em` at the two
+correction heights relevant to this attachment; the script alternate contributes
+no top-left MathKern. TeXpose therefore selects the OpenType-specified minimum
+(`0.510 - 0.045 = 0.465em`), while LuaTeX selects the greater sum
+(`0.510 + 0.060 ~= 0.570em`). The same step occurs again on the
+`\widehat y_i` term, producing the approximately `0.210em` numerator/outer-width
+difference. The `0.031998em` ascent difference remains below the global outer
+tolerance and needs no separate policy record.
+
+Stage 14a therefore adds only a stale-sensitive STIX **outer** ceiling of
+`0.210100em` for `hard-stat-r2`. The existing G5 accent contract and the focused
+MathKern tests in `tests/math_kern.rs` remain the primary owners of the underlying
+behavior.
+
+### `hard-aligned-model`
+
+The measured stress case is:
+
+```tex
+\begin{aligned}
+\widehat{J}_G&=b_0+b_EE+b_RR+b_PP+b_DD+b_VV+\varepsilon,\\
+R^2&=1-\frac{\sum_i(y_i-\widehat y_i)^2}{\sum_i(y_i-\bar y)^2}.
+\end{aligned}
+```
+
+Outer geometry is `19.659622em` by `2.656500em`/`2.140500em` in TeXpose versus
+`19.869530em` by `2.442154em`/`1.926154em` in the pinned reference. The signed
+deltas are `-0.209908em` width, `+0.214346em` ascent, and `+0.214347em`
+descent, with matching glyph/rule counts (`56/56`, `1/1`). Primitives 0 and 40
+carry the already-ratified G5 widehat pair `1395/732`, so no whole-case
+positioned ceiling is permitted.
+
+The horizontal contribution is independently visible in same-glyph subexpressions.
+At the first `b_0`, primitive 4 (`b`) is aligned within `0.000015em`; primitive 5
+(the subscript) is then `0.034983em` left of the reference. Relative to the `b`
+origin, TeXpose uses `+0.503000em` while the reference uses `+0.537999em`. STIX
+gives `b` an advance of `0.518em` and bottom-right MathKern candidates
+`-0.015em` and `+0.020em`, so this is again the OpenType minimum versus LuaTeX
+greater-sum split. The step repeats for `b_E`, `b_R`, `b_P`, `b_D`, and `b_V`,
+reaching approximately `0.210em` by the end of the first row.
+
+The vertical contribution is likewise an already-isolated G7 policy split. In
+the second-row denominator, primitives 54/55 are the plain right parenthesis and
+its superscript `2`. TeXpose raises `2` by exactly `0.506000em`
+(`-1.211200 - (-1.717200)`), while the reference raises it by approximately
+`0.252001em` (`-1.250851 - (-1.502852)`). This is the same
+`ExtendedShapeCoverage` / `superscriptBaselineDropMax` versus
+`superscriptShiftUpCramped` split reconstructed in Stage 13b. The first-row
+widehat selection is independently owned by the G5 accent contract.
+
+Those child-box differences are then propagated by the established aligned-stack
+policy: `center_amsmath_stack` centers the complete stack on the math axis and
+`aligned_interrow_gaps` derives the inter-row gap from the laid-out row extents.
+`tests/amsmath_grid.rs::aligned_uses_jot_lineskip_and_centers_complete_stack`
+protects that behavior. There is therefore no independent alignment-policy bug to
+repair.
+
+Stage 14a adds a stale-sensitive STIX **outer** ceiling of `0.214500em` for
+`hard-aligned-model`. It does not permit new glyph-selection differences or any
+positioned geometry mismatch beyond the separately ratified G5 signatures.
+
+The governing external rules remain OpenType MATH: MathKern uses the minimum of
+the two correction-height sums, and `superscriptBaselineDropMax` applies to bases
+treated as a box or extended shape. Reopen either record if those published
+rules change, LuaTeX converges to them, the relevant STIX MATH data changes,
+TeXpose stops satisfying the focused G5/G7/aligned-stack contracts, the causal
+split moves, or either measured outer delta exceeds its ceiling.
