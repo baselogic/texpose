@@ -331,6 +331,7 @@ PROFILES: dict[str, MathProfile] = {
         stress_deviations=(
             ("hard-logit", Deviation(0.4501, False, G7_MATH_KERN_POLICY_NOTE)),
             ("hard-wide-expression", Deviation(0.3499, False, G7_MATH_KERN_POLICY_NOTE)),
+            ("hard-depth-typography", Deviation(0.0691, False, G7_MATH_KERN_POLICY_NOTE)),
             ("size-frac-6pt", Deviation(0.3321, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
             ("size-nested-frac-6pt", Deviation(0.2915, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
             ("size-delim-6pt", Deviation(0.3321, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
@@ -348,6 +349,7 @@ PROFILES: dict[str, MathProfile] = {
             ("hard-wide-expression", 0.3499),
             ("hard-sum-substack", 0.2398),
             ("hard-radical-index-complex", 0.0846),
+            ("hard-depth-typography", 0.0691),
         ),
         reference_environment_sha256=REFERENCE_ENVIRONMENT_SHA256,
     ),
