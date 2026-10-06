@@ -350,6 +350,7 @@ PROFILES: dict[str, MathProfile] = {
             ("hard-sum-substack", 0.2398),
             ("hard-radical-index-complex", 0.0846),
             ("hard-depth-typography", 0.0691),
+            ("hard-radical-scripted", 0.0691),
         ),
         reference_environment_sha256=REFERENCE_ENVIRONMENT_SHA256,
     ),

@@ -348,8 +348,9 @@ classifies only STIX `hard-wide-expression`. Stage 13b below classifies one
 positioned-only ExtendedShape policy split in `hard-sum-substack`; Stage 13c
 classifies one positioned-only MathKern propagation in
 `hard-radical-index-complex`; Stage 13d classifies the same G7 MathKern policy
-split in STIX `hard-depth-typography`, including its bounded outer-width effect.
-These stages do not approve alignment, other radical residuals, overbrace,
+split in STIX `hard-depth-typography`, including its bounded outer-width effect;
+Stage 13e classifies the same positioned-only MathKern split in
+`hard-radical-scripted`. These stages do not approve alignment, overbrace,
 delimiter-selection, or any other residual.
 
 ## Closure protocol
@@ -1051,3 +1052,49 @@ returns to minimum-of-sums selection, STIX changes the relevant `y` MathKern
 data, TeXpose no longer selects the specified minimum, the first causal split
 moves away from `y_q`, or either measured delta exceeds the ceiling. All other
 G12 residuals remain separate work.
+
+## Stage-13e STIX radical-scripted MathKern classification
+
+Stage 13e closes the final geometry-comparable STIX positioned residual without
+changing TeXpose layout. The measured stress case is:
+
+```tex
+\sqrt[7]{\frac{x_i^2+y_j^2}{1+\alpha}}
+```
+
+The positioned trace is topology- and identity/order-aligned for all 14
+primitives. Primitives 0--8 agree within `0.000013em`; the first material split
+is primitive 9, the level-1 `j` subscript in `y_j`. TeXpose places it at
+`3.865144em` while the pinned LuaLaTeX reference places it at `3.934132em`, a
+signed `-0.068988em` x delta. Baseline and scale are identical. The following
+fraction rule and denominator return to rounding-level agreement, so the radical
+geometry itself is not the causal source.
+
+The local pair is the same STIX MathKern case reconstructed in Stage 13c. Glyph
+`3355` (`y`) has advance `0.510em`; glyph `4432` is the level-1 `j` script
+alternate. Relative to the `y` origin, TeXpose places `j` at `+0.409000em`,
+corresponding to the `-0.101em` minimum candidate, while the reference places it
+at approximately `+0.478001em`, corresponding to the `-0.032em` greater-sum
+path up to reference rounding. The local split is therefore approximately
+`0.069001em`.
+
+The governing contract remains the published OpenType MATH MathKern algorithm:
+evaluate the two correction-height sums and apply their **minimum**. TeXpose
+keeps that rule; the pinned LuaTeX reference uses its current greater-sum
+selection. This is the same external G7 policy split already ratified for
+`hard-logit`, `hard-wide-expression`, `hard-radical-index-complex`, and
+`hard-depth-typography`.
+
+The outer box is already within the global tolerance: width differs by only
+`0.000015em`, ascent by `0.000001em`, and descent by `0.000002em`, with identical
+glyph/rule counts (`12/12`, `2/2`). Stage 13e therefore adds only a STIX stress
+positioned-trace ceiling of `0.069100em` for `hard-radical-scripted`. No outer
+geometry deviation, structural difference, or glyph-selection difference is
+permitted, and the global `0.050em` tolerance is unchanged.
+
+Reopen this decision if the published OpenType MathKern rule changes, LuaTeX
+returns to minimum-of-sums selection, STIX changes the relevant `y`/`j` MathKern
+data, TeXpose no longer selects the specified minimum, the first causal split
+moves away from `y_j`, or the positioned delta exceeds the ceiling. The
+remaining G12 work is the non-comparable/outer inventory and cross-profile
+closure, not another geometry-comparable STIX positioned residual.

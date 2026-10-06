@@ -99,10 +99,10 @@ environment measures:
 
 The raw count remains a measurement and is never rewritten by deviations. Stage
 11 introduces bounded, stress-specific G6 reference-size-policy records. Stages
-12a, 13a, 13c, and 13d add bounded STIX G7 MathKern-policy records for
-`hard-logit`, `hard-wide-expression`, `hard-radical-index-complex`, and
-`hard-depth-typography`, grounded in the published OpenType minimum-of-two-sums
-algorithm. These classifications do not raise the global `0.050em` tolerance or
+12a, 13a, 13c, 13d, and 13e add bounded STIX G7 MathKern-policy records for
+`hard-logit`, `hard-wide-expression`, `hard-radical-index-complex`,
+`hard-depth-typography`, and `hard-radical-scripted`, grounded in the published
+OpenType minimum-of-two-sums algorithm. These classifications do not raise the global `0.050em` tolerance or
 affect canonical profiles.
 `docs/G12_STRESS_CLOSURE.md` owns the exact evidence tuple and the remaining
 blocking inventory.
@@ -200,6 +200,16 @@ reference places it at approximately `+0.534002em`. The resulting local
 `0.069002em` split propagates to `0.068989em` positioned x and `0.068974em`
 outer-width deltas. Stage 13d records both with a `0.069100em` stress-only
 ceiling.
+
+For `hard-radical-scripted`, the radical degree, radical assembly, fraction
+geometry, and all primitives through the `y` base remain aligned to rounding
+noise. The first material split is again the level-1 `j` subscript in `y_j`.
+Relative to the `y` origin, TeXpose places `j` at `+0.409000em` while the pinned
+reference places it at approximately `+0.478001em`; this is the same
+`-0.101em` versus `-0.032em` minimum-versus-greater-sum MathKern choice already
+reconstructed for `hard-radical-index-complex`. The measured positioned maximum
+is `0.068988em`, while outer width/ascent/descent remain within `0.000015em`.
+Stage 13e therefore records only a `0.069100em` positioned-trace ceiling.
 
 The specification text is:
 
@@ -331,10 +341,10 @@ After G12 stage 10 the pinned positioned measurement is:
 Stage 5 records exact specification-owned stress glyph deviations separately from
 unresolved signatures. Stage 11 extends that mechanism with bounded stress-only
 outer geometry and positioned-trace ceilings for the proven G6 physical-size
-policy divergence. Stages 12a, 13a, 13c, and 13d use the same bounded
+policy divergence. Stages 12a, 13a, 13c, 13d, and 13e use the same bounded
 mechanism for the proven STIX G7 MathKern-policy divergences in `hard-logit`,
-`hard-wide-expression`, `hard-radical-index-complex`, and
-`hard-depth-typography`. A ceiling is accepted only in stress scope, fails if
+`hard-wide-expression`, `hard-radical-index-complex`, `hard-depth-typography`,
+and `hard-radical-scripted`. A ceiling is accepted only in stress scope, fails if
 exceeded, and fails stale once the measured difference no longer requires it. The complete
 evidence, classification, and reopening conditions live in
 `docs/G12_STRESS_CLOSURE.md`.
