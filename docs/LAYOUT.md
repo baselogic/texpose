@@ -1,6 +1,29 @@
 # Layout contract
 
-TeXpose layout is backend-neutral and operates in exact `Dim` values derived from font design units. Rendering, DPI selection, rasterization, and pixel snapping belong to consumers.
+TeXpose layout is backend-neutral. Exact rational geometry remains internal; the public rendering boundary is [`MathLayout`], a flat absolute-coordinate display list using finite root-em-normalized `f32`. Rendering, DPI selection, rasterization, pixel snapping, and application UI belong to consumers.
+
+## Public consumer contract
+
+The public `layout`, `layout_with_em_size_pt`, `layout_with_numbering`, `layout_with_numbering_and_em_size_pt`, and `layout_with_max_depth` entry points all return `MathLayout`. Every layout retains the exact `MathFont` used for glyph resolution, its outer width/height/depth, ordered `MathOp` values, and recoverable `LayoutDiagnostic` values. There is no separate diagnostic-returning layout type.
+
+Coordinates use the formula left edge on the root baseline as `(0, 0)`. `+x` points right and `+y` points up. Width is the logical TeX box width, height is the positive logical extent above the root baseline, and depth is the positive logical extent below it. These three values describe the root box, not a clipped ink or paint bounding box: glyph outlines, italic protrusion, limit offsets, and deliberate overlay lines may extend outside it. All public coordinates and lengths are root-em units. A consumer with a root em size `S` in device units maps a point `(x, y)` as:
+
+```text
+device_x = origin_x + S * x
+device_y = origin_baseline - S * y
+```
+
+`MathLayout::ops()` is paint order. A consumer must process it from first to last. `Glyph` draws one glyph id from `MathLayout::font()` at its absolute baseline and x origin. Its `scale` is relative to the root em; for an outline in font design units, the device scale per font unit is `S * scale / units_per_em`. Glyph ids must be resolved against the retained font bytes and retained face index, not against a substitute face.
+
+`Rule` and `Background` use `(x, y)` as the lower-left corner and positive width/height. `Line` uses two absolute endpoints and a positive thickness. `Frame` describes the outer lower-left rectangle and a positive border thickness; the border occupies the rectangle inward from all four edges, so it does not expand the logical box. Colors are opaque 8-bit sRGB `Color` values. The inherited default foreground is black. Background operations are emitted before their covered contents; frame operations are emitted after their contents. Structural zero-area rules and backgrounds do not produce drawing operations.
+
+All positioning is completed in exact `Dim` before flattening. Each display-list field is then rounded directly from the exact rational to IEEE-754 binary32 using round-to-nearest, ties-to-even. A valid `Dim` has magnitude no larger than `i128::MAX` em and therefore always has a finite binary32 result. Conversion error is at most one half ULP of the returned binary32 value. There is no intermediate `f64` or repeated float accumulation in the production layout path. Consumers may impose stricter device-coordinate limits before rasterization.
+
+`MathLayout::diagnostics()` is deterministic traversal order. Diagnostics describe recoverable degradation and do not invalidate the display list. Unrecoverable font, unsupported-construct, malformed-input, option, and exact-arithmetic failures remain `Err(Error)`.
+
+## Internal exact geometry
+
+The internal `MathBox` tree is the sole hierarchical composition representation. It uses exact `Dim` values and is not part of the consumer API. One positioned traversal converts that tree to absolute exact primitives; both the differential oracle projection and public `MathLayout` use that same traversal. Floating-point conversion occurs only after this exact flattening step.
 
 ## Validated font boundary
 
@@ -104,7 +127,7 @@ Above/below limits use `upperLimitGapMin`, `upperLimitBaselineRiseMin`, `lowerLi
 
 ## Missing-glyph degradation
 
-A missing cmap entry for a Unicode scalar required by ordinary math or literal-text layout is recoverable. The diagnostic-aware entry points return `LayoutDiagnostic::MissingGlyph { ch }` in deterministic traversal order and continue layout. The existing convenience entry points (`layout`, `layout_with_em_size_pt`, numbering variants, and `layout_with_max_depth`) preserve their `MathBox` return type and deliberately discard recoverable diagnostics; callers that need to surface degradation must use the corresponding `*_with_diagnostics` entry point.
+A missing cmap entry for a Unicode scalar required by ordinary math or literal-text layout is recoverable. The returned `MathLayout` records `LayoutDiagnostic::MissingGlyph { ch }` in deterministic traversal order and continues layout; public entry points never discard recoverable diagnostics.
 
 When cmap has no entry, TeXpose first tries OpenType glyph id 0 (`.notdef`). Glyph 0 is usable for this purpose only when `hmtx` supplies a non-zero horizontal advance. Its advance and available bounding box are scaled exactly like an ordinary glyph, while italic correction is zero. If glyph 0 has no usable horizontal advance, TeXpose emits a non-rendering placeholder box whose width and height are exactly one current math em and whose depth and italic correction are zero. This makes fallback geometry deterministic across runs without inventing font-specific outline data.
 

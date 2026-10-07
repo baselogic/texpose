@@ -48,22 +48,13 @@ const TEX_CANCEL_LINE_PT_DEN: i64 = 5;
 // free line extending one physical point beyond each measured box edge.
 const TEX_CANCEL_OVERSHOOT_PT: i64 = 1;
 
-/// Lay out `node` in `style` using caller-provided OpenType MATH metrics.
+/// Internal exact layout entry point.
 ///
 /// Every dimension on the returned [`MathBox`] is a [`Dim`](crate::Dim).
 /// Missing cmap entries degrade deterministically instead of failing layout.
-/// This compatibility entry point discards recoverable diagnostics; use
-/// [`layout_with_diagnostics`] when the caller must observe them.
-///
-/// # Arguments
-///
-/// * `node` — parsed math tree.
-/// * `font` — face providing MATH constants and glyph metrics.
-/// * `style` — TeX math style (`Display`, `Text`, scripts).
-///
-/// # Returns
-///
-/// A backend-neutral mathematical box tree.
+/// This helper discards recoverable diagnostics and exists for crate-internal
+/// exact-geometry regression tests; the public boundary is
+/// [`crate::layout::MathLayout`].
 ///
 /// # Errors
 ///
@@ -72,19 +63,8 @@ const TEX_CANCEL_OVERSHOOT_PT: i64 = 1;
 /// * [`Error::Malformed`] — invalid structure discovered during layout.
 /// * [`Error::Numeric`] — exact dimension arithmetic exceeded the supported
 ///   [`Dim`](crate::Dim) range.
-///
-/// # Examples
-///
-/// ```no_run
-/// use texpose::{layout, parse, MathFont, MathStyle};
-/// # fn font_bytes() -> &'static [u8] { unimplemented!() }
-///
-/// let ast = parse(r"\frac{1}{2}").unwrap();
-/// let font = MathFont::from_bytes(font_bytes()).unwrap();
-/// let boxed = layout(&ast, &font, MathStyle::Text).unwrap();
-/// assert!(!boxed.width.is_zero());
-/// ```
-pub fn layout(node: &MathNode, font: &MathFont, style: MathStyle) -> Result<MathBox, Error> {
+#[cfg(test)]
+pub(crate) fn layout(node: &MathNode, font: &MathFont, style: MathStyle) -> Result<MathBox, Error> {
     Ok(layout_with_diagnostics(node, font, style)?.math_box)
 }
 
@@ -99,8 +79,8 @@ pub fn layout(node: &MathNode, font: &MathFont, style: MathStyle) -> Result<Math
 ///
 /// # Errors
 ///
-/// Same unrecoverable failures as [`layout`].
-pub fn layout_with_diagnostics(
+/// Same unrecoverable failures as [`crate::layout::layout`].
+pub(crate) fn layout_with_diagnostics(
     node: &MathNode,
     font: &MathFont,
     style: MathStyle,
@@ -121,14 +101,14 @@ pub fn layout_with_diagnostics(
 ///
 /// Returned dimensions remain normalized em units. The physical root em is
 /// used only to normalize absolute TeX dimensions such as
-/// `\nulldelimiterspace`. Recoverable diagnostics are discarded; use
-/// [`layout_with_em_size_pt_and_diagnostics`] to retain them.
+/// `\nulldelimiterspace`. This crate-internal exact helper discards recoverable diagnostics.
 ///
 /// # Errors
 ///
 /// Same as [`layout`], plus [`Error::InvalidOption`] when `em_size_pt` is not
 /// positive.
-pub fn layout_with_em_size_pt(
+#[cfg(test)]
+pub(crate) fn layout_with_em_size_pt(
     node: &MathNode,
     font: &MathFont,
     style: MathStyle,
@@ -141,8 +121,8 @@ pub fn layout_with_em_size_pt(
 ///
 /// # Errors
 ///
-/// Same as [`layout_with_em_size_pt`].
-pub fn layout_with_em_size_pt_and_diagnostics(
+/// Same as [`crate::layout::layout_with_em_size_pt`].
+pub(crate) fn layout_with_em_size_pt_and_diagnostics(
     node: &MathNode,
     font: &MathFont,
     style: MathStyle,
@@ -171,28 +151,16 @@ pub fn layout_with_em_size_pt_and_diagnostics(
 ///
 /// # Returns
 ///
-/// A box tree. Numbers assigned for this tree are recorded in `state`. Recoverable
-/// diagnostics are discarded; use [`layout_with_numbering_and_diagnostics`] to
-/// retain them.
+/// An internal exact box tree. Numbers assigned for this tree are recorded in
+/// `state`. Recoverable diagnostics are discarded by this crate-internal test
+/// helper.
 ///
 /// # Errors
 ///
 /// Same as [`layout`], plus [`Error::InvalidOption`] when the numbering
 /// configuration cannot produce the next automatic equation number.
-///
-/// # Examples
-///
-/// ```no_run
-/// use texpose::{layout_with_numbering, parse, MathFont, MathStyle, NumberingState};
-/// # fn font_bytes() -> &'static [u8] { unimplemented!() }
-///
-/// let ast = parse(r"\begin{equation}x\end{equation}").unwrap();
-/// let font = MathFont::from_bytes(font_bytes()).unwrap();
-/// let mut state = NumberingState::default();
-/// let boxed = layout_with_numbering(&ast, &font, MathStyle::Display, &mut state).unwrap();
-/// assert!(!boxed.width.is_zero());
-/// ```
-pub fn layout_with_numbering(
+#[cfg(test)]
+pub(crate) fn layout_with_numbering(
     node: &MathNode,
     font: &MathFont,
     style: MathStyle,
@@ -205,8 +173,8 @@ pub fn layout_with_numbering(
 ///
 /// # Errors
 ///
-/// Same as [`layout_with_numbering`].
-pub fn layout_with_numbering_and_diagnostics(
+/// Same as [`crate::layout::layout_with_numbering`].
+pub(crate) fn layout_with_numbering_and_diagnostics(
     node: &MathNode,
     font: &MathFont,
     style: MathStyle,
@@ -223,37 +191,12 @@ pub fn layout_with_numbering_and_diagnostics(
     )
 }
 
-/// Lay out with caller-owned numbering and an explicit physical root em size
-/// in TeX points.
-///
-/// Returned dimensions remain normalized em units. `em_size_pt` is validated
-/// into the internal physical root-em type before any absolute-unit resolution.
-/// Recoverable diagnostics are discarded; use
-/// [`layout_with_numbering_and_em_size_pt_and_diagnostics`] to retain them.
-///
-/// # Errors
-///
-/// Same as [`layout_with_em_size_pt`], plus the numbering failures documented
-/// by [`layout_with_numbering`].
-pub fn layout_with_numbering_and_em_size_pt(
-    node: &MathNode,
-    font: &MathFont,
-    style: MathStyle,
-    state: &mut NumberingState,
-    em_size_pt: &Dim,
-) -> Result<MathBox, Error> {
-    Ok(
-        layout_with_numbering_and_em_size_pt_and_diagnostics(node, font, style, state, em_size_pt)?
-            .math_box,
-    )
-}
-
 /// Lay out with caller-owned numbering and physical root em, retaining diagnostics.
 ///
 /// # Errors
 ///
-/// Same as [`layout_with_numbering_and_em_size_pt`].
-pub fn layout_with_numbering_and_em_size_pt_and_diagnostics(
+/// Same as [`crate::layout::layout_with_numbering_and_em_size_pt`].
+pub(crate) fn layout_with_numbering_and_em_size_pt_and_diagnostics(
     node: &MathNode,
     font: &MathFont,
     style: MathStyle,
@@ -275,27 +218,15 @@ pub fn layout_with_numbering_and_em_size_pt_and_diagnostics(
 /// [`DEFAULT_MAX_NESTING_DEPTH`](crate::DEFAULT_MAX_NESTING_DEPTH).
 ///
 /// Use the same limit given to [`ParseOptions::with_max_depth`](crate::ParseOptions::with_max_depth),
-/// so that every tree the parser accepts can also be laid out. Recoverable
-/// diagnostics are discarded; use [`layout_with_max_depth_and_diagnostics`] to
-/// retain them.
+/// so that every tree the parser accepts can also be laid out. This crate-internal
+/// exact helper discards recoverable diagnostics.
 ///
 /// # Errors
 ///
 /// Same as [`layout`]. A tree nesting deeper than `max_depth` returns
 /// [`Error::Unsupported`].
-///
-/// # Examples
-///
-/// ```no_run
-/// use texpose::{layout_with_max_depth, parse, MathFont, MathStyle};
-/// # fn font_bytes() -> &'static [u8] { unimplemented!() }
-///
-/// let ast = parse(r"\frac{1}{2}").unwrap();
-/// let font = MathFont::from_bytes(font_bytes()).unwrap();
-/// assert!(layout_with_max_depth(&ast, &font, MathStyle::Text, 64).is_ok());
-/// assert!(layout_with_max_depth(&ast, &font, MathStyle::Text, 1).is_err());
-/// ```
-pub fn layout_with_max_depth(
+#[cfg(test)]
+pub(crate) fn layout_with_max_depth(
     node: &MathNode,
     font: &MathFont,
     style: MathStyle,
@@ -308,8 +239,8 @@ pub fn layout_with_max_depth(
 ///
 /// # Errors
 ///
-/// Same as [`layout_with_max_depth`].
-pub fn layout_with_max_depth_and_diagnostics(
+/// Same as [`crate::layout::layout_with_max_depth`].
+pub(crate) fn layout_with_max_depth_and_diagnostics(
     node: &MathNode,
     font: &MathFont,
     style: MathStyle,

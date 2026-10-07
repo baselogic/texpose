@@ -26,9 +26,10 @@ and alias census are validated independently on every run.
 
 A named profile rejects a different reference-environment hash. This makes an
 engine/package update a reviewed baseline change instead of silently changing
-the oracle. The current evidence establishes the verifier-side environment pin.
-Repository CI provisioning of that pinned reference environment is owned by
-Phase K3, not Phase F10.
+the oracle. Phase K binds contractual CI to a self-hosted Windows runner labeled
+`texpose-oracle-miktex-26-5`. The label selects the intended snapshot; the
+verifier still reconstructs and checks the full environment hash on every run,
+so an incorrectly provisioned or drifted runner fails closed.
 
 ## Profiles and corpus ownership
 
@@ -293,8 +294,7 @@ face mismatch would be a false failure.
 
 The canonical outer structural census counts glyphs and paintable rules. Zero-width TeX struts are layout scaffolding, not rendered rule primitives, so both the Rust probe and LuaTeX reference exclude them from the structural rule count. Running-dimension LuaTeX rules are resolved against their parent box before this visibility test. This keeps structural comparison aligned with the positioned trace, which already omits non-painting rules, and avoids making LaTeX-internal strut representation a TeXpose rendering contract.
 
-F8 adds an exact positioned trace on both sides. TeXpose flattens the `MathBox`
-tree into glyph/rule primitives in exact `Dim` coordinates. LuaTeX walks the
+F8 adds an exact positioned trace on both sides. TeXpose projects glyph/rule records from the same production exact flattener that converts the internal `MathBox` tree into absolute `Dim` primitives. LuaTeX walks the
 final hlist/vlist, resolves the selected glyph index, and reports coordinates in
 scaled points normalized by the independently measured root math em. Paint order
 is the trace index. A primitive-count or primitive-kind difference is a kind-topology
@@ -436,17 +436,17 @@ uv run --script tools\verify.py math --profile fira --fail-on-delta
 ```
 
 Stress (`--stress`) remains investigation/nightly/release-candidate evidence and
-does not acquire a blanket allowlist merely to make the current Phase G backlog
-green. `--stress --fail-on-delta` is a G12 closure check: it validates exact
+does not acquire a blanket allowlist. `--stress --fail-on-delta` validates exact
 ratified glyph signatures, bounded stress-only outer/positioned deviations, rejects
 the explicit unresolved glyph inventory, and rejects every other unbounded
 positioned/outer geometry difference. Stress-only deviations are not visible to
-canonical runs. It is intentionally not promoted to the stable gate until G12 is
-actually closed.
+canonical runs.
 
-The verifier-side environment identity is pinned. Repository CI provisioning of
-the pinned reference environment is a Phase K3 task. The current Windows evidence
-is MiKTeX 26.5 and must not be represented as completion of K3.
+Phase K runs canonical and stress profiles on the pinned MiKTeX 26.5 reference
+runner described in `docs/CI.md`. Contractual CI requests deterministic
+`texpose-oracle-evidence-v1` JSON with `--evidence-json`; that artifact records the
+reference fingerprint, font identity, corpus census, aggregate geometry and
+positioned mismatch evidence without changing normal interactive verifier output.
 
 ## Contractual commands
 
@@ -458,6 +458,10 @@ uv run --script tools\verify.py math --profile stix --fail-on-delta
 uv run --script tools\verify.py math --profile libertinus --fail-on-delta
 uv run --script tools\verify.py math --profile fira --fail-on-delta
 ```
+
+CI adds `--evidence-json <path>` to each named run and uploads the resulting JSON.
+The option is explicit and non-default: ordinary verification remains
+non-mutating.
 
 Stress can be run with `--stress`; raw deltas remain visible rather than being
 rewritten by deviations. Positioned traces are part of the canonical contractual

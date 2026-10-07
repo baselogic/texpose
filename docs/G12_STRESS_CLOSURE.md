@@ -46,7 +46,7 @@ Two already-ratified rules explain most remaining glyph-selection differences:
 - **G7 MathKern**: the published OpenType MATH algorithm evaluates two
   correction-height sums for each script attachment and applies their minimum.
   The focused owners are the STIX first/second correction-height tests in
-  `tests/math_kern.rs`; the font-level lookup tests separately pin interval
+  `src/layout/internal_tests/math_kern.rs`; the font-level lookup tests separately pin interval
   boundary behavior. The pinned LuaLaTeX reference differs on STIX
   `hard-logit`, but that observation does not override the published MATH rule.
 
@@ -444,7 +444,7 @@ placeholder produced by row-metadata extraction and leaves ordinary math-space
 nodes intact.
 
 The focused owner is
-`tests/amsmath_grid.rs::environment_cells_preserve_explicit_math_glue`. Across
+`src/layout/internal_tests/amsmath_grid.rs::environment_cells_preserve_explicit_math_glue`. Across
 STIX Two Math, Libertinus Math, and Fira Math it requires a one-cell matrix
 containing `a\,b` to be exactly `3mu` wider than the corresponding `ab` matrix.
 
@@ -480,7 +480,7 @@ existing typed physical `null_delimiter_space` as a horizontal kern for empty
 left/right delimiters. It does not change visible delimiter sizing.
 
 The focused owner is
-`tests/delimiter_sizing.rs::left_right_null_delimiters_keep_physical_nulldelimiterspace`.
+`src/layout/internal_tests/delimiter_sizing.rs::left_right_null_delimiters_keep_physical_nulldelimiterspace`.
 Across STIX Two Math, Libertinus Math, and Fira Math, at root-em sizes
 6/10/20/40pt, it requires both `\left.` and `\right.` to contribute exactly
 `1.2pt / root_em`. The pre-existing evaluation-delimiter assembly test now
@@ -532,7 +532,7 @@ but the old implementation translated the pair by `0.127em`. The repair keeps
 the redistribution inside the actual gap-repair branch.
 
 The focused owner is
-`tests/script_placement.rs::paired_bottom_max_only_redistributes_an_actual_gap_repair`.
+`src/layout/internal_tests/script_placement.rs::paired_bottom_max_only_redistributes_an_actual_gap_repair`.
 It derives the initial Fira positions from the font's MATH constants, proves the
 initial gap already satisfies `SubSuperscriptGapMin`, proves the old
 paired-bottom adjustment would still have been available, and then requires the
@@ -585,11 +585,11 @@ subsequent MathKern lookup must still be able to inspect the script glyph rather
 than seeing an opaque box.
 
 The focused owner is
-`tests/script_space_after.rs::script_clean_box_keeps_terminal_math_italic_in_its_width`.
+`src/layout/internal_tests/script_space_after.rs::script_clean_box_keeps_terminal_math_italic_in_its_width`.
 With Fira Math it checks both subscript and superscript paths and derives the
 expected width as the base width plus script glyph width, the script glyph's
 terminal MATH italics correction, and parent-style `SpaceAfterScript`. Existing
-`tests/math_kern.rs` remains green and therefore independently protects the
+`src/layout/internal_tests/math_kern.rs` remains green and therefore independently protects the
 requirement that this cleaning step not hide a direct script glyph from MathKern.
 
 Post-fix focal stress measurements are:
@@ -699,10 +699,10 @@ selection defect.
 The accepted side of the deviation is independently protected by:
 
 ```text
-tests/script_style_alternates.rs::script_scales_and_ssty_alternates_follow_each_real_font
-tests/script_style_alternates.rs::actual_script_nesting_selects_level_one_then_level_two
-tests/fraction_semantics.rs::nested_fraction_keeps_math_script_scale_across_root_em_sizes_and_profiles
-tests/radical_geometry.rs::radical_surd_and_rule_geometry_is_root_em_invariant_across_required_sweep
+src/layout/internal_tests/script_style_alternates.rs::script_scales_and_ssty_alternates_follow_each_real_font
+src/layout/internal_tests/script_style_alternates.rs::actual_script_nesting_selects_level_one_then_level_two
+src/layout/internal_tests/fraction_semantics.rs::nested_fraction_keeps_math_script_scale_across_root_em_sizes_and_profiles
+src/layout/internal_tests/radical_geometry.rs::radical_surd_and_rule_geometry_is_root_em_invariant_across_required_sweep
 ```
 
 The first two pin the real-font MATH percentages and `ssty` levels. The fraction
@@ -792,10 +792,10 @@ TeXpose implements that rule directly in `superscript_math_kern` and
 prove that STIX can select either candidate when it is the minimum:
 
 ```text
-tests/math_kern.rs::stix_superscript_math_kern_can_select_the_first_correction_height
-tests/math_kern.rs::stix_superscript_math_kern_can_select_the_second_correction_height
-tests/math_kern.rs::stix_subscript_math_kern_can_select_the_first_correction_height
-tests/math_kern.rs::stix_subscript_math_kern_can_select_the_second_correction_height
+src/layout/internal_tests/math_kern.rs::stix_superscript_math_kern_can_select_the_first_correction_height
+src/layout/internal_tests/math_kern.rs::stix_superscript_math_kern_can_select_the_second_correction_height
+src/layout/internal_tests/math_kern.rs::stix_subscript_math_kern_can_select_the_first_correction_height
+src/layout/internal_tests/math_kern.rs::stix_subscript_math_kern_can_select_the_second_correction_height
 ```
 
 The specification ecosystem itself records an unresolved ambiguity: OpenType
@@ -866,7 +866,7 @@ https://learn.microsoft.com/en-us/typography/opentype/spec/math
 ```
 
 TeXpose implements that rule with `first.min_ref(&second)`. Its focused STIX
-contracts in `tests/math_kern.rs` prove independently that either correction
+contracts in `src/layout/internal_tests/math_kern.rs` prove independently that either correction
 height can win when it is the smaller sum. The pinned LuaLaTeX reference follows
 a different policy. Current LuaTeX source computes the same two sums but replaces
 the first when the second is greater than or equal to it (`>=`); the TeX Live
@@ -1002,7 +1002,7 @@ reference-minus-TeXpose difference is therefore approximately `0.069002em`.
 The governing contract remains the published OpenType MATH MathKern algorithm:
 for subscripts, evaluate the two bottom-right/top-left correction-height sums and
 apply their **minimum**. TeXpose does so with `first.min_ref(&second)`, and the
-focused STIX regressions in `tests/math_kern.rs` independently prove both
+focused STIX regressions in `src/layout/internal_tests/math_kern.rs` independently prove both
 possible minimum branches. Current LuaTeX instead replaces the first sum when
 the second is greater than or equal to it, producing the greater-sum reference
 position. This is the same external policy split already ratified for
@@ -1154,7 +1154,7 @@ tolerance and needs no separate policy record.
 
 Stage 14a therefore adds only a stale-sensitive STIX **outer** ceiling of
 `0.210100em` for `hard-stat-r2`. The existing G5 accent contract and the focused
-MathKern tests in `tests/math_kern.rs` remain the primary owners of the underlying
+MathKern tests in `src/layout/internal_tests/math_kern.rs` remain the primary owners of the underlying
 behavior.
 
 ### `hard-aligned-model`
@@ -1196,7 +1196,7 @@ widehat selection is independently owned by the G5 accent contract.
 Those child-box differences are then propagated by the established aligned-stack
 policy: `center_amsmath_stack` centers the complete stack on the math axis and
 `aligned_interrow_gaps` derives the inter-row gap from the laid-out row extents.
-`tests/amsmath_grid.rs::aligned_uses_jot_lineskip_and_centers_complete_stack`
+`src/layout/internal_tests/amsmath_grid.rs::aligned_uses_jot_lineskip_and_centers_complete_stack`
 protects that behavior. There is therefore no independent alignment-policy bug to
 repair.
 

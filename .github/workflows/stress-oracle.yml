@@ -1,0 +1,45 @@
+name: Stress oracle
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  release:
+    types: [prereleased, published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stress:
+    name: stress oracle / MiKTeX 26.5
+    if: github.event_name != 'release' || github.event.action == 'prereleased' || github.event.release.prerelease == true
+    runs-on: [self-hosted, windows, x64, texpose-oracle-miktex-26-5]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Oracle self-test
+        shell: pwsh
+        run: uv run --script tools\verify.py self-test
+      - name: Stress profiles
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts\oracle | Out-Null
+          $failed = $false
+          foreach ($profile in @("stix", "libertinus", "fira")) {
+            uv run --script tools\verify.py math --profile $profile --stress --fail-on-delta --evidence-json "artifacts\oracle\$profile-stress.json"
+            if ($LASTEXITCODE -ne 0) {
+              $failed = $true
+            }
+          }
+          if ($failed) {
+            exit 1
+          }
+      - name: Upload stress oracle evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stress-oracle-evidence
+          path: artifacts/oracle
+          if-no-files-found: warn

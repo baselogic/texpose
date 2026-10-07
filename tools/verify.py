@@ -1811,6 +1811,215 @@ def geometry_deviation_is_approved(
     )
 
 
+def maximum_case_record(deltas: Iterable[CaseDelta]) -> dict[str, object] | None:
+    values = list(deltas)
+    if not values:
+        return None
+    item = max(values, key=lambda delta: delta.maximum)
+    return {
+        "case": item.name,
+        "family": item.family,
+        "size_pt": item.size,
+        "dimension": item.maximum_dimension,
+        "delta_em": item.maximum,
+    }
+
+
+def build_oracle_evidence(
+    *,
+    spec: RunSpec,
+    fingerprint: ReferenceFingerprint,
+    environment_sha256: str,
+    deltas: list[CaseDelta],
+    trace_deltas: list[TraceCaseDelta],
+    stress: bool,
+) -> dict[str, object]:
+    outer_values = sorted(delta.maximum for delta in deltas)
+    topology_matches = [delta for delta in trace_deltas if delta.topology_matches]
+    glyph_identity_aligned = [
+        delta for delta in topology_matches if delta.glyphs_match
+    ]
+    reorder_cases = [
+        delta
+        for delta in topology_matches
+        if delta.glyph_mismatches and delta.glyph_multiset_matches
+    ]
+    reorder_realigned = [
+        delta for delta in reorder_cases if delta.geometry_alignment == "glyph-id"
+    ]
+    geometry_comparable = [
+        delta for delta in topology_matches if delta.geometry_comparable
+    ]
+    geometry_values = sorted(delta.maximum for delta in geometry_comparable)
+
+    families = sorted(
+        {family for delta in deltas for family in delta.family.split(",")}
+    )
+    sizes = sorted({delta.size for delta in deltas})
+    maxima_by_dimension = {}
+    for dimension in ("width", "ascent", "descent"):
+        item = max(deltas, key=lambda delta: getattr(delta, dimension))
+        maxima_by_dimension[dimension] = {
+            "case": item.name,
+            "delta_em": getattr(item, dimension),
+        }
+
+    positioned_mismatches = []
+    for delta in trace_deltas:
+        if (
+            delta.topology_mismatch is None
+            and not delta.glyph_mismatches
+            and (not delta.geometry_comparable or delta.maximum <= spec.tolerance)
+        ):
+            continue
+        positioned_mismatches.append(
+            {
+                "case": delta.name,
+                "family": delta.family,
+                "size_pt": delta.size,
+                "primitive_count": delta.primitive_count,
+                "topology_mismatch": delta.topology_mismatch,
+                "glyph_mismatches": [
+                    {
+                        "index": mismatch.index,
+                        "texpose_glyph_id": mismatch.texpose_glyph_id,
+                        "reference_glyph_id": mismatch.reference_glyph_id,
+                    }
+                    for mismatch in delta.glyph_mismatches
+                ],
+                "glyph_multiset_matches": delta.glyph_multiset_matches,
+                "geometry_alignment": delta.geometry_alignment,
+                "maximum_delta_em": delta.maximum,
+                "maximum_field": delta.maximum_field,
+                "maximum_index": delta.maximum_index,
+                "maximum_reference_index": delta.maximum_reference_index,
+            }
+        )
+
+    return {
+        "schema": "texpose-oracle-evidence-v1",
+        "status": "pass",
+        "scope": "stress" if stress else "canonical",
+        "profile": spec.name,
+        "contractual_profile": spec.contractual_profile,
+        "tolerance_em": spec.tolerance,
+        "font": {
+            "sha256": spec.font_sha256,
+            "face_index": spec.face_index,
+        },
+        "corpus": {
+            "revision": spec.revision,
+            "measurement_count": spec.measurement_count,
+            "alias_count": spec.alias_count,
+            "census_sha256": spec.census_sha256,
+            "alias_census_sha256": spec.alias_census_sha256,
+        },
+        "summary": {
+            "outer_case_count": len(deltas),
+            "outer_within_tolerance": sum(
+                delta.maximum <= spec.tolerance for delta in deltas
+            ),
+            "outer_max_em": max(outer_values, default=0.0),
+            "structural_mismatch_count": sum(
+                delta.structural_mismatch for delta in deltas
+            ),
+            "positioned_case_count": len(trace_deltas),
+            "positioned_topology_match_count": len(topology_matches),
+            "positioned_max_em": max(geometry_values, default=0.0),
+        },
+        "reference_fingerprint": {
+            "engine": fingerprint.engine,
+            "distribution": fingerprint.distribution,
+            "latex": fingerprint.latex,
+            "unicode_math": fingerprint.unicode_math,
+            "fontspec": fingerprint.fontspec,
+            "amsmath": fingerprint.amsmath,
+            "environment_sha256": environment_sha256,
+            "font_sha256": fingerprint.font_sha256,
+            "face_index": fingerprint.face_index,
+            "profile": fingerprint.profile,
+            "revision": fingerprint.revision,
+            "census_sha256": fingerprint.census_sha256,
+            "alias_census_sha256": fingerprint.alias_census_sha256,
+        },
+        "outer_geometry": {
+            "case_count": len(deltas),
+            "within_tolerance": sum(
+                delta.maximum <= spec.tolerance for delta in deltas
+            ),
+            "percentiles_em": {
+                "p50": percentile(outer_values, 50),
+                "p90": percentile(outer_values, 90),
+                "p95": percentile(outer_values, 95),
+                "p99": percentile(outer_values, 99),
+                "max": max(outer_values, default=0.0),
+            },
+            "structural_mismatches": [
+                delta.name for delta in deltas if delta.structural_mismatch
+            ],
+            "over_tolerance": [
+                {
+                    "case": delta.name,
+                    "family": delta.family,
+                    "size_pt": delta.size,
+                    "dimension": delta.maximum_dimension,
+                    "delta_em": delta.maximum,
+                }
+                for delta in deltas
+                if delta.maximum > spec.tolerance
+            ],
+            "maxima": {
+                "overall": maximum_case_record(deltas),
+                "by_family": {
+                    family: maximum_case_record(
+                        delta
+                        for delta in deltas
+                        if family in delta.family.split(",")
+                    )
+                    for family in families
+                },
+                "by_size_pt": {
+                    str(size): maximum_case_record(
+                        delta for delta in deltas if delta.size == size
+                    )
+                    for size in sizes
+                },
+                "by_dimension": maxima_by_dimension,
+            },
+        },
+        "positioned_trace": {
+            "case_count": len(trace_deltas),
+            "kind_topology_matches": len(topology_matches),
+            "glyph_identity_order_aligned": len(glyph_identity_aligned),
+            "reorder_case_count": len(reorder_cases),
+            "reorder_geometry_realigned": len(reorder_realigned),
+            "geometry_comparable": len(geometry_comparable),
+            "percentiles_em": {
+                "p50": percentile(geometry_values, 50),
+                "p90": percentile(geometry_values, 90),
+                "p95": percentile(geometry_values, 95),
+                "p99": percentile(geometry_values, 99),
+                "max": max(geometry_values, default=0.0),
+            },
+            "mismatches": positioned_mismatches,
+        },
+    }
+
+
+def write_json_atomic(path: Path, payload: dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.tmp")
+    try:
+        temporary.write_text(
+            json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        os.replace(temporary, path)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
+
+
 def validate_reference_environment(
     spec: RunSpec, fingerprint: ReferenceFingerprint
 ) -> str:
@@ -1883,10 +2092,9 @@ def gate_math(
                 "test",
                 "--manifest-path",
                 str(ROOT / "Cargo.toml"),
-                "--test",
-                "math_oracle",
+                "--lib",
                 "--release",
-                "lualatex_math_comparison_probe",
+                "layout::internal_tests::math_oracle::lualatex_math_comparison_probe",
                 "--",
                 "--exact",
                 "--ignored",
@@ -2082,6 +2290,20 @@ def gate_math(
                     file=sys.stderr,
                 )
 
+        if args.evidence_json is not None:
+            write_json_atomic(
+                args.evidence_json,
+                build_oracle_evidence(
+                    spec=spec,
+                    fingerprint=fingerprint,
+                    environment_sha256=environment_sha256,
+                    deltas=deltas,
+                    trace_deltas=trace_deltas,
+                    stress=args.stress,
+                ),
+            )
+            print(f"evidence: {args.evidence_json}", file=sys.stderr)
+
 
 def self_test() -> None:
     for profile in PROFILES.values():
@@ -2146,6 +2368,63 @@ def self_test() -> None:
         contractual_profile=False,
         collection=False,
     )
+
+    evidence_fingerprint = ReferenceFingerprint(
+        engine="engine",
+        distribution="distribution",
+        latex="latex",
+        unicode_math="unicode-math",
+        fontspec="fontspec",
+        amsmath="amsmath",
+        font_sha256=spec.font_sha256,
+        face_index=spec.face_index,
+        profile=spec.name,
+        revision=spec.revision,
+        census_sha256=spec.census_sha256,
+        alias_census_sha256=spec.alias_census_sha256,
+    )
+    evidence_delta = CaseDelta(
+        name="case-1",
+        family="basic",
+        size=10,
+        width=0.01,
+        ascent=0.02,
+        descent=0.0,
+        texpose_glyphs=1,
+        reference_glyphs=1,
+        texpose_rules=0,
+        reference_rules=0,
+    )
+    evidence_trace = TraceCaseDelta(
+        name="case-1",
+        family="basic",
+        size=10,
+        primitive_count=1,
+        topology_mismatch=None,
+        glyph_mismatches=(),
+        glyph_multiset_matches=True,
+        geometry_alignment="paint-index",
+        maximum=0.01,
+        maximum_field="glyph-x",
+        maximum_index=0,
+        maximum_reference_index=0,
+    )
+    evidence = build_oracle_evidence(
+        spec=spec,
+        fingerprint=evidence_fingerprint,
+        environment_sha256=evidence_fingerprint.environment_sha256(),
+        deltas=[evidence_delta],
+        trace_deltas=[evidence_trace],
+        stress=False,
+    )
+    if evidence["schema"] != "texpose-oracle-evidence-v1":
+        fail("self-test oracle evidence schema is wrong")
+    with tempfile.TemporaryDirectory(prefix="texpose-evidence-self-test-") as raw_temp:
+        evidence_path = Path(raw_temp) / "nested" / "evidence.json"
+        write_json_atomic(evidence_path, evidence)
+        decoded = json.loads(evidence_path.read_text(encoding="utf-8"))
+        if decoded != evidence:
+            fail("self-test oracle evidence JSON round-trip changed content")
 
     stress_only_spec = replace(
         spec,
@@ -2904,6 +3183,15 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         ),
     )
     math_parser.add_argument("--fail-on-delta", action="store_true")
+    math_parser.add_argument(
+        "--evidence-json",
+        type=Path,
+        metavar="PATH",
+        help=(
+            "write deterministic machine-readable evidence after a successful run; "
+            "no file is written unless this option is supplied"
+        ),
+    )
 
     sub.add_parser("self-test", help="exercise the oracle evidence parsers")
     return parser.parse_args(argv)
