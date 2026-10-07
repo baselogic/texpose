@@ -1,0 +1,63 @@
+name: Oracle hosted probe
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: hosted Windows MiKTeX fingerprint probe
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install stable Rust
+        shell: pwsh
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Install uv
+        shell: pwsh
+        run: python -m pip install --disable-pip-version-check uv
+
+      - name: Install MiKTeX
+        shell: pwsh
+        run: |
+          choco install miktex --no-progress --params "/Set:basic" -y
+          Import-Module $env:ChocolateyInstall\helpers\chocolateyProfile.psm1
+          refreshenv
+          $lua = Get-ChildItem "C:\Program Files\MiKTeX" -Recurse -Filter lualatex.exe -ErrorAction Stop |
+            Select-Object -First 1
+          if (-not $lua) {
+            throw "lualatex.exe not found after MiKTeX install"
+          }
+          $lua.Directory.FullName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8
+          & $lua.FullName --version
+
+      - name: Enable package installation
+        shell: pwsh
+        run: |
+          initexmf --admin --enable-installer
+          miktex --admin fndb refresh
+
+      - name: Probe pinned STIX environment
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts\probe | Out-Null
+          uv run --script tools\verify.py math --profile stix --fail-on-delta --evidence-json artifacts\probe\stix.json
+
+      - name: Upload probe evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hosted-oracle-probe
+          path: artifacts/probe
+          if-no-files-found: warn
