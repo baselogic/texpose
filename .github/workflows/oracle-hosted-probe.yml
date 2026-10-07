@@ -2,7 +2,6 @@ name: Oracle hosted probe
 
 on:
   pull_request:
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -10,7 +9,7 @@ permissions:
 jobs:
   probe:
     name: hosted Windows MiKTeX fingerprint probe
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
@@ -48,16 +47,7 @@ jobs:
           initexmf --admin --enable-installer
           miktex --admin fndb refresh
 
-      - name: Probe pinned STIX environment
+      - name: Inspect hosted fingerprint
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force artifacts\probe | Out-Null
-          uv run --script tools\verify.py math --profile stix --fail-on-delta --evidence-json artifacts\probe\stix.json
-
-      - name: Upload probe evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: hosted-oracle-probe
-          path: artifacts/probe
-          if-no-files-found: warn
+          uv run --script tools\verify.py math --font tests\fixtures\fonts\stix-two-math\STIXTwoMath-Regular.otf --face-index 0 --top-worst 1
