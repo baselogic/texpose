@@ -99,8 +99,44 @@ Minimize before turning a finding into a regression:
 cargo +nightly-2026-09-07 fuzz tmin dim_arithmetic fuzz/artifacts/dim_arithmetic/<artifact>
 ```
 
-## H2–H6
+## H2 — Tokenization and parsing
+
+H2 fuzzes only valid UTF-8 because the public tokenizer/parser boundary is
+`&str`; arbitrary byte strings that are not valid UTF-8 are outside that API's
+input domain and are discarded by the harness. Each libFuzzer input is capped at
+4096 bytes inside the target as well as by the campaign command.
+
+| Target | Input domain | Protected contract | Bound |
+| --- | --- | --- | --- |
+| `parser_tokenizer` | valid UTF-8 math source | deterministic token stream, ordered/non-overlapping source spans, typed trailing-backslash failure, no panic | 4096 bytes |
+| `parser_syntax` | valid UTF-8 math source | deterministic AST/error, valid error spans, coherent typed resource-limit metadata, no panic | 4096 bytes |
+
+`parser_syntax` uses the public `parse_with_options` boundary with deliberately
+smaller budgets than production defaults: depth 24, 512 AST nodes, 64 total
+environment rows, 256 total environment cells, and 1024 lexical tokens. The
+committed corpus includes accepted examples for groups, generalized fractions,
+environments, dimensions, delimiters, and scripts, plus inputs that cross each
+resource budget. The fuzz target does not invent a second parser as an oracle;
+syntax semantics remain covered by TeXpose's parser golds. H2 instead checks the
+hostile-input invariants the roadmap owns: bounded work, typed failure,
+determinism, source-span validity, and absence of panics.
+
+Run bounded campaigns from the repository root:
+
+```bash
+cargo +nightly-2026-09-07 fuzz run parser_tokenizer -- -max_len=4096 -max_total_time=300
+cargo +nightly-2026-09-07 fuzz run parser_syntax -- -max_len=4096 -max_total_time=300
+```
+
+Reproduce or minimize a saved parser artifact with the same `cargo fuzz run` /
+`cargo fuzz tmin` procedure documented for H1, substituting the H2 target name.
+An important finding is complete only after its minimized input becomes a
+deterministic regression at the tokenizer/parser layer that owns the violated
+contract.
+
+## H3–H6
 
 Later Phase H targets must add their own domain, invariant, oracle/reference,
 resource bounds, corpus policy, and reproduction procedure here. Do not reuse H1
-bounds as implicit policy for parser, font, MATH-construction, or layout fuzzing.
+or H2 bounds as implicit policy for semantic, font, MATH-construction, or layout
+fuzzing.

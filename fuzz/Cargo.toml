@@ -34,3 +34,17 @@ path = "fuzz_targets/dim_units.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "parser_tokenizer"
+path = "fuzz_targets/parser_tokenizer.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "parser_syntax"
+path = "fuzz_targets/parser_syntax.rs"
+test = false
+doc = false
+bench = false

@@ -3,7 +3,10 @@ use core::cmp::Ordering;
 use num_bigint::BigInt;
 use num_rational::BigRational;
 use num_traits::{Signed, Zero};
-use texpose::{Dim, NumericError};
+use texpose::{
+    Dim, NumericError, ParseError, ParseErrorDetail, ParseErrorKind, ParseOptions, ParseResource,
+    SourceSpan, SpannedToken,
+};
 
 const I128_MAX_U: u128 = i128::MAX as u128;
 
@@ -192,6 +195,73 @@ fn pow10(exponent: i128) -> Option<BigInt> {
 pub fn ordering_matches(lhs: &Dim, rhs: &Dim, expected: Ordering) {
     assert_eq!(lhs.cmp(rhs), expected);
     assert_eq!(lhs.partial_cmp(rhs), Some(expected));
+}
+
+pub const H2_MAX_SOURCE_BYTES: usize = 4_096;
+pub const H2_MAX_DEPTH: usize = 24;
+pub const H2_MAX_AST_NODES: usize = 512;
+pub const H2_MAX_ENVIRONMENT_ROWS: usize = 64;
+pub const H2_MAX_ENVIRONMENT_CELLS: usize = 256;
+pub const H2_MAX_TOKENS: usize = 1_024;
+
+pub fn h2_parse_options() -> ParseOptions {
+    ParseOptions::new()
+        .with_max_depth(H2_MAX_DEPTH)
+        .with_max_ast_nodes(H2_MAX_AST_NODES)
+        .with_max_environment_rows(H2_MAX_ENVIRONMENT_ROWS)
+        .with_max_environment_cells(H2_MAX_ENVIRONMENT_CELLS)
+        .with_max_tokens(H2_MAX_TOKENS)
+}
+
+pub fn assert_source_span(source: &str, span: SourceSpan) {
+    assert!(span.start <= span.end, "source span start must not exceed end");
+    assert!(span.end <= source.len(), "source span must stay within input");
+    assert!(
+        source.is_char_boundary(span.start),
+        "source span start must be a UTF-8 boundary"
+    );
+    assert!(
+        source.is_char_boundary(span.end),
+        "source span end must be a UTF-8 boundary"
+    );
+}
+
+pub fn assert_token_spans(source: &str, tokens: &[SpannedToken]) {
+    let mut previous_end = 0;
+    for item in tokens {
+        assert_source_span(source, item.span);
+        assert!(item.span.start < item.span.end, "tokens must consume source");
+        assert!(
+            previous_end <= item.span.start,
+            "token spans must remain ordered and non-overlapping"
+        );
+        previous_end = item.span.end;
+    }
+}
+
+pub fn assert_parse_error(source: &str, error: &ParseError, options: &ParseOptions) {
+    assert_source_span(source, error.span());
+
+    let resource_detail = match error.detail() {
+        ParseErrorDetail::ResourceLimit { resource, limit } => Some((*resource, *limit)),
+        _ => None,
+    };
+    assert_eq!(
+        error.kind() == ParseErrorKind::ResourceLimit,
+        resource_detail.is_some(),
+        "resource-limit kind and detail must agree"
+    );
+
+    if let Some((resource, limit)) = resource_detail {
+        let expected = match resource {
+            ParseResource::NestingDepth => options.max_depth,
+            ParseResource::AstNodes => options.max_ast_nodes,
+            ParseResource::EnvironmentRows => options.max_environment_rows,
+            ParseResource::EnvironmentCells => options.max_environment_cells,
+            ParseResource::Tokens => options.max_tokens,
+        };
+        assert_eq!(limit, expected, "resource error must report configured limit");
+    }
 }
 
 #[cfg(test)]
