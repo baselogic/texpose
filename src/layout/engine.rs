@@ -1155,7 +1155,7 @@ impl<'font, 'state> Engine<'font, 'state> {
         };
         Ok(Item {
             class: Some(AtomKind::Inner),
-            bx: shifted_hpack(vec![left, inner, right])?,
+            bx: MathBox::hpack(vec![left, inner, right])?,
         })
     }
 
@@ -1655,7 +1655,7 @@ impl<'font, 'state> Engine<'font, 'state> {
         };
         Ok(Item {
             class: Some(AtomKind::Inner),
-            bx: shifted_hpack(vec![left, body_b, right])?,
+            bx: MathBox::hpack(vec![left, body_b, right])?,
         })
     }
 
@@ -2698,7 +2698,7 @@ impl<'font, 'state> Engine<'font, 'state> {
         // MathBox::shift. Keep substack vcentering on the child.
         Ok(Item {
             class: Some(AtomKind::Ord),
-            bx: shifted_hpack(vec![stack])?,
+            bx: MathBox::hpack(vec![stack])?,
         })
     }
 
@@ -3005,7 +3005,7 @@ impl<'font, 'state> Engine<'font, 'state> {
         } else if right_null_delimiter {
             children.push(MathBox::kern(self.null_delimiter_space.clone()));
         }
-        shifted_hpack(children)
+        Ok(MathBox::hpack(children)?)
     }
 
     fn align_env(&self, rows: &[EnvRow], style: MathStyle, numbered: bool) -> Result<Item, Error> {
@@ -3381,25 +3381,6 @@ fn position_script(mut script: MathBox, leading_kern: Dim) -> Result<MathBox, Er
         italic: Dim::zero(),
         shift: intrinsic_shift,
         content: packed.content,
-    })
-}
-
-fn shifted_hpack(children: Vec<MathBox>) -> Result<MathBox, Error> {
-    let mut width = Dim::zero();
-    let mut height = Dim::zero();
-    let mut depth = Dim::zero();
-    for child in &children {
-        width = width.checked_add(&child.width)?;
-        height = height.max_ref(&child.height.checked_add(&child.shift)?.clamp_nonneg());
-        depth = depth.max_ref(&child.depth.checked_sub(&child.shift)?.clamp_nonneg());
-    }
-    Ok(MathBox {
-        width,
-        height,
-        depth,
-        italic: Dim::zero(),
-        shift: Dim::zero(),
-        content: BoxContent::HList(children),
     })
 }
 
