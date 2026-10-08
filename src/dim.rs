@@ -148,6 +148,12 @@ fn cmp_unsigned_rational(
     mut rhs_num: u128,
     mut rhs_den: u128,
 ) -> Ordering {
+    // A checked product is exact if representable. Large magnitudes retain
+    // the continued-fraction comparator, which cannot overflow.
+    if let (Some(lhs), Some(rhs)) = (lhs_num.checked_mul(rhs_den), rhs_num.checked_mul(lhs_den)) {
+        return lhs.cmp(&rhs);
+    }
+
     let mut inverted = false;
     loop {
         let lhs_q = lhs_num / lhs_den;
@@ -1074,6 +1080,28 @@ mod tests {
         ] {
             assert_eq!(Dim::parse(&value.to_dec_string()).unwrap(), value);
         }
+    }
+
+    #[test]
+    fn rational_comparison_preserves_small_and_overflowing_cross_products() {
+        let third = Dim::ratio(1, 3).unwrap();
+        let two_sevenths = Dim::ratio(2, 7).unwrap();
+        assert_eq!(third.cmp(&two_sevenths), Ordering::Greater);
+        assert_eq!((-third).cmp(&(-two_sevenths)), Ordering::Less);
+
+        let max = i128::MAX;
+        let large_a = Dim::from_parts(max - 1, max).unwrap();
+        let large_b = Dim::from_parts(max - 2, max - 1).unwrap();
+        assert!((large_a.num as u128)
+            .checked_mul(large_b.den as u128)
+            .is_none());
+        assert!((large_b.num as u128)
+            .checked_mul(large_a.den as u128)
+            .is_none());
+        assert_eq!(large_a.cmp(&large_b), Ordering::Greater);
+        assert_eq!(large_b.cmp(&large_a), Ordering::Less);
+        assert_eq!((-large_a.clone()).cmp(&(-large_b)), Ordering::Less);
+        assert_eq!(large_a.cmp(&large_a), Ordering::Equal);
     }
 
     #[test]
