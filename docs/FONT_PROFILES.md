@@ -4,14 +4,14 @@ This document owns the committed verification-font census used by the multi-font
 
 ## E12 smoke contract
 
-`tests/multi_font_smoke.rs` runs one common corpus through every committed verification profile. No profile or corpus row is silently skipped. For each profile the test requires:
+`src/layout/internal_tests/multi_font_smoke.rs` runs one common corpus through every committed verification profile. No profile or corpus row is silently skipped. For each profile the test requires:
 
 - successful `MathFont` construction at the pinned face index;
 - successful parsing and layout for every corpus row;
 - no recoverable missing-glyph diagnostics in the common corpus;
 - valid exact `Dim` values throughout the returned box tree;
 - identical glyph-ID sequences across two independently constructed fonts/layouts;
-- exact deterministic `LayoutOutput` geometry across those independent runs.
+- exact deterministic internal layout geometry across those independent runs.
 
 Semantic normalization remains private to the layout layer. The smoke test exercises it through the public boundary: `a+b` and `a\textstyle+b` in text style must produce identical output, proving that a non-spacing same-style control does not perturb binary-operator normalization or spacing. Exact semantic class rules remain owned by the focused tests in `src/layout/semantic.rs`.
 

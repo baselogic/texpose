@@ -900,11 +900,7 @@ impl Parser {
             "stackrel" => {
                 let over = self.parse_arg()?;
                 let base = self.parse_arg()?;
-                Ok(MathNode::OverUnder(
-                    Box::new(base),
-                    Some(Box::new(over)),
-                    None,
-                ))
+                Ok(MathNode::StackRel(Box::new(base), Box::new(over)))
             }
             "mathrm" => self.math_alphabet(TextStyle::Rm),
             "mathbf" => self.math_alphabet(TextStyle::Bf),
@@ -1880,6 +1876,10 @@ fn enforce_ast_node_limit(
                 }
                 push_ast_child(&mut stack, base.as_ref(), count, max_nodes, span)?;
             }
+            MathNode::StackRel(base, over) => {
+                push_ast_child(&mut stack, over.as_ref(), count, max_nodes, span)?;
+                push_ast_child(&mut stack, base.as_ref(), count, max_nodes, span)?;
+            }
             MathNode::CancelTo(value, expression) => {
                 push_ast_child(&mut stack, expression.as_ref(), count, max_nodes, span)?;
                 push_ast_child(&mut stack, value.as_ref(), count, max_nodes, span)?;
@@ -1973,7 +1973,7 @@ fn peel_row_meta(node: MathNode, number: &mut EqNumber, labels: &mut Vec<String>
             let mut kept = Vec::new();
             for it in items {
                 let p = peel_row_meta(it, number, labels);
-                if !is_empty_node(&p) {
+                if !is_row_meta_placeholder(&p) {
                     kept.push(p);
                 }
             }
@@ -1981,6 +1981,10 @@ fn peel_row_meta(node: MathNode, number: &mut EqNumber, labels: &mut Vec<String>
         }
         other => other,
     }
+}
+
+fn is_row_meta_placeholder(node: &MathNode) -> bool {
+    matches!(node, MathNode::Row(items) if items.is_empty())
 }
 
 fn finish_env_row(cells: Vec<MathNode>, number: EqNumber, labels: Vec<String>) -> EnvRow {

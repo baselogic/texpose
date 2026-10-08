@@ -1,0 +1,50 @@
+[package]
+name = "texpose-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4.13"
+num-bigint = "0.4.6"
+num-rational = "0.4.2"
+num-traits = "0.2.19"
+texpose = { path = ".." }
+
+[[bin]]
+name = "dim_decimal"
+path = "fuzz_targets/dim_decimal.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "dim_arithmetic"
+path = "fuzz_targets/dim_arithmetic.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "dim_units"
+path = "fuzz_targets/dim_units.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "parser_tokenizer"
+path = "fuzz_targets/parser_tokenizer.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "parser_syntax"
+path = "fuzz_targets/parser_syntax.rs"
+test = false
+doc = false
+bench = false

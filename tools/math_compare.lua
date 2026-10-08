@@ -14,24 +14,33 @@ local kern_id = node.id("kern")
 local math_id = node.id("math")
 local running_dimension = -1073741824
 
-local function inspect_list(head, depth, stats)
-    if not head then
+local function visible_rule(parent, item)
+    local width = item.width == running_dimension and parent.width or item.width
+    local height = item.height == running_dimension and parent.height or item.height
+    local depth = item.depth == running_dimension and parent.depth or item.depth
+    return width > 0 and height + depth > 0
+end
+
+local function inspect_list(box, depth, stats)
+    if not box.head then
         return
     end
     if depth > stats.max_depth then
         stats.max_depth = depth
     end
-    for item in node.traverse(head) do
+    for item in node.traverse(box.head) do
         if item.id == glyph_id then
             stats.glyphs = stats.glyphs + 1
         elseif item.id == rule_id then
-            stats.rules = stats.rules + 1
+            if visible_rule(box, item) then
+                stats.rules = stats.rules + 1
+            end
         elseif item.id == hlist_id then
             stats.hlists = stats.hlists + 1
-            inspect_list(item.head, depth + 1, stats)
+            inspect_list(item, depth + 1, stats)
         elseif item.id == vlist_id then
             stats.vlists = stats.vlists + 1
-            inspect_list(item.head, depth + 1, stats)
+            inspect_list(item, depth + 1, stats)
         end
     end
 end
@@ -281,7 +290,7 @@ function texpose_measure_math_case(label, box_number, text_box_number, script_bo
         vlists = 0,
         max_depth = 0,
     }
-    inspect_list(box.head, 0, stats)
+    inspect_list(box, 0, stats)
 
     local trace = {}
     trace_hlist(box, 0, 0, trace)

@@ -1,6 +1,9 @@
 /target/
 /Cargo.lock
+/info/
 *.patch
 zipignore.py
 *.txt
 !tests/fixtures/fonts/**/OFL.txt
+
+/artifacts/

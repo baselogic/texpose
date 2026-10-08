@@ -1,0 +1,44 @@
+//! Exact-layout regression tests. These are crate-internal because `MathBox` is not a consumer API.
+
+mod accent_golds;
+mod accent_nucleus_width;
+mod amsmath_grid;
+mod amsmath_substack;
+mod color_boxes_cancel;
+mod common;
+mod delimiter_sizing;
+mod depth_limit;
+mod env_golds;
+mod font_shared_storage;
+mod fraction_null_delimiter;
+mod fraction_semantics;
+mod glyph_assembly;
+#[path = "../../../tests/support/golds.rs"]
+mod gold_support;
+mod golds;
+mod integral_scripts;
+mod large_operator_limits;
+mod layout_golds;
+mod length_units;
+mod literal_text;
+mod math_gsub_features;
+mod math_kern;
+mod math_oracle;
+mod missing_glyph_degradation;
+mod multi_font_smoke;
+mod nested_accent_geometry;
+mod numbering_labels;
+mod phantom_overunder;
+mod radical_geometry;
+mod radical_variant;
+mod row_math_italic;
+mod script_placement;
+mod script_scale;
+mod script_space_after;
+mod script_style_alternates;
+mod semantic_spacing;
+mod stack_paint_order;
+mod symbol_golds;
+#[path = "../../../tests/common/vertical_variants.rs"]
+mod vertical_variants;
+mod wide_accent_math;

@@ -251,7 +251,7 @@ expect = "(overunder (atom Ord \"b\") _ (atom Ord \"a\"))"
 name = "stackrel"
 kind = "ast"
 input = "\\stackrel{*}{=}"
-expect = "(overunder (atom Rel \"=\") (atom Bin \"*\") _)"
+expect = "(stackrel (atom Rel \"=\") (atom Bin \"*\"))"
 
 [[gold]]
 name = "accent_hat"

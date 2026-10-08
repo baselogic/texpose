@@ -19,68 +19,154 @@ from pathlib import Path
 from typing import Iterable
 
 ROOT = Path(__file__).resolve().parent.parent
-PROFILE_REVISION = "oracle-v9"
-CANONICAL_CENSUS_SHA256 = "d1d1e356e5a4f426ebf603ed6be5cb134dca3bebe9be7f6b49938ed5ada4ddf1"
-STRESS_CENSUS_SHA256 = "383828f9f734c65e67ce7b9a4f12f501fc2951825ed8ffd1ff6fca945b5e29b4"
+PROFILE_REVISION = "oracle-v11"
+CANONICAL_CENSUS_SHA256 = "cc94469fc91882057326e233c4d00fd91cb19614256e393c0fede884d4ba8c88"
+STRESS_CENSUS_SHA256 = "f2144d4c75dab742ff2fa1642ce29e391382f6b600c44ee01f6d6004ee203108"
 CANONICAL_ALIAS_CENSUS_SHA256 = CANONICAL_CENSUS_SHA256
-STRESS_ALIAS_CENSUS_SHA256 = "1eae50562863db2a26d7c28c96c78a82c3a47649348cb277fc7f17b7578f3b71"
+STRESS_ALIAS_CENSUS_SHA256 = "d59a05fab134f3a74e16e11ce9750e01963511b846bbd8dd42ea7f2e5677ae83"
 KNOWN_CAPABILITIES = frozenset({"math-font", "canonical-corpus", "stress-corpus"})
 REFERENCE_ENVIRONMENT_SHA256 = "b621bc874d9749432eca9f8a66a8bc8ffd72afda0ef8de8624f6a2c2171acbdf"
 STIX_CANONICAL_TRACE_GLYPH_MISMATCHES = (
-    ("display-sum-limits", ((0, 1647, 4437), (1, 4437, 1647))),
-    ("display-sum", ((0, 1647, 4437), (1, 4437, 1647))),
-    ("accent-hat-j", ((0, 3309, 732), (1, 4800, 3309))),
-    ("accent-widehat-j", ((0, 3309, 732), (1, 1395, 3309))),
-    (
-        "accent-widehat-xyz",
-        ((0, 3323, 1398), (1, 3324, 3323), (2, 3325, 3324), (3, 1399, 3325)),
-    ),
-    (
-        "accent-widetilde-xyz",
-        ((0, 3323, 1408), (1, 3324, 3323), (2, 3325, 3324), (3, 1409, 3325)),
-    ),
-    (
-        "accent-widehat-script",
-        ((0, 3354, 732), (1, 4275, 3354), (2, 4430, 4275), (3, 1395, 4430)),
-    ),
+    ("accent-hat-j", ((0, 4800, 732),)),
+    ("accent-widehat-j", ((0, 1395, 732),)),
+    ("accent-widehat-xyz", ((0, 1399, 1398),)),
+    ("accent-widetilde-xyz", ((0, 1409, 1408),)),
+    ("accent-widehat-script", ((0, 1395, 732),)),
 )
 
 LIBERTINUS_CANONICAL_TRACE_GLYPH_MISMATCHES = (
-    ("display-sum-limits", ((0, 3985, 2758), (1, 2758, 3985))),
-    ("display-sum", ((0, 3985, 2758), (1, 2758, 3985))),
-    ("accent-hat-j", ((0, 2729, 701), (1, 701, 2729))),
-    ("accent-widehat-j", ((0, 2729, 701), (1, 4071, 2729))),
-    (
-        "accent-widehat-xyz",
-        ((0, 2743, 4074), (1, 2744, 2743), (2, 2745, 2744), (3, 4075, 2745)),
-    ),
-    (
-        "accent-widetilde-xyz",
-        ((0, 2743, 4216), (1, 2744, 2743), (2, 2745, 2744), (3, 4217, 2745)),
-    ),
-    (
-        "accent-widehat-script",
-        ((0, 2768, 701), (1, 19, 2768), (2, 2753, 19), (3, 4071, 2753)),
-    ),
+    ("accent-widehat-j", ((0, 4071, 701),)),
+    ("accent-widehat-xyz", ((0, 4075, 4074),)),
+    ("accent-widetilde-xyz", ((0, 4217, 4216),)),
+    ("accent-widehat-script", ((0, 4071, 701),)),
 )
 
-FIRA_CANONICAL_TRACE_GLYPH_MISMATCHES = (
-    ("display-sum-limits", ((0, 1584, 1216), (1, 1216, 1584))),
-    ("display-sum", ((0, 1584, 1216), (1, 1216, 1584))),
-    ("accent-hat-j", ((0, 1187, 285), (1, 285, 1187))),
-    ("accent-widehat-j", ((0, 1187, 285), (1, 285, 1187))),
-    (
-        "accent-widehat-xyz",
-        ((0, 1201, 285), (1, 1202, 1201), (2, 1203, 1202), (3, 285, 1203)),
-    ),
-    (
-        "accent-widetilde-xyz",
-        ((0, 1201, 286), (1, 1202, 1201), (2, 1203, 1202), (3, 286, 1203)),
-    ),
-    (
-        "accent-widehat-script",
-        ((0, 1226, 285), (1, 19, 1226), (2, 1211, 19), (3, 285, 1211)),
-    ),
+FIRA_CANONICAL_TRACE_GLYPH_MISMATCHES = ()
+
+STIX_STRESS_TRACE_GLYPH_DEVIATIONS = (
+    ("accent-hat-j", ((0, 4800, 732),)),
+    ("accent-widehat-j", ((0, 1395, 732),)),
+    ("accent-widehat-xyz", ((0, 1399, 1398),)),
+    ("accent-widetilde-xyz", ((0, 1409, 1408),)),
+    ("accent-widehat-script", ((0, 1395, 732),)),
+    ("hard-accent-nested", ((0, 1399, 1398), (1, 1409, 1408), (2, 1399, 1398))),
+    ("hard-accent-deep-script", ((0, 1398, 1397),)),
+    ("hard-matrix-fractions", ((17, 1395, 732), (49, 1409, 1408))),
+    ("hard-aligned-model", ((0, 1395, 732), (40, 1395, 732))),
+    ("hard-overset-fraction", ((0, 1399, 1398),)),
+    ("hard-stat-r2", ((14, 1395, 732),)),
+    ("hard-brutal-core", ((22, 1397, 1396), (28, 1409, 1408))),
+    ("size-frac-6pt", ((0, 3326, 4670), (1, 1196, 4532), (2, 3327, 4671), (4, 3328, 4672), (5, 1196, 4532), (6, 3329, 4673))),
+    ("size-nested-frac-6pt", ((0, 1138, 4523), (1, 1196, 4532), (2, 4421, 4670), (4, 4422, 4671), (6, 1138, 4523), (7, 1196, 4532), (8, 4423, 4672), (10, 4424, 4673))),
+    ("size-nested-frac-20pt", ((2, 4421, 3326), (4, 4422, 3327), (8, 4423, 3328), (10, 4424, 3329))),
+    ("size-nested-frac-40pt", ((2, 4421, 3326), (4, 4422, 3327), (8, 4423, 3328), (10, 4424, 3329))),
+    ("size-delim-6pt", ((1, 3326, 4670), (2, 1196, 4532), (3, 3327, 4671), (5, 3328, 4672), (6, 1196, 4532), (7, 3329, 4673))),
+    ("size-radical-frac-6pt", ((0, 1659, 1660), (2, 3326, 4670), (3, 1196, 4532), (4, 3327, 4671), (6, 3328, 4672), (7, 1196, 4532), (8, 3329, 4673))),
+    ("size-indexed-radical-6pt", ((5, 1657, 6458), (7, 3354, 4699))),
+    ("size-indexed-radical-20pt", ((0, 4523, 1138), (1, 4532, 1196), (2, 4729, 4015), (4, 4524, 1139))),
+    ("size-indexed-radical-40pt", ((0, 4523, 1138), (1, 4532, 1196), (2, 4729, 4015), (4, 4524, 1139))),
+)
+
+STIX_STRESS_TRACE_GLYPH_INVENTORY = ()
+
+LIBERTINUS_STRESS_TRACE_GLYPH_DEVIATIONS = (
+    ("accent-widehat-j", ((0, 4071, 701),)),
+    ("accent-widehat-xyz", ((0, 4075, 4074),)),
+    ("accent-widetilde-xyz", ((0, 4217, 4216),)),
+    ("accent-widehat-script", ((0, 4071, 701),)),
+    ("hard-accent-nested", ((0, 4074, 4073), (1, 4216, 4215), (2, 4074, 4073))),
+    ("hard-accent-fraction", ((0, 4075, 4074),)),
+    ("hard-accent-deep-script", ((0, 4074, 4073),)),
+    ("hard-matrix-fractions", ((17, 4071, 701), (53, 4217, 4216))),
+    ("hard-aligned-model", ((0, 4071, 701), (40, 4071, 701))),
+    ("hard-overset-fraction", ((0, 4074, 4073),)),
+    ("hard-brutal-core", ((22, 4073, 4072), (28, 4217, 4216))),
+)
+
+LIBERTINUS_STRESS_TRACE_GLYPH_DEVIATIONS += (
+    ("hard-stat-r2", ((10, 3798, 9), (14, 4071, 701), (17, 3799, 10))),
+)
+LIBERTINUS_STRESS_TRACE_GLYPH_INVENTORY = ()
+
+FIRA_STRESS_TRACE_GLYPH_DEVIATIONS = (
+    ("hard-matrix-fractions", ((29, 2016, 2014),)),
+)
+FIRA_STRESS_TRACE_GLYPH_INVENTORY = ()
+
+LIBERTINUS_G6_STRESS_TRACE_DEVIATIONS = (
+    ("size-indexed-radical-6pt", 0.3910),
+    ("size-indexed-radical-20pt", 0.1677),
+    ("size-indexed-radical-40pt", 0.1677),
+    ("size-nested-frac-20pt", 0.1002),
+    ("size-nested-frac-40pt", 0.1002),
+)
+
+FIRA_G6_STRESS_TRACE_DEVIATIONS = (
+    ("size-indexed-radical-6pt", 0.4228),
+    ("size-indexed-radical-20pt", 0.1336),
+    ("size-indexed-radical-40pt", 0.1336),
+    ("size-nested-frac-6pt", 0.1135),
+)
+
+LIBERTINUS_STRESS_TRACE_DEVIATIONS = LIBERTINUS_G6_STRESS_TRACE_DEVIATIONS + (
+    ("hard-sum-substack", 0.1902),
+)
+
+FIRA_STRESS_TRACE_DEVIATIONS = FIRA_G6_STRESS_TRACE_DEVIATIONS + (
+    ("hard-aligned-model", 0.0801),
+    ("hard-sum-substack", 0.1449),
+)
+
+G6_REFERENCE_SIZE_POLICY_NOTE = (
+    "G6 keeps OpenType MATH scriptPercentScaleDown/scriptScriptPercentScaleDown "
+    "and ssty semantics. The pinned LuaLaTeX/unicode-math reference resolves "
+    "different physical script sizes after the stress corpus changes root size; "
+    "the bounded ceiling records that reference-size-policy divergence."
+)
+
+G7_MATH_KERN_POLICY_NOTE = (
+    "G7 follows the published OpenType MATH MathKern algorithm: evaluate the two "
+    "correction-height sums and apply their minimum. The pinned LuaLaTeX reference "
+    "uses LuaTeX's current greater-sum MathKern selection on the affected STIX "
+    "scripts. The bounded ceiling records that external policy difference without "
+    "weakening the OpenType minimum-of-sums contract."
+)
+
+STIX_ALIGNED_MODEL_POLICY_NOTE = (
+    "STIX hard-aligned-model composes already-ratified contracts: repeated b_* "
+    "subscripts expose the G7 OpenType-minimum versus LuaTeX-greater-sum MathKern "
+    "split; its widehat glyph pair is the ratified G5 accent-selection split; and "
+    "the denominator (...)^2 exposes the G7 ExtendedShape superscript policy. "
+    "Aligned-stack centering remains protected independently; the bounded ceiling "
+    "records only the measured downstream outer geometry."
+)
+
+STIX_STAT_R2_POLICY_NOTE = (
+    "STIX hard-stat-r2 outer width is two y_i instances of the G7 MathKern "
+    "minimum-versus-greater-sum split. Its widehat glyph mismatch is separately "
+    "ratified by G5, so no positioned-geometry ceiling is granted. The bounded "
+    "outer ceiling does not weaken either underlying contract."
+)
+
+LIBERTINUS_STAT_R2_POLICY_NOTE = (
+    "Libertinus hard-stat-r2 composes the already-ratified G5 widehat selection "
+    "with downstream delimiter growth and the G7 ExtendedShape superscript split "
+    "on (...)^2. The bounded ceiling records only the measured outer propagation; "
+    "the exact glyph signature is independently stale-sensitive."
+)
+
+LIBERTINUS_ALIGNED_MODEL_POLICY_NOTE = (
+    "Libertinus hard-aligned-model composes the ratified G5 widehat selection with "
+    "the G7 ExtendedShape superscript split on (...)^2. The aligned-stack policy "
+    "remains independently tested; the bounded ceiling records only the resulting "
+    "outer centering propagation."
+)
+
+FIRA_ALIGNED_MODEL_POLICY_NOTE = (
+    "Fira hard-aligned-model is identity-aligned and exposes the same G7 "
+    "ExtendedShape superscript policy split on (...)^2, propagated by the tested "
+    "aligned-stack centering rule. The bounded ceiling does not weaken either "
+    "underlying contract."
 )
 
 
@@ -114,8 +200,12 @@ class MathProfile:
     stress_alias_census_sha256: str
     stress_tolerance: float
     documented_deviations: tuple[tuple[str, Deviation], ...]
+    stress_deviations: tuple[tuple[str, Deviation], ...]
     canonical_trace_glyph_mismatches: tuple[tuple[str, tuple[tuple[int, int, int], ...]], ...]
     canonical_trace_deviations: tuple[tuple[str, float], ...]
+    stress_trace_glyph_deviations: tuple[tuple[str, tuple[tuple[int, int, int], ...]], ...]
+    stress_trace_glyph_inventory: tuple[tuple[str, tuple[tuple[int, int, int], ...]], ...]
+    stress_trace_deviations: tuple[tuple[str, float], ...]
     reference_environment_sha256: str | None
 
 
@@ -132,8 +222,12 @@ class RunSpec:
     alias_census_sha256: str
     tolerance: float
     documented_deviations: tuple[tuple[str, Deviation], ...]
+    stress_deviations: tuple[tuple[str, Deviation], ...]
     canonical_trace_glyph_mismatches: tuple[tuple[str, tuple[tuple[int, int, int], ...]], ...]
     canonical_trace_deviations: tuple[tuple[str, float], ...]
+    stress_trace_glyph_deviations: tuple[tuple[str, tuple[tuple[int, int, int], ...]], ...]
+    stress_trace_glyph_inventory: tuple[tuple[str, tuple[tuple[int, int, int], ...]], ...]
+    stress_trace_deviations: tuple[tuple[str, float], ...]
     reference_environment_sha256: str | None
     contractual_profile: bool
     collection: bool
@@ -256,13 +350,13 @@ PROFILES: dict[str, MathProfile] = {
         face_index=0,
         required_capabilities=("math-font", "canonical-corpus", "stress-corpus"),
         capability_exclusions=(),
-        canonical_measurements=21,
-        canonical_aliases=21,
+        canonical_measurements=25,
+        canonical_aliases=25,
         canonical_census_sha256=CANONICAL_CENSUS_SHA256,
         canonical_alias_census_sha256=CANONICAL_ALIAS_CENSUS_SHA256,
         canonical_tolerance=0.05,
-        stress_measurements=89,
-        stress_aliases=94,
+        stress_measurements=93,
+        stress_aliases=98,
         stress_census_sha256=STRESS_CENSUS_SHA256,
         stress_alias_census_sha256=STRESS_ALIAS_CENSUS_SHA256,
         stress_tolerance=0.05,
@@ -281,8 +375,32 @@ PROFILES: dict[str, MathProfile] = {
                 ),
             ),
         ),
+        stress_deviations=(
+            ("hard-logit", Deviation(0.4501, False, G7_MATH_KERN_POLICY_NOTE)),
+            ("hard-wide-expression", Deviation(0.3499, False, G7_MATH_KERN_POLICY_NOTE)),
+            ("hard-aligned-model", Deviation(0.2145, False, STIX_ALIGNED_MODEL_POLICY_NOTE)),
+            ("hard-stat-r2", Deviation(0.2101, False, STIX_STAT_R2_POLICY_NOTE)),
+            ("hard-depth-typography", Deviation(0.0691, False, G7_MATH_KERN_POLICY_NOTE)),
+            ("size-frac-6pt", Deviation(0.3321, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
+            ("size-nested-frac-6pt", Deviation(0.2915, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
+            ("size-delim-6pt", Deviation(0.3321, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
+            ("size-radical-frac-6pt", Deviation(0.3251, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
+            ("size-indexed-radical-6pt", Deviation(0.8282, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
+            ("size-indexed-radical-20pt", Deviation(0.2612, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
+            ("size-indexed-radical-40pt", Deviation(0.2612, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
+        ),
         canonical_trace_glyph_mismatches=STIX_CANONICAL_TRACE_GLYPH_MISMATCHES,
         canonical_trace_deviations=(),
+        stress_trace_glyph_deviations=STIX_STRESS_TRACE_GLYPH_DEVIATIONS,
+        stress_trace_glyph_inventory=STIX_STRESS_TRACE_GLYPH_INVENTORY,
+        stress_trace_deviations=(
+            ("hard-logit", 0.4501),
+            ("hard-wide-expression", 0.3499),
+            ("hard-sum-substack", 0.2398),
+            ("hard-radical-index-complex", 0.0846),
+            ("hard-depth-typography", 0.0691),
+            ("hard-radical-scripted", 0.0691),
+        ),
         reference_environment_sha256=REFERENCE_ENVIRONMENT_SHA256,
     ),
     "libertinus": MathProfile(
@@ -292,29 +410,17 @@ PROFILES: dict[str, MathProfile] = {
         face_index=0,
         required_capabilities=("math-font", "canonical-corpus", "stress-corpus"),
         capability_exclusions=(),
-        canonical_measurements=21,
-        canonical_aliases=21,
+        canonical_measurements=25,
+        canonical_aliases=25,
         canonical_census_sha256=CANONICAL_CENSUS_SHA256,
         canonical_alias_census_sha256=CANONICAL_ALIAS_CENSUS_SHA256,
         canonical_tolerance=0.05,
-        stress_measurements=89,
-        stress_aliases=94,
+        stress_measurements=93,
+        stress_aliases=98,
         stress_census_sha256=STRESS_CENSUS_SHA256,
         stress_alias_census_sha256=STRESS_ALIAS_CENSUS_SHA256,
         stress_tolerance=0.05,
         documented_deviations=(
-            (
-                "display-nested-fraction",
-                Deviation(
-                    geometry_ceiling=0.0625,
-                    allow_structure=False,
-                    note=(
-                        "MiKTeX 26.5 reference measured 0.062386em width delta; "
-                        "Phase G owns fraction geometry. The ceiling freezes the "
-                        "observed divergence rather than accepting it as correct."
-                    ),
-                ),
-            ),
             (
                 "accent-widehat-j",
                 Deviation(
@@ -329,8 +435,23 @@ PROFILES: dict[str, MathProfile] = {
                 ),
             ),
         ),
+        stress_deviations=(
+            ("hard-stat-r2", Deviation(0.1627, False, LIBERTINUS_STAT_R2_POLICY_NOTE)),
+            (
+                "hard-aligned-model",
+                Deviation(0.1862, False, LIBERTINUS_ALIGNED_MODEL_POLICY_NOTE),
+            ),
+            ("size-indexed-radical-6pt", Deviation(0.3910, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
+            ("size-indexed-radical-20pt", Deviation(0.1677, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
+            ("size-indexed-radical-40pt", Deviation(0.1677, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
+            ("size-nested-frac-20pt", Deviation(0.0508, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
+            ("size-nested-frac-40pt", Deviation(0.0508, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
+        ),
         canonical_trace_glyph_mismatches=LIBERTINUS_CANONICAL_TRACE_GLYPH_MISMATCHES,
-        canonical_trace_deviations=(("display-nested-fraction", 0.0625),),
+        canonical_trace_deviations=(),
+        stress_trace_glyph_deviations=LIBERTINUS_STRESS_TRACE_GLYPH_DEVIATIONS,
+        stress_trace_glyph_inventory=LIBERTINUS_STRESS_TRACE_GLYPH_INVENTORY,
+        stress_trace_deviations=LIBERTINUS_STRESS_TRACE_DEVIATIONS,
         reference_environment_sha256=REFERENCE_ENVIRONMENT_SHA256,
     ),
     "fira": MathProfile(
@@ -340,19 +461,29 @@ PROFILES: dict[str, MathProfile] = {
         face_index=0,
         required_capabilities=("math-font", "canonical-corpus", "stress-corpus"),
         capability_exclusions=(),
-        canonical_measurements=21,
-        canonical_aliases=21,
+        canonical_measurements=25,
+        canonical_aliases=25,
         canonical_census_sha256=CANONICAL_CENSUS_SHA256,
         canonical_alias_census_sha256=CANONICAL_ALIAS_CENSUS_SHA256,
         canonical_tolerance=0.05,
-        stress_measurements=89,
-        stress_aliases=94,
+        stress_measurements=93,
+        stress_aliases=98,
         stress_census_sha256=STRESS_CENSUS_SHA256,
         stress_alias_census_sha256=STRESS_ALIAS_CENSUS_SHA256,
         stress_tolerance=0.05,
         documented_deviations=(),
+        stress_deviations=(
+            ("hard-aligned-model", Deviation(0.0801, False, FIRA_ALIGNED_MODEL_POLICY_NOTE)),
+            ("size-indexed-radical-6pt", Deviation(0.4228, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
+            ("size-indexed-radical-20pt", Deviation(0.1336, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
+            ("size-indexed-radical-40pt", Deviation(0.1336, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
+            ("size-nested-frac-6pt", Deviation(0.0724, False, G6_REFERENCE_SIZE_POLICY_NOTE)),
+        ),
         canonical_trace_glyph_mismatches=FIRA_CANONICAL_TRACE_GLYPH_MISMATCHES,
         canonical_trace_deviations=(),
+        stress_trace_glyph_deviations=FIRA_STRESS_TRACE_GLYPH_DEVIATIONS,
+        stress_trace_glyph_inventory=FIRA_STRESS_TRACE_GLYPH_INVENTORY,
+        stress_trace_deviations=FIRA_STRESS_TRACE_DEVIATIONS,
         reference_environment_sha256=REFERENCE_ENVIRONMENT_SHA256,
     ),
 }
@@ -459,68 +590,120 @@ def validate_profile(profile: MathProfile) -> None:
                 f"unknown capability exclusion in profile {profile.name}: "
                 f"{case_name} -> {capability}"
             )
-    seen_deviations: set[str] = set()
-    for case_name, deviation in profile.documented_deviations:
-        if not re.fullmatch(r"[A-Za-z0-9_-]+", case_name):
-            fail(f"invalid deviation case in profile {profile.name}: {case_name}")
-        if case_name in seen_deviations:
-            fail(f"duplicate deviation case in profile {profile.name}: {case_name}")
-        seen_deviations.add(case_name)
-        if deviation.geometry_ceiling is not None:
-            if (
-                not math.isfinite(deviation.geometry_ceiling)
-                or deviation.geometry_ceiling <= profile.canonical_tolerance
-            ):
+    def validate_deviations(
+        label: str, tolerance: float, entries: tuple[tuple[str, Deviation], ...]
+    ) -> set[str]:
+        seen: set[str] = set()
+        for case_name, deviation in entries:
+            if not re.fullmatch(r"[A-Za-z0-9_-]+", case_name):
+                fail(f"invalid {label} deviation case in profile {profile.name}: {case_name}")
+            if case_name in seen:
+                fail(f"duplicate {label} deviation case in profile {profile.name}: {case_name}")
+            seen.add(case_name)
+            if deviation.geometry_ceiling is not None:
+                if (
+                    not math.isfinite(deviation.geometry_ceiling)
+                    or deviation.geometry_ceiling <= tolerance
+                ):
+                    fail(
+                        f"invalid {label} geometry ceiling in profile {profile.name}: "
+                        f"{case_name} -> {deviation.geometry_ceiling}"
+                    )
+            if deviation.geometry_ceiling is None and not deviation.allow_structure:
+                fail(f"empty {label} deviation policy in profile {profile.name}: {case_name}")
+            if not deviation.note.strip():
+                fail(f"undocumented {label} deviation in profile {profile.name}: {case_name}")
+        return seen
+
+    canonical_deviation_cases = validate_deviations(
+        "canonical", profile.canonical_tolerance, profile.documented_deviations
+    )
+    stress_deviation_cases = validate_deviations(
+        "stress", profile.stress_tolerance, profile.stress_deviations
+    )
+    overlap = canonical_deviation_cases & stress_deviation_cases
+    if overlap:
+        fail(
+            f"geometry cases cannot be both canonical/global and stress-only deviations "
+            f"in profile {profile.name}: " + ", ".join(sorted(overlap))
+        )
+    def validate_trace_signatures(
+        label: str,
+        entries: tuple[tuple[str, tuple[tuple[int, int, int], ...]], ...],
+    ) -> set[str]:
+        seen: set[str] = set()
+        for case_name, mismatches in entries:
+            if not re.fullmatch(r"[A-Za-z0-9_-]+", case_name):
                 fail(
-                    f"invalid geometry ceiling in profile {profile.name}: "
-                    f"{case_name} -> {deviation.geometry_ceiling}"
+                    f"invalid {label} positioned glyph-mismatch case in profile "
+                    f"{profile.name}: {case_name}"
                 )
-        if deviation.geometry_ceiling is None and not deviation.allow_structure:
-            fail(f"empty deviation policy in profile {profile.name}: {case_name}")
-        if not deviation.note.strip():
-            fail(f"undocumented deviation in profile {profile.name}: {case_name}")
-    seen_trace_glyph_cases: set[str] = set()
-    for case_name, mismatches in profile.canonical_trace_glyph_mismatches:
-        if not re.fullmatch(r"[A-Za-z0-9_-]+", case_name):
-            fail(
-                f"invalid positioned glyph-mismatch case in profile {profile.name}: "
-                f"{case_name}"
-            )
-        if case_name in seen_trace_glyph_cases:
-            fail(f"duplicate positioned glyph-mismatch case in profile {profile.name}: {case_name}")
-        seen_trace_glyph_cases.add(case_name)
-        if not mismatches:
-            fail(f"empty positioned glyph-mismatch signature in profile {profile.name}: {case_name}")
-        previous_index = -1
-        for index, texpose_gid, reference_gid in mismatches:
-            if index <= previous_index:
+            if case_name in seen:
                 fail(
-                    f"non-increasing positioned glyph paint index in profile {profile.name}: "
-                    f"{case_name} -> {index}"
+                    f"duplicate {label} positioned glyph-mismatch case in profile "
+                    f"{profile.name}: {case_name}"
                 )
-            previous_index = index
-            if not (0 <= texpose_gid <= 0xFFFF and 0 <= reference_gid <= 0xFFFF):
+            seen.add(case_name)
+            if not mismatches:
                 fail(
-                    f"out-of-range positioned glyph id in profile {profile.name}: "
-                    f"{case_name} -> {texpose_gid}/{reference_gid}"
+                    f"empty {label} positioned glyph-mismatch signature in profile "
+                    f"{profile.name}: {case_name}"
                 )
-            if texpose_gid == reference_gid:
+            previous_index = -1
+            for index, texpose_gid, reference_gid in mismatches:
+                if index <= previous_index:
+                    fail(
+                        f"non-increasing {label} positioned glyph paint index in profile "
+                        f"{profile.name}: {case_name} -> {index}"
+                    )
+                previous_index = index
+                if not (0 <= texpose_gid <= 0xFFFF and 0 <= reference_gid <= 0xFFFF):
+                    fail(
+                        f"out-of-range {label} positioned glyph id in profile "
+                        f"{profile.name}: {case_name} -> {texpose_gid}/{reference_gid}"
+                    )
+                if texpose_gid == reference_gid:
+                    fail(
+                        f"non-mismatch {label} positioned glyph signature in profile "
+                        f"{profile.name}: {case_name} -> {texpose_gid}/{reference_gid}"
+                    )
+        return seen
+
+    validate_trace_signatures("canonical", profile.canonical_trace_glyph_mismatches)
+    stress_glyph_deviation_cases = validate_trace_signatures(
+        "stress deviation", profile.stress_trace_glyph_deviations
+    )
+    stress_inventory_cases = validate_trace_signatures(
+        "stress inventory", profile.stress_trace_glyph_inventory
+    )
+    overlap = stress_glyph_deviation_cases & stress_inventory_cases
+    if overlap:
+        fail(
+            f"stress positioned glyph cases cannot be both deviation and inventory in "
+            f"profile {profile.name}: " + ", ".join(sorted(overlap))
+        )
+    for label, tolerance, entries in (
+        ("canonical", profile.canonical_tolerance, profile.canonical_trace_deviations),
+        ("stress", profile.stress_tolerance, profile.stress_trace_deviations),
+    ):
+        seen_trace_deviations: set[str] = set()
+        for case_name, ceiling in entries:
+            if not re.fullmatch(r"[A-Za-z0-9_-]+", case_name):
                 fail(
-                    f"non-mismatch positioned glyph signature in profile {profile.name}: "
-                    f"{case_name} -> {texpose_gid}/{reference_gid}"
+                    f"invalid {label} positioned trace deviation in profile "
+                    f"{profile.name}: {case_name}"
                 )
-    seen_trace_deviations: set[str] = set()
-    for case_name, ceiling in profile.canonical_trace_deviations:
-        if not re.fullmatch(r"[A-Za-z0-9_-]+", case_name):
-            fail(f"invalid positioned trace deviation in profile {profile.name}: {case_name}")
-        if case_name in seen_trace_deviations:
-            fail(f"duplicate positioned trace deviation in profile {profile.name}: {case_name}")
-        seen_trace_deviations.add(case_name)
-        if not math.isfinite(ceiling) or ceiling <= profile.canonical_tolerance:
-            fail(
-                f"invalid positioned trace ceiling in profile {profile.name}: "
-                f"{case_name} -> {ceiling}"
-            )
+            if case_name in seen_trace_deviations:
+                fail(
+                    f"duplicate {label} positioned trace deviation in profile "
+                    f"{profile.name}: {case_name}"
+                )
+            seen_trace_deviations.add(case_name)
+            if not math.isfinite(ceiling) or ceiling <= tolerance:
+                fail(
+                    f"invalid {label} positioned trace ceiling in profile {profile.name}: "
+                    f"{case_name} -> {ceiling}"
+                )
     if profile.reference_environment_sha256 is not None and not re.fullmatch(
         r"[0-9a-f]{64}", profile.reference_environment_sha256
     ):
@@ -577,12 +760,12 @@ def resolve_run_spec(args: argparse.Namespace) -> RunSpec:
             ),
             tolerance=tolerance,
             documented_deviations=profile.documented_deviations,
-            canonical_trace_glyph_mismatches=(
-                profile.canonical_trace_glyph_mismatches if not args.stress else ()
-            ),
-            canonical_trace_deviations=(
-                profile.canonical_trace_deviations if not args.stress else ()
-            ),
+            stress_deviations=profile.stress_deviations,
+            canonical_trace_glyph_mismatches=profile.canonical_trace_glyph_mismatches,
+            canonical_trace_deviations=profile.canonical_trace_deviations,
+            stress_trace_glyph_deviations=profile.stress_trace_glyph_deviations,
+            stress_trace_glyph_inventory=profile.stress_trace_glyph_inventory,
+            stress_trace_deviations=profile.stress_trace_deviations,
             reference_environment_sha256=profile.reference_environment_sha256,
             contractual_profile=True,
             collection=fixture.suffix.lower() in {".ttc", ".otc"},
@@ -602,16 +785,20 @@ def resolve_run_spec(args: argparse.Namespace) -> RunSpec:
         font_sha256=sha256_file(font_path),
         face_index=face_index,
         revision="adhoc-v1",
-        measurement_count=89 if args.stress else 21,
-        alias_count=94 if args.stress else 21,
+        measurement_count=93 if args.stress else 25,
+        alias_count=98 if args.stress else 25,
         census_sha256=STRESS_CENSUS_SHA256 if args.stress else CANONICAL_CENSUS_SHA256,
         alias_census_sha256=(
             STRESS_ALIAS_CENSUS_SHA256 if args.stress else CANONICAL_ALIAS_CENSUS_SHA256
         ),
         tolerance=tolerance,
         documented_deviations=(),
+        stress_deviations=(),
         canonical_trace_glyph_mismatches=(),
         canonical_trace_deviations=(),
+        stress_trace_glyph_deviations=(),
+        stress_trace_glyph_inventory=(),
+        stress_trace_deviations=(),
         reference_environment_sha256=None,
         contractual_profile=False,
         collection=font_path.suffix.lower() in {".ttc", ".otc"} or face_index > 0,
@@ -1383,20 +1570,147 @@ def print_positioned_trace_diagnostics(
             )
 
 
-def validate_canonical_positioned_contract(
-    spec: RunSpec, trace_deltas: list[TraceCaseDelta]
+def format_signed_delta(value: float) -> str:
+    return f"{value:+.6f}"
+
+
+def case_explanation_lines(
+    case: dict[str, object], reference: dict[str, object]
 ) -> list[str]:
+    name = str(case["name"])
+    source = str(case["source"])
+    text_em = float(reference["text_em"])
+    if not math.isfinite(text_em) or text_em <= 0:
+        fail(f"invalid reference text em while explaining {name}")
+
+    lines = [f"  {name}", f"    source: {source}"]
+    for field in ("width", "ascent", "descent"):
+        actual = float(case[field])
+        expected = float(reference[field])
+        lines.append(
+            f"    {field}: TeXpose {actual:.6f} | reference {expected:.6f} | "
+            f"signed {format_signed_delta(actual - expected)}em"
+        )
+
+    lines.append(
+        "    counts: "
+        f"glyphs {int(case['glyphs'])}/{int(reference['glyphs'])} | "
+        f"rules {int(case['rules'])}/{int(reference['rules'])}"
+    )
+    script_em = float(reference["script_em"])
+    scriptscript_em = float(reference["scriptscript_em"])
+    lines.append(
+        "    reference math sizes: "
+        f"text {text_em:.0f}sp | "
+        f"script {script_em:.0f}sp ({script_em / text_em:.6f}em) | "
+        f"scriptscript {scriptscript_em:.0f}sp ({scriptscript_em / text_em:.6f}em)"
+    )
+
+    actual_trace = case["trace"]
+    expected_trace = reference["trace"]
+    if not isinstance(actual_trace, list) or not isinstance(expected_trace, list):
+        fail(f"internal positioned trace container is invalid for {name}")
+    lines.append(
+        f"    trace primitives: {len(actual_trace)}/{len(expected_trace)}"
+    )
+
+    count = max(len(actual_trace), len(expected_trace))
+    for index in range(count):
+        if index >= len(actual_trace):
+            lines.append(f"      {index}: missing TeXpose primitive")
+            continue
+        if index >= len(expected_trace):
+            lines.append(f"      {index}: missing reference primitive")
+            continue
+        left = actual_trace[index]
+        right = expected_trace[index]
+        left_kind = str(left["kind"])
+        right_kind = str(right["kind"])
+        if left_kind != right_kind:
+            lines.append(f"      {index}: kind {left_kind}/{right_kind}")
+            continue
+
+        if left_kind == "glyph":
+            actual_x = float(left["x"])
+            reference_x = float(right["x_sp"]) / text_em
+            actual_baseline = float(left["baseline"])
+            reference_baseline = float(right["baseline_sp"]) / text_em
+            actual_scale = float(left["scale"])
+            reference_scale = float(right["font_size_sp"]) / text_em
+            lines.append(
+                f"      {index}: glyph {int(left['glyph_id'])}/{int(right['glyph_id'])} | "
+                f"x {actual_x:.6f}/{reference_x:.6f} "
+                f"({format_signed_delta(actual_x - reference_x)}) | "
+                f"baseline {actual_baseline:.6f}/{reference_baseline:.6f} "
+                f"({format_signed_delta(actual_baseline - reference_baseline)}) | "
+                f"scale {actual_scale:.6f}/{reference_scale:.6f} "
+                f"({format_signed_delta(actual_scale - reference_scale)})"
+            )
+        elif left_kind == "rule":
+            fields = (
+                ("x", "x_sp"),
+                ("bottom", "bottom_sp"),
+                ("width", "width_sp"),
+                ("height", "height_sp"),
+            )
+            rendered = []
+            for actual_field, reference_field in fields:
+                actual_value = float(left[actual_field])
+                reference_value = float(right[reference_field]) / text_em
+                rendered.append(
+                    f"{actual_field} {actual_value:.6f}/{reference_value:.6f} "
+                    f"({format_signed_delta(actual_value - reference_value)})"
+                )
+            lines.append(f"      {index}: rule | " + " | ".join(rendered))
+        else:
+            fail(f"unknown positioned primitive kind while explaining {name}: {left_kind}")
+
+    return lines
+
+
+def print_case_explanations(
+    requested: list[str],
+    cases: dict[str, dict[str, object]],
+    reference: dict[str, dict[str, object]],
+) -> None:
+    if not requested:
+        return
+    unique = list(dict.fromkeys(requested))
+    unknown = [name for name in unique if name not in cases]
+    if unknown:
+        fail("unknown --explain-case: " + ", ".join(unknown))
+    print("case explanations (signed deltas are TeXpose-reference):", file=sys.stderr)
+    for name in unique:
+        for line in case_explanation_lines(cases[name], reference[name]):
+            print(line, file=sys.stderr)
+
+
+def validate_positioned_contract(
+    spec: RunSpec, trace_deltas: list[TraceCaseDelta], *, stress: bool = False
+) -> list[str]:
+    scope = "stress" if stress else "canonical"
     topology_mismatches = [
         delta.name for delta in trace_deltas if not delta.topology_matches
     ]
     if topology_mismatches:
         fail(
-            "canonical positioned topology mismatches: "
+            f"{scope} positioned topology mismatches: "
             + ", ".join(topology_mismatches)
         )
 
-    expected_glyph_signatures = dict(spec.canonical_trace_glyph_mismatches)
-    observed_glyph_signatures = {
+    if stress:
+        deviation_entries = spec.stress_trace_glyph_deviations
+        inventory_entries = spec.stress_trace_glyph_inventory
+        trace_deviation_entries = spec.stress_trace_deviations
+    else:
+        deviation_entries = spec.canonical_trace_glyph_mismatches
+        inventory_entries = ()
+        trace_deviation_entries = spec.canonical_trace_deviations
+
+    expected_deviations = dict(deviation_entries)
+    expected_inventory = dict(inventory_entries)
+    expected_signatures = {**expected_deviations, **expected_inventory}
+    observed_signatures = {
         delta.name: tuple(
             (mismatch.index, mismatch.texpose_glyph_id, mismatch.reference_glyph_id)
             for mismatch in delta.glyph_mismatches
@@ -1404,39 +1718,46 @@ def validate_canonical_positioned_contract(
         for delta in trace_deltas
         if delta.glyph_mismatches
     }
-    expected_glyph_cases = set(expected_glyph_signatures)
-    observed_glyph_cases = set(observed_glyph_signatures)
-    new_glyph_cases = observed_glyph_cases - expected_glyph_cases
-    repaired_glyph_cases = expected_glyph_cases - observed_glyph_cases
-    changed_glyph_cases = {
+    expected_cases = set(expected_signatures)
+    observed_cases = set(observed_signatures)
+    new_cases = observed_cases - expected_cases
+    repaired_cases = expected_cases - observed_cases
+    changed_cases = {
         case_name
-        for case_name in expected_glyph_cases & observed_glyph_cases
-        if expected_glyph_signatures[case_name] != observed_glyph_signatures[case_name]
+        for case_name in expected_cases & observed_cases
+        if expected_signatures[case_name] != observed_signatures[case_name]
     }
-    if new_glyph_cases or repaired_glyph_cases or changed_glyph_cases:
+    if new_cases or repaired_cases or changed_cases:
         pieces = []
-        if new_glyph_cases:
+        if new_cases:
             pieces.append(
-                "new positioned glyph/order mismatch cases: "
-                + ", ".join(sorted(new_glyph_cases))
+                f"new {scope} positioned glyph/order mismatch cases: "
+                + ", ".join(sorted(new_cases))
             )
-        if repaired_glyph_cases:
+        if repaired_cases:
             pieces.append(
-                "documented positioned glyph/order mismatch cases are no longer observed: "
-                + ", ".join(sorted(repaired_glyph_cases))
+                f"documented {scope} positioned glyph/order mismatch cases are no longer "
+                "observed: " + ", ".join(sorted(repaired_cases))
             )
-        if changed_glyph_cases:
+        if changed_cases:
             pieces.append(
-                "positioned glyph/order mismatch signatures changed: "
-                + ", ".join(sorted(changed_glyph_cases))
+                f"{scope} positioned glyph/order mismatch signatures changed: "
+                + ", ".join(sorted(changed_cases))
             )
         fail("; ".join(pieces))
 
-    ceilings = dict(spec.canonical_trace_deviations)
+    unresolved_cases = set(expected_inventory) & observed_cases
+    if unresolved_cases:
+        fail(
+            f"unresolved {scope} positioned glyph/order mismatch cases: "
+            + ", ".join(sorted(unresolved_cases))
+        )
+
+    ceilings = dict(trace_deviation_entries)
     unknown_ceilings = set(ceilings) - {delta.name for delta in trace_deltas}
     if unknown_ceilings:
         fail(
-            "profile documents unknown positioned trace cases: "
+            f"profile documents unknown {scope} positioned trace cases: "
             + ", ".join(sorted(unknown_ceilings))
         )
 
@@ -1460,15 +1781,23 @@ def validate_canonical_positioned_contract(
     stale_ceilings = set(ceilings) - observed_ceiling_cases
     if stale_ceilings:
         fail(
-            "documented positioned trace deviations are no longer observed: "
+            f"documented {scope} positioned trace deviations are no longer observed: "
             + ", ".join(sorted(stale_ceilings))
         )
     if unapproved:
         fail(
-            f"positioned geometry exceeded {spec.tolerance}em without a bounded "
+            f"{scope} positioned geometry exceeded {spec.tolerance}em without a bounded "
             "trace deviation: " + ", ".join(unapproved)
         )
     return approved
+
+
+def scoped_geometry_deviations(spec: RunSpec, *, stress: bool) -> dict[str, Deviation]:
+    entries = [*spec.documented_deviations]
+    if stress:
+        entries.extend(spec.stress_deviations)
+    return dict(entries)
+
 
 def geometry_deviation_is_approved(
     delta: float, tolerance: float, deviation: Deviation | None
@@ -1480,6 +1809,215 @@ def geometry_deviation_is_approved(
         and deviation.geometry_ceiling is not None
         and delta <= deviation.geometry_ceiling
     )
+
+
+def maximum_case_record(deltas: Iterable[CaseDelta]) -> dict[str, object] | None:
+    values = list(deltas)
+    if not values:
+        return None
+    item = max(values, key=lambda delta: delta.maximum)
+    return {
+        "case": item.name,
+        "family": item.family,
+        "size_pt": item.size,
+        "dimension": item.maximum_dimension,
+        "delta_em": item.maximum,
+    }
+
+
+def build_oracle_evidence(
+    *,
+    spec: RunSpec,
+    fingerprint: ReferenceFingerprint,
+    environment_sha256: str,
+    deltas: list[CaseDelta],
+    trace_deltas: list[TraceCaseDelta],
+    stress: bool,
+) -> dict[str, object]:
+    outer_values = sorted(delta.maximum for delta in deltas)
+    topology_matches = [delta for delta in trace_deltas if delta.topology_matches]
+    glyph_identity_aligned = [
+        delta for delta in topology_matches if delta.glyphs_match
+    ]
+    reorder_cases = [
+        delta
+        for delta in topology_matches
+        if delta.glyph_mismatches and delta.glyph_multiset_matches
+    ]
+    reorder_realigned = [
+        delta for delta in reorder_cases if delta.geometry_alignment == "glyph-id"
+    ]
+    geometry_comparable = [
+        delta for delta in topology_matches if delta.geometry_comparable
+    ]
+    geometry_values = sorted(delta.maximum for delta in geometry_comparable)
+
+    families = sorted(
+        {family for delta in deltas for family in delta.family.split(",")}
+    )
+    sizes = sorted({delta.size for delta in deltas})
+    maxima_by_dimension = {}
+    for dimension in ("width", "ascent", "descent"):
+        item = max(deltas, key=lambda delta: getattr(delta, dimension))
+        maxima_by_dimension[dimension] = {
+            "case": item.name,
+            "delta_em": getattr(item, dimension),
+        }
+
+    positioned_mismatches = []
+    for delta in trace_deltas:
+        if (
+            delta.topology_mismatch is None
+            and not delta.glyph_mismatches
+            and (not delta.geometry_comparable or delta.maximum <= spec.tolerance)
+        ):
+            continue
+        positioned_mismatches.append(
+            {
+                "case": delta.name,
+                "family": delta.family,
+                "size_pt": delta.size,
+                "primitive_count": delta.primitive_count,
+                "topology_mismatch": delta.topology_mismatch,
+                "glyph_mismatches": [
+                    {
+                        "index": mismatch.index,
+                        "texpose_glyph_id": mismatch.texpose_glyph_id,
+                        "reference_glyph_id": mismatch.reference_glyph_id,
+                    }
+                    for mismatch in delta.glyph_mismatches
+                ],
+                "glyph_multiset_matches": delta.glyph_multiset_matches,
+                "geometry_alignment": delta.geometry_alignment,
+                "maximum_delta_em": delta.maximum,
+                "maximum_field": delta.maximum_field,
+                "maximum_index": delta.maximum_index,
+                "maximum_reference_index": delta.maximum_reference_index,
+            }
+        )
+
+    return {
+        "schema": "texpose-oracle-evidence-v1",
+        "status": "pass",
+        "scope": "stress" if stress else "canonical",
+        "profile": spec.name,
+        "contractual_profile": spec.contractual_profile,
+        "tolerance_em": spec.tolerance,
+        "font": {
+            "sha256": spec.font_sha256,
+            "face_index": spec.face_index,
+        },
+        "corpus": {
+            "revision": spec.revision,
+            "measurement_count": spec.measurement_count,
+            "alias_count": spec.alias_count,
+            "census_sha256": spec.census_sha256,
+            "alias_census_sha256": spec.alias_census_sha256,
+        },
+        "summary": {
+            "outer_case_count": len(deltas),
+            "outer_within_tolerance": sum(
+                delta.maximum <= spec.tolerance for delta in deltas
+            ),
+            "outer_max_em": max(outer_values, default=0.0),
+            "structural_mismatch_count": sum(
+                delta.structural_mismatch for delta in deltas
+            ),
+            "positioned_case_count": len(trace_deltas),
+            "positioned_topology_match_count": len(topology_matches),
+            "positioned_max_em": max(geometry_values, default=0.0),
+        },
+        "reference_fingerprint": {
+            "engine": fingerprint.engine,
+            "distribution": fingerprint.distribution,
+            "latex": fingerprint.latex,
+            "unicode_math": fingerprint.unicode_math,
+            "fontspec": fingerprint.fontspec,
+            "amsmath": fingerprint.amsmath,
+            "environment_sha256": environment_sha256,
+            "font_sha256": fingerprint.font_sha256,
+            "face_index": fingerprint.face_index,
+            "profile": fingerprint.profile,
+            "revision": fingerprint.revision,
+            "census_sha256": fingerprint.census_sha256,
+            "alias_census_sha256": fingerprint.alias_census_sha256,
+        },
+        "outer_geometry": {
+            "case_count": len(deltas),
+            "within_tolerance": sum(
+                delta.maximum <= spec.tolerance for delta in deltas
+            ),
+            "percentiles_em": {
+                "p50": percentile(outer_values, 50),
+                "p90": percentile(outer_values, 90),
+                "p95": percentile(outer_values, 95),
+                "p99": percentile(outer_values, 99),
+                "max": max(outer_values, default=0.0),
+            },
+            "structural_mismatches": [
+                delta.name for delta in deltas if delta.structural_mismatch
+            ],
+            "over_tolerance": [
+                {
+                    "case": delta.name,
+                    "family": delta.family,
+                    "size_pt": delta.size,
+                    "dimension": delta.maximum_dimension,
+                    "delta_em": delta.maximum,
+                }
+                for delta in deltas
+                if delta.maximum > spec.tolerance
+            ],
+            "maxima": {
+                "overall": maximum_case_record(deltas),
+                "by_family": {
+                    family: maximum_case_record(
+                        delta
+                        for delta in deltas
+                        if family in delta.family.split(",")
+                    )
+                    for family in families
+                },
+                "by_size_pt": {
+                    str(size): maximum_case_record(
+                        delta for delta in deltas if delta.size == size
+                    )
+                    for size in sizes
+                },
+                "by_dimension": maxima_by_dimension,
+            },
+        },
+        "positioned_trace": {
+            "case_count": len(trace_deltas),
+            "kind_topology_matches": len(topology_matches),
+            "glyph_identity_order_aligned": len(glyph_identity_aligned),
+            "reorder_case_count": len(reorder_cases),
+            "reorder_geometry_realigned": len(reorder_realigned),
+            "geometry_comparable": len(geometry_comparable),
+            "percentiles_em": {
+                "p50": percentile(geometry_values, 50),
+                "p90": percentile(geometry_values, 90),
+                "p95": percentile(geometry_values, 95),
+                "p99": percentile(geometry_values, 99),
+                "max": max(geometry_values, default=0.0),
+            },
+            "mismatches": positioned_mismatches,
+        },
+    }
+
+
+def write_json_atomic(path: Path, payload: dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.tmp")
+    try:
+        temporary.write_text(
+            json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        os.replace(temporary, path)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
 
 
 def validate_reference_environment(
@@ -1507,6 +2045,9 @@ def gate_math(
         fail("tolerance must be finite/nonnegative")
     if not 1 <= args.top_worst <= 100:
         fail("--top-worst must be 1..100")
+    for case_name in args.explain_case:
+        if not re.fullmatch(r"[A-Za-z0-9_-]+", case_name):
+            fail(f"invalid --explain-case name: {case_name}")
 
     require_file(ROOT / "Cargo.toml")
     require_file(ROOT / "tools" / "math_compare.lua")
@@ -1551,10 +2092,9 @@ def gate_math(
                 "test",
                 "--manifest-path",
                 str(ROOT / "Cargo.toml"),
-                "--test",
-                "math_oracle",
+                "--lib",
                 "--release",
-                "lualatex_math_comparison_probe",
+                "layout::internal_tests::math_oracle::lualatex_math_comparison_probe",
                 "--",
                 "--exact",
                 "--ignored",
@@ -1600,7 +2140,7 @@ def gate_math(
                 file=sys.stderr,
             )
 
-        deviations = dict(spec.documented_deviations)
+        deviations = scoped_geometry_deviations(spec, stress=args.stress)
         unknown_deviations = set(deviations) - set(cases)
         if unknown_deviations:
             fail(
@@ -1667,6 +2207,7 @@ def gate_math(
         )
         print_aggregate_diagnostics(spec, deltas)
         print_positioned_trace_diagnostics(trace_deltas, args.top_worst)
+        print_case_explanations(args.explain_case, cases, reference)
 
         if approved_geometry:
             print("bounded geometry deviations:", file=sys.stderr)
@@ -1706,13 +2247,23 @@ def gate_math(
                 f"profile {spec.name} has no pinned reference-environment identity; "
                 "record measurement evidence before accepting a contractual run"
             )
-        if args.fail_on_delta and spec.contractual_profile and not args.stress:
-            stale_deviations = set(deviations) - observed_deviation_cases
+        if args.fail_on_delta and spec.contractual_profile:
+            scoped_entries = (
+                spec.stress_deviations if args.stress else spec.documented_deviations
+            )
+            stale_deviations = {name for name, _ in scoped_entries} - observed_deviation_cases
             if stale_deviations:
+                scope = "stress" if args.stress else "canonical"
                 fail(
-                    "documented deviations are no longer observed: "
+                    f"documented {scope} deviations are no longer observed: "
                     + ", ".join(sorted(stale_deviations))
                 )
+        approved_trace: list[str] = []
+        if args.fail_on_delta and spec.contractual_profile:
+            approved_trace = validate_positioned_contract(
+                spec, trace_deltas, stress=args.stress
+            )
+
         if args.fail_on_delta and (unapproved_geometry or unapproved_structural):
             pieces = []
             if unapproved_geometry:
@@ -1724,18 +2275,34 @@ def gate_math(
                 pieces.append("structure mismatches: " + ", ".join(unapproved_structural))
             fail("; ".join(pieces))
 
-        if args.fail_on_delta and spec.contractual_profile and not args.stress:
-            approved_trace = validate_canonical_positioned_contract(spec, trace_deltas)
-            if approved_trace:
-                ceilings = dict(spec.canonical_trace_deviations)
-                by_name = {delta.name: delta for delta in trace_deltas}
-                print("bounded positioned trace deviations:", file=sys.stderr)
-                for name in approved_trace:
-                    print(
-                        f"  {name}: {by_name[name].maximum:.6f}em "
-                        f"<= {ceilings[name]:.6f}em",
-                        file=sys.stderr,
-                    )
+        if approved_trace:
+            ceilings = dict(
+                spec.stress_trace_deviations
+                if args.stress
+                else spec.canonical_trace_deviations
+            )
+            by_name = {delta.name: delta for delta in trace_deltas}
+            print("bounded positioned trace deviations:", file=sys.stderr)
+            for name in approved_trace:
+                print(
+                    f"  {name}: {by_name[name].maximum:.6f}em "
+                    f"<= {ceilings[name]:.6f}em",
+                    file=sys.stderr,
+                )
+
+        if args.evidence_json is not None:
+            write_json_atomic(
+                args.evidence_json,
+                build_oracle_evidence(
+                    spec=spec,
+                    fingerprint=fingerprint,
+                    environment_sha256=environment_sha256,
+                    deltas=deltas,
+                    trace_deltas=trace_deltas,
+                    stress=args.stress,
+                ),
+            )
+            print(f"evidence: {args.evidence_json}", file=sys.stderr)
 
 
 def self_test() -> None:
@@ -1752,7 +2319,7 @@ def self_test() -> None:
     if geometry_deviation_is_approved(0.0812, 0.05, bounded):
         fail("self-test geometry ceiling failed open")
 
-    names = [f"case-{index}" for index in range(1, 22)]
+    names = [f"case-{index}" for index in range(1, 26)]
     census = "TEXPOSE_MATH_COMPARE_CASES names=" + ",".join(names)
     alias_census = "TEXPOSE_MATH_COMPARE_ALIASES names=" + ",".join(names)
     meta = (
@@ -1785,18 +2352,93 @@ def self_test() -> None:
         font_sha256="a" * 64,
         face_index=0,
         revision="test-v1",
-        measurement_count=21,
-        alias_count=21,
+        measurement_count=25,
+        alias_count=25,
         census_sha256=census_sha256(names),
         alias_census_sha256=census_sha256(names),
         tolerance=0.05,
         documented_deviations=(),
+        stress_deviations=(),
         canonical_trace_glyph_mismatches=(),
         canonical_trace_deviations=(),
+        stress_trace_glyph_deviations=(),
+        stress_trace_glyph_inventory=(),
+        stress_trace_deviations=(),
         reference_environment_sha256=None,
         contractual_profile=False,
         collection=False,
     )
+
+    evidence_fingerprint = ReferenceFingerprint(
+        engine="engine",
+        distribution="distribution",
+        latex="latex",
+        unicode_math="unicode-math",
+        fontspec="fontspec",
+        amsmath="amsmath",
+        font_sha256=spec.font_sha256,
+        face_index=spec.face_index,
+        profile=spec.name,
+        revision=spec.revision,
+        census_sha256=spec.census_sha256,
+        alias_census_sha256=spec.alias_census_sha256,
+    )
+    evidence_delta = CaseDelta(
+        name="case-1",
+        family="basic",
+        size=10,
+        width=0.01,
+        ascent=0.02,
+        descent=0.0,
+        texpose_glyphs=1,
+        reference_glyphs=1,
+        texpose_rules=0,
+        reference_rules=0,
+    )
+    evidence_trace = TraceCaseDelta(
+        name="case-1",
+        family="basic",
+        size=10,
+        primitive_count=1,
+        topology_mismatch=None,
+        glyph_mismatches=(),
+        glyph_multiset_matches=True,
+        geometry_alignment="paint-index",
+        maximum=0.01,
+        maximum_field="glyph-x",
+        maximum_index=0,
+        maximum_reference_index=0,
+    )
+    evidence = build_oracle_evidence(
+        spec=spec,
+        fingerprint=evidence_fingerprint,
+        environment_sha256=evidence_fingerprint.environment_sha256(),
+        deltas=[evidence_delta],
+        trace_deltas=[evidence_trace],
+        stress=False,
+    )
+    if evidence["schema"] != "texpose-oracle-evidence-v1":
+        fail("self-test oracle evidence schema is wrong")
+    with tempfile.TemporaryDirectory(prefix="texpose-evidence-self-test-") as raw_temp:
+        evidence_path = Path(raw_temp) / "nested" / "evidence.json"
+        write_json_atomic(evidence_path, evidence)
+        decoded = json.loads(evidence_path.read_text(encoding="utf-8"))
+        if decoded != evidence:
+            fail("self-test oracle evidence JSON round-trip changed content")
+
+    stress_only_spec = replace(
+        spec,
+        documented_deviations=(("case-2", bounded),),
+        stress_deviations=(("case-1", bounded),),
+        contractual_profile=True,
+    )
+    if set(scoped_geometry_deviations(stress_only_spec, stress=False)) != {"case-2"}:
+        fail("self-test stress-only geometry deviation leaked into canonical scope")
+    if set(scoped_geometry_deviations(stress_only_spec, stress=True)) != {
+        "case-1",
+        "case-2",
+    }:
+        fail("self-test stress scope lost global or stress-only geometry deviation")
 
     oracle_source = build_math_tex(
         {
@@ -1823,7 +2465,7 @@ def self_test() -> None:
         fail("self-test microtype guard must run after begin-document hooks and before evidence")
 
     cases, parsed_meta = parse_math_probe([meta, census, alias_census, *rows], spec)
-    if len(cases) != 21 or parsed_meta.face_index != 0:
+    if len(cases) != 25 or parsed_meta.face_index != 0:
         fail("self-test valid probe rejected")
 
     grouped_names = ["group-a", "single", "group-b"]
@@ -1839,8 +2481,12 @@ def self_test() -> None:
         alias_census_sha256=census_sha256(grouped_names),
         tolerance=0.05,
         documented_deviations=(),
+        stress_deviations=(),
         canonical_trace_glyph_mismatches=(),
         canonical_trace_deviations=(),
+        stress_trace_glyph_deviations=(),
+        stress_trace_glyph_inventory=(),
+        stress_trace_deviations=(),
         reference_environment_sha256=None,
         contractual_profile=False,
         collection=False,
@@ -1933,7 +2579,7 @@ def self_test() -> None:
             reference_lines.extend((lua_case(name), lua_trace(name)))
         path.write_text("\n".join(reference_lines) + "\n", encoding="utf-8")
         parsed, reference = parse_math_results(path, cases, spec)
-        if len(parsed) != 21 or not reference.environment_sha256():
+        if len(parsed) != 25 or not reference.environment_sha256():
             fail("self-test valid reference rejected")
 
         first_delta = compare_positioned_trace(cases["case-1"], parsed["case-1"])
@@ -1967,6 +2613,15 @@ def self_test() -> None:
         numeric_delta = compare_positioned_trace(cases["case-1"], numeric_reference)
         if numeric_delta.maximum_field != "glyph-x" or abs(numeric_delta.maximum - 0.1) > 1e-12:
             fail("self-test positioned numeric delta was not localized")
+
+        explanation = case_explanation_lines(cases["case-1"], numeric_reference)
+        if not any("signed +0.900000em" in line for line in explanation):
+            fail("self-test case explanation lost signed outer geometry")
+        if not any(
+            "glyph 42/42" in line and "x 0.000000/0.100000 (-0.100000)" in line
+            for line in explanation
+        ):
+            fail("self-test case explanation lost signed positioned geometry")
 
         exhaustive_case = {
             "name": "two-glyphs",
@@ -2074,10 +2729,10 @@ def self_test() -> None:
             canonical_trace_deviations=(),
             contractual_profile=True,
         )
-        if validate_canonical_positioned_contract(reorder_spec, [reordered_delta]):
+        if validate_positioned_contract(reorder_spec, [reordered_delta]):
             fail("self-test exact reorder unexpectedly reported a trace deviation")
         try:
-            validate_canonical_positioned_contract(
+            validate_positioned_contract(
                 reorder_spec, [reordered_offset_delta]
             )
         except OracleError:
@@ -2089,7 +2744,7 @@ def self_test() -> None:
             reorder_spec,
             canonical_trace_deviations=(("two-glyphs", 0.11),),
         )
-        if validate_canonical_positioned_contract(
+        if validate_positioned_contract(
             bounded_reorder_spec, [reordered_offset_delta]
         ) != ["two-glyphs"]:
             fail("self-test bounded identity-realigned reorder was rejected")
@@ -2127,10 +2782,10 @@ def self_test() -> None:
             canonical_trace_deviations=(),
             contractual_profile=True,
         )
-        if validate_canonical_positioned_contract(duplicate_spec, [duplicate_delta]):
+        if validate_positioned_contract(duplicate_spec, [duplicate_delta]):
             fail("self-test documented duplicate-glyph reorder was rejected")
         try:
-            validate_canonical_positioned_contract(
+            validate_positioned_contract(
                 replace(
                     duplicate_spec,
                     canonical_trace_deviations=(("duplicate-glyphs", 0.11),),
@@ -2187,7 +2842,7 @@ def self_test() -> None:
             canonical_trace_deviations=(),
             contractual_profile=True,
         )
-        if validate_canonical_positioned_contract(mixed_rule_spec, [mixed_rule_delta]):
+        if validate_positioned_contract(mixed_rule_spec, [mixed_rule_delta]):
             fail("self-test documented mixed glyph/rule reorder was rejected")
 
         trace_spec = replace(
@@ -2242,13 +2897,50 @@ def self_test() -> None:
                 maximum_reference_index=0,
             ),
         ]
-        if validate_canonical_positioned_contract(trace_spec, trace_contract) != [
+        if validate_positioned_contract(trace_spec, trace_contract) != [
             "case-2"
         ]:
             fail("self-test positioned trace ceiling was not reported")
 
+        stress_inventory_spec = replace(
+            spec,
+            stress_trace_glyph_deviations=(),
+            stress_trace_glyph_inventory=(("case-1", ((0, 1, 2),)),),
+            stress_trace_deviations=(),
+            contractual_profile=True,
+        )
         try:
-            validate_canonical_positioned_contract(
+            validate_positioned_contract(
+                stress_inventory_spec, [trace_contract[0]], stress=True
+            )
+        except OracleError as error:
+            if "unresolved stress positioned glyph/order mismatch cases: case-1" not in str(error):
+                fail("self-test stress inventory failed for the wrong reason")
+        else:
+            fail("self-test unresolved stress glyph inventory was accepted")
+
+        stress_deviation_spec = replace(
+            stress_inventory_spec,
+            stress_trace_glyph_deviations=(("case-1", ((0, 1, 2),)),),
+            stress_trace_glyph_inventory=(),
+        )
+        if validate_positioned_contract(
+            stress_deviation_spec, [trace_contract[0]], stress=True
+        ):
+            fail("self-test stress glyph deviation unexpectedly reported geometry")
+
+        stress_trace_spec = replace(
+            spec,
+            stress_trace_deviations=(("case-2", 0.08),),
+            contractual_profile=True,
+        )
+        if validate_positioned_contract(
+            stress_trace_spec, [trace_contract[1]], stress=True
+        ) != ["case-2"]:
+            fail("self-test stress positioned trace ceiling was not reported")
+
+        try:
+            validate_positioned_contract(
                 replace(
                     trace_spec,
                     canonical_trace_deviations=(("case-1", 0.08),),
@@ -2300,7 +2992,7 @@ def self_test() -> None:
         )
         for candidate in rejected_trace_contracts:
             try:
-                validate_canonical_positioned_contract(trace_spec, candidate)
+                validate_positioned_contract(trace_spec, candidate)
             except OracleError:
                 pass
             else:
@@ -2388,14 +3080,18 @@ def self_test() -> None:
             font_sha256="a" * 64,
             face_index=1,
             revision="test-v1",
-            measurement_count=21,
-            alias_count=21,
+            measurement_count=25,
+            alias_count=25,
             census_sha256=spec.census_sha256,
             alias_census_sha256=spec.alias_census_sha256,
             tolerance=0.05,
             documented_deviations=(),
+            stress_deviations=(),
             canonical_trace_glyph_mismatches=(),
             canonical_trace_deviations=(),
+            stress_trace_glyph_deviations=(),
+            stress_trace_glyph_inventory=(),
+            stress_trace_deviations=(),
             reference_environment_sha256=None,
             contractual_profile=False,
             collection=True,
@@ -2416,6 +3112,17 @@ def self_test() -> None:
         else:
             fail("self-test wrong LuaTeX collection face accepted")
 
+    overlap_profile = replace(
+        PROFILES["fira"],
+        documented_deviations=(("size-indexed-radical-6pt", bounded),),
+    )
+    try:
+        validate_profile(overlap_profile)
+    except OracleError:
+        pass
+    else:
+        fail("self-test canonical/stress geometry deviation overlap accepted")
+
     bad_profile = MathProfile(
         name="bad",
         fixture="unused",
@@ -2423,19 +3130,23 @@ def self_test() -> None:
         face_index=0,
         required_capabilities=("math-font",),
         capability_exclusions=(("case-1", "unknown-capability"),),
-        canonical_measurements=21,
-        canonical_aliases=21,
+        canonical_measurements=25,
+        canonical_aliases=25,
         canonical_census_sha256=CANONICAL_CENSUS_SHA256,
         canonical_alias_census_sha256=CANONICAL_ALIAS_CENSUS_SHA256,
         canonical_tolerance=0.05,
-        stress_measurements=89,
-        stress_aliases=94,
+        stress_measurements=93,
+        stress_aliases=98,
         stress_census_sha256=STRESS_CENSUS_SHA256,
         stress_alias_census_sha256=STRESS_ALIAS_CENSUS_SHA256,
         stress_tolerance=0.05,
         documented_deviations=(),
+        stress_deviations=(),
         canonical_trace_glyph_mismatches=(),
         canonical_trace_deviations=(),
+        stress_trace_glyph_deviations=(),
+        stress_trace_glyph_inventory=(),
+        stress_trace_deviations=(),
         reference_environment_sha256=None,
     )
     try:
@@ -2461,7 +3172,26 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     math_parser.add_argument("--stress", action="store_true")
     math_parser.add_argument("--tolerance", type=float)
     math_parser.add_argument("--top-worst", type=int, default=12)
+    math_parser.add_argument(
+        "--explain-case",
+        action="append",
+        default=[],
+        metavar="CASE",
+        help=(
+            "emit full signed outer/positioned diagnostics for CASE; "
+            "repeat to explain multiple cases without weakening corpus validation"
+        ),
+    )
     math_parser.add_argument("--fail-on-delta", action="store_true")
+    math_parser.add_argument(
+        "--evidence-json",
+        type=Path,
+        metavar="PATH",
+        help=(
+            "write deterministic machine-readable evidence after a successful run; "
+            "no file is written unless this option is supplied"
+        ),
+    )
 
     sub.add_parser("self-test", help="exercise the oracle evidence parsers")
     return parser.parse_args(argv)

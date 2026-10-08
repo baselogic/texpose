@@ -229,7 +229,7 @@ name = "sum-scripts-text"
 kind = "dims"
 style = "text"
 input = "\\sum_{k=1}^{n}"
-expect = "w=2.3032 h=0.9139 d=0.4178"
+expect = "w=2.3032 h=0.9049 d=0.4268"
 
 [[gold]]
 name = "int-display"
@@ -243,21 +243,21 @@ name = "int-text"
 kind = "dims"
 style = "text"
 input = "\\int_0^1"
-expect = "w=1.3103 h=0.9639 d=0.3951"
+expect = "w=1.0803 h=0.9714 d=0.3876"
 
 [[gold]]
 name = "pmatrix"
 kind = "dims"
 style = "text"
 input = "\\begin{pmatrix}a&b\\\\c&d\\end{pmatrix}"
-expect = "w=3.011 h=1.263 d=0.747"
+expect = "w=3.031 h=1.263 d=0.747"
 
 [[gold]]
 name = "cases"
 kind = "dims"
 style = "text"
 input = "\\begin{cases}a\\\\b\\end{cases}"
-expect = "w=1.013 h=1.458 d=0.942"
+expect = "w=1.133 h=1.458 d=0.942"
 
 [[gold]]
 name = "alpha"

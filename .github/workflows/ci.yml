@@ -1,0 +1,71 @@
+name: Core CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stable:
+    name: stable / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install stable Rust
+        run: rustup toolchain install stable --profile minimal --component rustfmt,clippy
+      - name: Select stable Rust
+        run: rustup default stable
+      - name: rustfmt
+        run: cargo fmt --check
+      - name: Tests
+        run: cargo test
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+  msrv:
+    name: Rust 1.76 / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust 1.76.0
+        run: rustup toolchain install 1.76.0 --profile minimal
+      - name: Select Rust 1.76.0
+        run: rustup default 1.76.0
+      - name: Check
+        run: cargo check
+      - name: Tests
+        run: cargo test
+
+  dependencies:
+    name: dependency gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install stable Rust
+        run: rustup toolchain install stable --profile minimal
+      - name: Select stable Rust
+        run: rustup default stable
+      - name: Record dependency trees
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/dependencies
+          cargo tree -e normal | tee artifacts/dependencies/normal.txt
+          cargo tree -e dev | tee artifacts/dependencies/dev.txt
+          cargo tree -e features | tee artifacts/dependencies/features.txt
+      - name: Upload dependency evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-trees
+          path: artifacts/dependencies
+          if-no-files-found: error

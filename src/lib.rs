@@ -23,7 +23,7 @@ mod symbols;
 
 /// OpenType MATH metrics for caller-owned shared font data.
 pub mod font;
-/// AST → TeX-faithful [`MathBox`](layout::MathBox).
+/// AST → backend-neutral [`MathLayout`](layout::MathLayout).
 pub mod layout;
 /// LaTeX math → [`MathNode`](parser::MathNode) AST.
 pub mod parser;
@@ -40,13 +40,9 @@ pub use error::{
 };
 pub use font::{GlyphMetrics, MathFont};
 pub use layout::{
-    layout, layout_with_diagnostics, layout_with_em_size_pt,
-    layout_with_em_size_pt_and_diagnostics, layout_with_max_depth,
-    layout_with_max_depth_and_diagnostics, layout_with_numbering,
-    layout_with_numbering_and_diagnostics, layout_with_numbering_and_em_size_pt,
-    layout_with_numbering_and_em_size_pt_and_diagnostics, BoxContent, LayoutDiagnostic,
-    LayoutOutput, MathBox, MathParams, MathStyle, NumberFormat, NumberStyle, NumberingConfig,
-    NumberingState,
+    layout, layout_with_em_size_pt, layout_with_max_depth, layout_with_numbering,
+    layout_with_numbering_and_em_size_pt, LayoutDiagnostic, MathLayout, MathOp, MathParams,
+    MathStyle, NumberFormat, NumberStyle, NumberingConfig, NumberingState,
 };
 pub use parser::{
     format_tokens, parse, parse_with_colors, parse_with_options, preprocess, tokenize,
@@ -58,3 +54,25 @@ pub use parser::{
 };
 pub use style_map::styled_char;
 pub use symbols::{category_count, glyph_char, lookup, symbols, SymbolEntry, SymbolKind};
+
+#[cfg(test)]
+extern crate self as texpose;
+
+#[cfg(test)]
+pub(crate) mod test_support {
+    pub(crate) use crate::layout::engine::{
+        layout, layout_with_diagnostics, layout_with_em_size_pt,
+        layout_with_em_size_pt_and_diagnostics, layout_with_max_depth, layout_with_numbering,
+    };
+    pub(crate) use crate::layout::{BoxContent, LayoutOutput, MathBox};
+    pub(crate) use crate::{
+        category_count, format_tokens, lookup, named_color, parse, parse_color_spec,
+        parse_with_options, styled_char, symbol_atom_kind, symbols, tokenize, AccentKind, AtomKind,
+        Color, ColorTable, Dim, Error, FontError, FractionAlignment, FractionRule, FractionSpec,
+        FractionStyle, LayoutDiagnostic, Length, MathFont, MathNode, MathParams, MathStyle,
+        NumberFormat, NumberStyle, NumberingConfig, NumberingState, ParseError, ParseErrorKind,
+        ParseOptions, SpaceKind, SymbolKind, TextStyle, DEFAULT_MAX_AST_NODES,
+        DEFAULT_MAX_ENVIRONMENT_CELLS, DEFAULT_MAX_ENVIRONMENT_ROWS, DEFAULT_MAX_NESTING_DEPTH,
+        DEFAULT_MAX_TOKENS,
+    };
+}

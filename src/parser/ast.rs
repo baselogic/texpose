@@ -765,8 +765,10 @@ pub enum MathNode {
     Product(Option<Box<MathNode>>, Option<Box<MathNode>>),
     /// `\lim` with optional subscript.
     Limit(Option<Box<MathNode>>),
-    /// `\overset` / `\underset` / `\stackrel` (base, over, under).
+    /// `\overset` / `\underset` (base, over, under).
     OverUnder(Box<MathNode>, Option<Box<MathNode>>, Option<Box<MathNode>>),
+    /// `\stackrel` (base, over); unlike `\overset`, its spacing class is always relation.
+    StackRel(Box<MathNode>, Box<MathNode>),
     /// Accent or decoration on a nucleus.
     Accent(Box<MathNode>, AccentKind),
     /// `\cancelto{value}{expr}`
@@ -887,6 +889,7 @@ impl MathNode {
             Self::OverUnder(b, over, under) => {
                 format!("(overunder {} {} {})", b.gold(), opt(over), opt(under))
             }
+            Self::StackRel(b, over) => format!("(stackrel {} {})", b.gold(), over.gold()),
             Self::Accent(b, a) => format!("(accent {} {})", a.gold(), b.gold()),
             Self::CancelTo(v, e) => format!("(cancelto {} {})", v.gold(), e.gold()),
             Self::MathAlphabet(t, st) => {

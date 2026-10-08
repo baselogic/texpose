@@ -1,19 +1,20 @@
-//! TeX-faithful math box model. Dimensions are [`Dim`](crate::Dim).
+//! Exact TeX-faithful geometry plus the public backend-neutral display list.
 
 mod assembly;
-mod engine;
+mod display;
+pub(crate) mod engine;
 mod metrics;
 mod numbering;
 mod semantic;
 mod space;
 mod style;
 
-pub use engine::{
-    layout, layout_with_diagnostics, layout_with_em_size_pt,
-    layout_with_em_size_pt_and_diagnostics, layout_with_max_depth,
-    layout_with_max_depth_and_diagnostics, layout_with_numbering,
-    layout_with_numbering_and_diagnostics, layout_with_numbering_and_em_size_pt,
-    layout_with_numbering_and_em_size_pt_and_diagnostics,
+#[cfg(test)]
+mod internal_tests;
+
+pub use display::{
+    layout, layout_with_em_size_pt, layout_with_max_depth, layout_with_numbering,
+    layout_with_numbering_and_em_size_pt, MathLayout, MathOp,
 };
 pub use metrics::MathParams;
 pub use numbering::{NumberFormat, NumberStyle, NumberingConfig, NumberingState};
@@ -22,13 +23,11 @@ pub use style::MathStyle;
 use crate::color::Color;
 use crate::dim::Dim;
 use crate::error::{Error, NumericError};
-use crate::font::MathFont;
 
 /// Recoverable issue discovered while producing a mathematical layout.
 ///
-/// Diagnostics do not invalidate the returned box tree. Callers that need to
-/// surface graceful-degradation events should use a `*_with_diagnostics` layout
-/// entry point.
+/// Diagnostics do not invalidate the returned display list. Every public
+/// [`MathLayout`] retains them in deterministic traversal order.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum LayoutDiagnostic {
     /// The selected face had no cmap entry for a required Unicode scalar.
@@ -49,7 +48,7 @@ pub enum LayoutDiagnostic {
 
 /// Box tree plus recoverable diagnostics from one layout operation.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct LayoutOutput {
+pub(crate) struct LayoutOutput {
     /// Backend-neutral mathematical box tree.
     pub math_box: MathBox,
     /// Recoverable diagnostics in deterministic traversal order.
@@ -93,15 +92,14 @@ impl RootEmSize {
 /// Color wrappers do not change dimensions. [`BoxContent::Line`] and
 /// [`BoxContent::Frame`] are decorations from cancel / boxed constructs.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum BoxContent {
+pub(crate) enum BoxContent {
     /// Empty box (strut or placeholder).
     Empty,
     /// Solid rule (fraction bar, vinculum). No glyph.
     Rule,
     /// A single character whose metrics came from the math font.
     ///
-    /// Build with [`BoxContent::glyph`]; the variant is non-exhaustive.
-    #[non_exhaustive]
+    /// Build with [`BoxContent::glyph`] so construction stays centralized.
     Glyph {
         /// Character.
         ch: char,
@@ -123,6 +121,7 @@ pub enum BoxContent {
     /// Background color (`\colorbox`). Inner glyphs keep the default fill.
     BackColor(Color, Box<MathBox>),
     /// Children share the left edge; each child's [`MathBox::shift`] is its baseline.
+    /// Child order is paint order.
     Overlap(Vec<MathBox>),
     /// Diagonal or free line in em, relative to the box left and baseline (`y` up).
     Line {
@@ -148,21 +147,9 @@ pub enum BoxContent {
     },
 }
 
-/// TeX-style box: width, height above baseline, depth below, italic correction.
-///
-/// # Examples
-///
-/// ```
-/// use texpose::{Dim, MathBox};
-///
-/// let packed = MathBox::hpack(vec![
-///     MathBox::rule(Dim::one(), Dim::zero(), Dim::zero()),
-///     MathBox::rule(Dim::ratio(1, 2).unwrap(), Dim::zero(), Dim::zero()),
-/// ]).unwrap();
-/// assert_eq!(packed.width, Dim::ratio(3, 2).unwrap());
-/// ```
+/// TeX-style exact box: width, height above baseline, depth below, italic correction.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct MathBox {
+pub(crate) struct MathBox {
     /// Width.
     pub width: Dim,
     /// Height above the baseline.
@@ -180,7 +167,7 @@ pub struct MathBox {
 impl BoxContent {
     /// Glyph content drawn at `scale` times the em (1 for text size).
     #[must_use]
-    pub fn glyph(ch: char, glyph_id: u16, scale: Dim) -> Self {
+    pub(crate) fn glyph(ch: char, glyph_id: u16, scale: Dim) -> Self {
         Self::Glyph {
             ch,
             glyph_id,
@@ -192,7 +179,7 @@ impl BoxContent {
 impl MathBox {
     /// Zero-size empty box.
     #[must_use]
-    pub fn empty() -> Self {
+    pub(crate) fn empty() -> Self {
         Self {
             width: Dim::zero(),
             height: Dim::zero(),
@@ -205,7 +192,7 @@ impl MathBox {
 
     /// Rule with explicit dimensions (fraction bar, strut).
     #[must_use]
-    pub fn rule(width: Dim, height: Dim, depth: Dim) -> Self {
+    pub(crate) fn rule(width: Dim, height: Dim, depth: Dim) -> Self {
         Self {
             width,
             height,
@@ -218,7 +205,7 @@ impl MathBox {
 
     /// Horizontal kern of `width` (zero height and depth).
     #[must_use]
-    pub fn kern(width: Dim) -> Self {
+    pub(crate) fn kern(width: Dim) -> Self {
         Self {
             width: width.clone(),
             height: Dim::zero(),
@@ -229,33 +216,21 @@ impl MathBox {
         }
     }
 
-    /// Box from a font glyph. Errors if the face has no glyph for `ch`.
-    pub fn from_glyph(font: &MathFont, ch: char) -> Result<Self, Error> {
-        let g = font.glyph(ch)?;
-        Ok(Self {
-            width: g.advance,
-            height: g.height,
-            depth: g.depth,
-            italic: font.italic_correction(g.glyph_id),
-            shift: Dim::zero(),
-            content: BoxContent::glyph(ch, g.glyph_id, Dim::one()),
-        })
-    }
-
-    /// Pack boxes in a row. Width sums; height and depth are maxima.
+    /// Pack boxes in a row. Width sums; height and depth are maxima after
+    /// applying each child baseline shift.
     ///
     /// # Errors
     ///
     /// Returns [`NumericError::ArithmeticOverflow`] if the exact packed width
     /// is outside the supported [`Dim`] range.
-    pub fn hpack(children: Vec<Self>) -> Result<Self, NumericError> {
+    pub(crate) fn hpack(children: Vec<Self>) -> Result<Self, NumericError> {
         let mut width = Dim::zero();
         let mut height = Dim::zero();
         let mut depth = Dim::zero();
         for c in &children {
             width = width.checked_add(&c.width)?;
-            height = height.max_ref(&c.height);
-            depth = depth.max_ref(&c.depth);
+            height = height.max_ref(&c.height.checked_add(&c.shift)?.clamp_nonneg());
+            depth = depth.max_ref(&c.depth.checked_sub(&c.shift)?.clamp_nonneg());
         }
         Ok(Self {
             width,
@@ -275,7 +250,7 @@ impl MathBox {
     ///
     /// Returns [`NumericError::ArithmeticOverflow`] if the exact stacked depth
     /// is outside the supported [`Dim`] range.
-    pub fn vpack(children: Vec<Self>) -> Result<Self, NumericError> {
+    pub(crate) fn vpack(children: Vec<Self>) -> Result<Self, NumericError> {
         if children.is_empty() {
             return Ok(Self::empty());
         }
@@ -300,14 +275,15 @@ impl MathBox {
 
     /// Raise this box's baseline by `shift` (positive is up).
     #[must_use]
-    pub fn with_shift(mut self, shift: Dim) -> Self {
+    pub(crate) fn with_shift(mut self, shift: Dim) -> Self {
         self.shift = shift;
         self
     }
 
-    /// Gold-stable width/height/depth decimal string.
+    /// Gold-stable width/height/depth decimal string for exact-layout tests.
+    #[cfg(test)]
     #[must_use]
-    pub fn dim_gold(&self) -> String {
+    pub(crate) fn dim_gold(&self) -> String {
         format!(
             "w={} h={} d={}",
             self.width.to_dec_string(),
@@ -321,6 +297,19 @@ impl MathBox {
 mod tests {
     use super::MathBox;
     use crate::{Dim, NumericError};
+
+    #[test]
+    fn hpack_accounts_for_child_baseline_shift() {
+        let raised =
+            MathBox::rule(Dim::one(), Dim::from_i64(2), Dim::from_i64(3)).with_shift(Dim::one());
+        let lowered = MathBox::rule(Dim::one(), Dim::from_i64(4), Dim::from_i64(5))
+            .with_shift(-Dim::from_i64(2));
+        let packed = MathBox::hpack(vec![raised, lowered]).unwrap();
+
+        assert_eq!(packed.width, Dim::from_i64(2));
+        assert_eq!(packed.height, Dim::from_i64(3));
+        assert_eq!(packed.depth, Dim::from_i64(7));
+    }
 
     #[test]
     fn hpack_propagates_exact_width_overflow() {
