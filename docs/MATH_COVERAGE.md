@@ -4,15 +4,17 @@ TeXpose treats the OpenType `MATH` table as validated font input rather than opt
 
 ## Construction contract
 
-The first stable core distinguishes these conditions:
+The public `FontError` enum is non-exhaustive so future typed font failures can be added without forcing callers to exhaustively match the current set. The first stable core currently distinguishes these construction and strict-lookup conditions:
 
 - `FontError::InvalidFace`: the selected bytes are not a usable OpenType face for reasons outside the more specific cases below.
+- `FontError::CollectionFaceIndexRequired`: a TTC/OTC collection was passed to the standalone-face convenience constructor without an explicit index.
 - `FontError::FaceIndexOutOfBounds`: the requested standalone/collection face index does not exist.
 - `FontError::VariableFontUnsupported`: the selected face contains functional `fvar` axes.
 - `FontError::MissingMathTable`: the selected face has no physical `MATH` table record.
 - `FontError::MalformedMathTable`: a `MATH` record exists but its range/header/version cannot be validated or the parser cannot expose it as a MATH table.
 - `FontError::MissingMathConstants`: the MATH header has no MathConstants offset.
 - `FontError::MalformedMathConstants`: the MathConstants offset/range is invalid or the fixed 214-byte MathConstants payload required by MATH 1.0 is truncated/unparseable.
+- `FontError::MissingGlyph { ch }`: a strict internal glyph lookup could not resolve the required source scalar; ordinary public-layout cmap misses use recoverable `LayoutDiagnostic::MissingGlyph` instead.
 
 After successful construction, the layout engine may rely on a MATH 1.0 table with MathConstants being present and parseable. Optional MATH substructures such as glyph info and variants remain optional and are handled according to the operation that consumes them.
 

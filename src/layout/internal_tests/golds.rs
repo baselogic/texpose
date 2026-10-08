@@ -4,7 +4,7 @@ use super::{common, gold_support};
 
 use crate::test_support::{
     category_count, format_tokens, lookup, named_color, parse_color_spec, symbols, tokenize,
-    ColorTable, Dim, Error, MathBox, MathFont, ParseErrorKind,
+    ColorTable, Dim, Error, MathBox, ParseErrorKind,
 };
 
 struct Rec {
@@ -253,7 +253,7 @@ fn milestone1_golds() {
                 }
                 "sha256" => {
                     assert_eq!(
-                        MathFont::sha256_hex(common::STIX_TWO_MATH_OTF),
+                        crate::hash::sha256_hex(common::STIX_TWO_MATH_OTF),
                         rec.expect,
                         "{}",
                         rec.name

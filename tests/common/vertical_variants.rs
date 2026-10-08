@@ -23,7 +23,7 @@ pub(crate) fn select_by_advance(font: &MathFont, ch: char, target: &Dim, scale: 
     };
     let Some(construction) = variants
         .vertical_constructions
-        .get(texpose::ttf_parser::GlyphId(base.glyph_id))
+        .get(ttf_parser::GlyphId(base.glyph_id))
     else {
         return selected_id;
     };

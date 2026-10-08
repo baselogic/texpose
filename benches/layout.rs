@@ -156,7 +156,7 @@ fn main() {
     });
 
     measure("Face::parse", || {
-        let face = texpose::ttf_parser::Face::parse(
+        let face = ttf_parser::Face::parse(
             black_box(common::STIX_TWO_MATH_OTF),
             common::STIX_TWO_MATH_FACE_INDEX,
         )

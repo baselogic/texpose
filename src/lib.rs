@@ -2,7 +2,7 @@
 //!
 //! The current codebase is an independent hard fork of LaTeX-Rust 2.0.1 and is
 //! being reduced and reworked around backend-neutral parsing, font metrics, and
-//! layout. The parser boundary is stabilized; font and layout API review remains in progress.
+//! layout. Parser and font boundaries are stabilized; layout API review remains in progress.
 //!
 //! Unsupported constructs return [`Error`] rather than fabricating output. Missing cmap entries are recoverable layout diagnostics with deterministic degradation.
 //!
@@ -30,6 +30,45 @@
 //! let ast = texpose::parse(r"\frac{1}{2}").unwrap();
 //! assert!(matches!(ast, texpose::MathNode::Fraction(_)));
 //! ```
+//!
+//! Font consumers use the crate-root [`MathFont`] handle. Font internals and the
+//! concrete OpenType parser are deliberately not part of the public API:
+//!
+//! ```compile_fail
+//! use texpose::font::MathFont;
+//! ```
+//!
+//! ```compile_fail
+//! use texpose::ttf_parser;
+//! ```
+//!
+//! ```compile_fail
+//! use texpose::GlyphMetrics;
+//! ```
+//!
+//! Raw parser and intermediate font-query views are not methods on the public
+//! handle:
+//!
+//! ```compile_fail
+//! fn raw_face(font: &texpose::MathFont) {
+//!     let _ = font.face();
+//! }
+//! ```
+//!
+//! ```compile_fail
+//! fn raw_metrics(font: &texpose::MathFont) {
+//!     let _ = font.glyph('x');
+//! }
+//! ```
+//!
+//! ```compile_fail
+//! fn raw_variants(font: &texpose::MathFont) {
+//!     let _ = font.horizontal_variants(0);
+//! }
+//! ```
+//!
+//! A native renderer obtains the exact bytes, face index, and units-per-em from
+//! `MathLayout::font()` and may parse those bytes with its own OpenType stack.
 
 #![forbid(unsafe_code)]
 #![deny(dead_code)]
@@ -42,19 +81,16 @@ mod atoms;
 mod color;
 mod dim;
 mod error;
+#[cfg(test)]
+#[path = "../tests/support/hash.rs"]
 mod hash;
 mod style_map;
 mod symbols;
 
-/// OpenType MATH metrics for caller-owned shared font data.
-pub mod font;
+mod font;
 /// AST → backend-neutral [`MathLayout`](layout::MathLayout).
 pub mod layout;
 mod parser;
-/// The OpenType parser this crate uses, re-exported so that consumers of
-/// [`MathFont::face`] name the same parser version.
-pub use ttf_parser;
-
 pub use atoms::symbol_atom_kind;
 pub use color::{named_color, parse_color_spec, Color, ColorTable};
 pub use dim::{Dim, DIM_PREC};
@@ -62,7 +98,7 @@ pub use error::{
     Error, FontError, NumericError, ParseError, ParseErrorDetail, ParseErrorKind, ParseResource,
     SourceSpan,
 };
-pub use font::{GlyphMetrics, MathFont};
+pub use font::MathFont;
 pub use layout::{
     layout, layout_with_em_size_pt, layout_with_max_depth, layout_with_numbering,
     layout_with_numbering_and_em_size_pt, LayoutDiagnostic, MathLayout, MathOp, MathParams,

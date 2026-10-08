@@ -160,7 +160,8 @@ fn math_value_device_corrections_are_parseable_but_do_not_change_layout_values()
     let design_font = MathFont::from_bytes(&design_only).expect("design-only MATH");
     let device_font = MathFont::from_bytes(&with_device).expect("MATH with Device correction");
 
-    let parsed = device_font.face();
+    let parsed = ttf_parser::Face::parse(device_font.bytes(), device_font.face_index())
+        .expect("MathFont retains the validated face identity");
     let axis = parsed
         .tables()
         .math

@@ -1,4 +1,4 @@
-//! SHA-256 (FIPS 180-4). In-tree so this crate has no hash dependency.
+//! Test-only SHA-256 (FIPS 180-4) for fixture provenance checks without a hash dependency.
 
 const K: [u32; 64] = [
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
@@ -17,7 +17,7 @@ fn rotr(x: u32, n: u32) -> u32 {
 
 /// SHA-256 digest of `data`.
 #[must_use]
-pub fn sha256(data: &[u8]) -> [u8; 32] {
+fn sha256(data: &[u8]) -> [u8; 32] {
     let mut h: [u32; 8] = [
         0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab,
         0x5be0cd19,
@@ -91,20 +91,13 @@ pub fn sha256(data: &[u8]) -> [u8; 32] {
     out
 }
 
-#[cfg(test)]
-mod tests {
-    use super::sha256;
-
-    #[test]
-    fn empty() {
-        let d = sha256(b"");
-        let mut s = String::new();
-        for b in d {
-            s.push_str(&format!("{b:02x}"));
-        }
-        assert_eq!(
-            s,
-            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-        );
+/// Lowercase hexadecimal SHA-256 digest of `data`.
+#[must_use]
+pub(crate) fn sha256_hex(data: &[u8]) -> String {
+    let mut out = String::with_capacity(64);
+    for byte in sha256(data) {
+        use core::fmt::Write as _;
+        write!(&mut out, "{byte:02x}").expect("writing to String cannot fail");
     }
+    out
 }

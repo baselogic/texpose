@@ -501,7 +501,7 @@ fn lualatex_math_comparison_probe() {
     let profile = required_oracle_env("TEXPOSE_MATH_COMPARE_PROFILE");
     let revision = required_oracle_env("TEXPOSE_MATH_COMPARE_REVISION");
     let bytes = std::fs::read(&path).expect("verifier-owned oracle font must be readable");
-    let actual_hash = MathFont::sha256_hex(&bytes);
+    let actual_hash = crate::hash::sha256_hex(&bytes);
     assert_eq!(
         actual_hash, expected_hash,
         "oracle font hash changed before probe"

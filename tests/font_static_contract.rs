@@ -1,3 +1,6 @@
+#[path = "support/hash.rs"]
+mod test_hash;
+
 use texpose::{FontError, MathFont};
 
 const STIX: &[u8] = include_bytes!("fixtures/fonts/stix-two-math/STIXTwoMath-Regular.otf");
@@ -153,6 +156,18 @@ fn leak(bytes: Vec<u8>) -> &'static [u8] {
     Box::leak(bytes.into_boxed_slice())
 }
 
+fn parsed_face(font: &MathFont) -> ttf_parser::Face<'_> {
+    ttf_parser::Face::parse(font.bytes(), font.face_index())
+        .expect("MathFont retains a validated face identity")
+}
+
+fn glyph_advance(font: &MathFont, ch: char) -> u16 {
+    let face = parsed_face(font);
+    let glyph = face.glyph_index(ch).expect("fixture glyph");
+    face.glyph_hor_advance(glyph)
+        .expect("fixture horizontal advance")
+}
+
 #[test]
 fn verification_profiles_pin_face_index_and_dejavu_provenance() {
     for (name, source) in [
@@ -167,7 +182,7 @@ fn verification_profiles_pin_face_index_and_dejavu_provenance() {
         );
     }
 
-    let sha256 = MathFont::sha256_hex(DEJAVU_TTF);
+    let sha256 = test_hash::sha256_hex(DEJAVU_TTF);
     assert!(
         DEJAVU_SOURCE.contains(&format!("SHA-256: `{sha256}`")),
         "dejavu-math: SOURCE.md SHA-256 does not match fixture bytes"
@@ -185,8 +200,8 @@ fn static_otf_and_ttf_faces_load_with_explicit_profile_index() {
 
     assert_eq!(otf.face_index(), 0);
     assert_eq!(ttf.face_index(), 0);
-    assert!(otf.face().tables().math.is_some());
-    assert!(ttf.face().tables().math.is_some());
+    assert!(parsed_face(&otf).tables().math.is_some());
+    assert!(parsed_face(&ttf).tables().math.is_some());
     assert_eq!(&STIX[..4], b"OTTO");
     assert_eq!(&DEJAVU_TTF[..4], &[0, 1, 0, 0]);
     assert!(matches!(
@@ -213,12 +228,12 @@ fn collections_require_and_honor_an_explicit_face_index() {
     assert_eq!(collection_stix.face_index(), 0);
     assert_eq!(collection_fira.face_index(), 1);
     assert_eq!(
-        collection_stix.glyph('x').expect("STIX x").advance_fu,
-        direct_stix.glyph('x').expect("direct STIX x").advance_fu
+        glyph_advance(&collection_stix, 'x'),
+        glyph_advance(&direct_stix, 'x')
     );
     assert_eq!(
-        collection_fira.glyph('x').expect("Fira x").advance_fu,
-        direct_fira.glyph('x').expect("direct Fira x").advance_fu
+        glyph_advance(&collection_fira, 'x'),
+        glyph_advance(&direct_fira, 'x')
     );
     assert!(matches!(
         MathFont::from_bytes_at_index(collection, 2),
@@ -237,8 +252,8 @@ fn truetype_collection_faces_use_the_same_explicit_index_contract() {
 
     let face = MathFont::from_bytes_at_index(collection, 1).expect("second TTC face");
     assert_eq!(face.face_index(), 1);
-    assert!(face.face().tables().math.is_some());
-    assert!(face.glyph('x').is_ok());
+    assert!(parsed_face(&face).tables().math.is_some());
+    assert!(parsed_face(&face).glyph_index('x').is_some());
 }
 
 #[test]

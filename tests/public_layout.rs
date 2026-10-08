@@ -95,6 +95,16 @@ fn public_layout_is_flat_finite_and_bound_to_the_exact_font() {
     let layout_bytes = layout.font().shared_bytes();
     assert!(Arc::ptr_eq(&bytes, &layout_bytes));
     assert_eq!(layout.font().face_index(), font.face_index());
+
+    let face = ttf_parser::Face::parse(layout.font().bytes(), layout.font().face_index())
+        .expect("layout retains a reparsable validated face");
+    assert_eq!(layout.font().units_per_em(), face.units_per_em());
+    let glyph_count = face.number_of_glyphs();
+    for op in layout.ops() {
+        if let MathOp::Glyph { glyph_id, .. } = *op {
+            assert!(glyph_id < glyph_count);
+        }
+    }
 }
 
 #[test]

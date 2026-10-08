@@ -142,7 +142,7 @@ fn assert_no_vertical_prebuilt_reaches(font: &MathFont, ch: char, target: &Dim, 
         .and_then(|variants| {
             variants
                 .vertical_constructions
-                .get(texpose::ttf_parser::GlyphId(base.glyph_id))
+                .get(ttf_parser::GlyphId(base.glyph_id))
         })
         .expect("fixture vertical MATH construction");
     for index in 0..construction.variants.len() {

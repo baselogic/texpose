@@ -294,6 +294,7 @@ pub enum Error {
 
 /// Font loader or metric lookup failure.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum FontError {
     /// Supplied bytes are not a usable OpenType face.
     InvalidFace,

@@ -9,36 +9,19 @@ use ttf_parser::{Face, FaceParsingError, RawFace, Tag};
 use crate::dim::Dim;
 use crate::error::{Error, FontError, NumericError};
 
-/// Horizontal glyph metrics in font units and em.
-///
-/// # Examples
-///
-/// ```no_run
-/// use texpose::{Error, MathFont};
-///
-/// # fn font_bytes() -> &'static [u8] { unimplemented!() }
-/// # fn main() -> Result<(), Error> {
-/// let font = MathFont::from_bytes(font_bytes())?;
-/// let g = font.glyph('x')?;
-/// assert_eq!(g.ch, 'x');
-/// assert!(!g.advance.is_zero());
-/// # Ok(())
-/// # }
-/// ```
+/// Horizontal glyph metrics used inside the layout engine.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct GlyphMetrics {
-    /// Character requested.
-    pub ch: char,
+pub(crate) struct GlyphMetrics {
     /// OpenType glyph id.
-    pub glyph_id: u16,
+    pub(crate) glyph_id: u16,
     /// Horizontal advance, font units.
-    pub advance_fu: u16,
+    pub(crate) advance_fu: u16,
     /// Advance in em.
-    pub advance: Dim,
+    pub(crate) advance: Dim,
     /// Height above baseline in em (`max(y_max, 0)`).
-    pub height: Dim,
+    pub(crate) height: Dim,
     /// Depth below baseline in em (`max(-y_min, 0)`).
-    pub depth: Dim,
+    pub(crate) depth: Dim,
 }
 
 /// One ready-made OpenType MATH glyph variant in normalized em units.
@@ -159,7 +142,7 @@ pub(crate) struct MathFontView<'a> {
 impl MathFont {
     /// Parse one standalone OpenType face from a borrowed byte slice.
     ///
-    /// This compatibility constructor copies the supplied slice into shared
+    /// This convenience constructor copies the supplied slice into shared
     /// storage. Collections require [`Self::from_bytes_at_index`] so face
     /// selection is explicit. Variable fonts are rejected by the first stable
     /// core.
@@ -172,7 +155,7 @@ impl MathFont {
 
     /// Parse an OpenType face at `face_index` from a borrowed byte slice.
     ///
-    /// This compatibility constructor copies the supplied slice into shared
+    /// This convenience constructor copies the supplied slice into shared
     /// storage. `face_index` is `0` for standalone OTF/TTF data and selects a
     /// face for TTC/OTC collections.
     pub fn from_bytes_at_index(raw: &[u8], face_index: u32) -> Result<Self, FontError> {
@@ -218,41 +201,20 @@ impl MathFont {
         }
     }
 
-    /// Parse and return an OpenType face view over the retained bytes.
-    ///
-    /// Native consumers may need glyph outlines and bounding boxes that this
-    /// crate does not otherwise expose. The returned view borrows `self`; no
-    /// OpenType face is stored self-referentially inside [`MathFont`].
-    ///
-    /// The crate re-exports [`ttf_parser`] so consumers can name the exact parser
-    /// version used by TeXpose.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use texpose::{ttf_parser, Error, MathFont};
-    ///
-    /// # fn font_bytes() -> &'static [u8] { unimplemented!() }
-    /// # fn main() -> Result<(), Error> {
-    /// let font = MathFont::from_bytes(font_bytes())?;
-    /// let metrics = font.glyph('x')?;
-    /// let id = ttf_parser::GlyphId(metrics.glyph_id);
-    /// assert!(font.face().glyph_bounding_box(id).is_some());
-    /// # Ok(())
-    /// # }
-    /// ```
-    #[must_use]
-    pub fn face(&self) -> Face<'_> {
-        self.parse_face()
-    }
-
     /// OpenType bytes retained by this font.
+    ///
+    /// Together with [`Self::face_index`], these bytes identify the exact face
+    /// whose glyph ids appear in public layout output.
     #[must_use]
     pub fn bytes(&self) -> &[u8] {
         self.inner.raw.as_ref()
     }
 
     /// Clone the shared OpenType byte allocation.
+    ///
+    /// Cloning a [`MathFont`] or this handle does not copy the underlying font
+    /// data. Native renderers may retain the returned allocation independently
+    /// of the layout that exposed it.
     #[must_use]
     pub fn shared_bytes(&self) -> Arc<[u8]> {
         Arc::clone(&self.inner.raw)
@@ -261,78 +223,55 @@ impl MathFont {
     /// Face index used to parse this font.
     ///
     /// Standalone OTF/TTF faces use index `0`; TTC/OTC collections require an
-    /// explicitly selected index.
+    /// explicitly selected index. The index is part of the public font identity
+    /// and must be paired with [`Self::bytes`] or [`Self::shared_bytes`].
     #[must_use]
     pub fn face_index(&self) -> u32 {
         self.inner.face_index
     }
 
-    /// `unitsPerEm` from the `head` table.
+    /// Validated OpenType `unitsPerEm` for the selected face.
+    ///
+    /// Public layout coordinates are root-em normalized. A native renderer that
+    /// reads an outline in design units scales one font unit by
+    /// `root_em * glyph_scale / units_per_em`.
     #[must_use]
     pub fn units_per_em(&self) -> u16 {
-        self.face().units_per_em()
+        self.parse_face().units_per_em()
+    }
+}
+
+#[cfg(test)]
+impl MathFont {
+    pub(crate) fn face(&self) -> Face<'_> {
+        self.parse_face()
     }
 
-    /// `hhea` ascender in font units.
-    #[must_use]
-    pub fn ascender_fu(&self) -> i16 {
-        self.face().ascender()
+    pub(crate) fn ascender_fu(&self) -> i16 {
+        self.parse_face().ascender()
     }
 
-    /// `hhea` descender in font units (typically negative).
-    #[must_use]
-    pub fn descender_fu(&self) -> i16 {
-        self.face().descender()
+    pub(crate) fn descender_fu(&self) -> i16 {
+        self.parse_face().descender()
     }
 
-    /// Ascender in em.
-    #[must_use]
-    pub fn ascender(&self) -> Dim {
-        let font = self.operation_view();
-        font.font_units(i64::from(font.face.ascender()))
-    }
-
-    /// Depth below baseline from `hhea` descender, in em (non-negative).
-    #[must_use]
-    pub fn descender(&self) -> Dim {
-        let font = self.operation_view();
-        let d = i64::from(font.face.descender());
-        font.font_units(-d)
-    }
-
-    /// Metrics for `ch`, or [`FontError::MissingGlyph`].
-    pub fn glyph(&self, ch: char) -> Result<GlyphMetrics, Error> {
+    pub(crate) fn glyph(&self, ch: char) -> Result<GlyphMetrics, Error> {
         self.operation_view().glyph(ch)
     }
 
-    /// Metrics for OpenType glyph id `gid`, tagged with `ch` for the box payload.
-    pub fn glyph_id(&self, ch: char, gid: u16) -> Result<GlyphMetrics, Error> {
+    pub(crate) fn glyph_id(&self, ch: char, gid: u16) -> Result<GlyphMetrics, Error> {
         self.operation_view().glyph_id(ch, gid)
     }
 
-    /// MATH italic correction for `glyph_id`, or zero.
-    pub fn italic_correction(&self, glyph_id: u16) -> Dim {
+    pub(crate) fn italic_correction(&self, glyph_id: u16) -> Dim {
         self.operation_view().italic_correction(glyph_id)
     }
 
-    /// MATH top-accent attachment (em from glyph left), if present.
-    pub fn top_accent_attachment(&self, glyph_id: u16) -> Option<Dim> {
+    pub(crate) fn top_accent_attachment(&self, glyph_id: u16) -> Option<Dim> {
         self.operation_view().top_accent_attachment(glyph_id)
     }
 
-    /// Horizontal glyph-assembly parts: `(gid, start_connector, end_connector, advance, extender)`.
-    /// Lengths are raw font units. Layout itself consumes the internal typed
-    /// [`Dim`] representation instead of this compatibility view. Assemblies
-    /// above the internal part budget return an empty compatibility view.
-    pub fn horizontal_assembly_parts(&self, glyph_id: u16) -> Vec<(u16, u16, u16, u16, bool)> {
-        self.operation_view().horizontal_assembly_parts_fu(glyph_id)
-    }
-
-    /// Horizontal MATH variant glyph IDs, including the base glyph first.
-    ///
-    /// The layout engine consumes the corresponding typed variant records so
-    /// `advanceMeasurement` remains attached to each glyph ID.
-    pub fn horizontal_variants(&self, glyph_id: u16) -> Vec<u16> {
+    pub(crate) fn horizontal_variants(&self, glyph_id: u16) -> Vec<u16> {
         let font = self.operation_view();
         let mut out = vec![glyph_id];
         out.extend(
@@ -341,32 +280,6 @@ impl MathFont {
                 .map(|variant| variant.glyph_id),
         );
         out
-    }
-
-    /// Vertical MATH variant glyph IDs, including the base glyph first.
-    ///
-    /// The layout engine consumes the corresponding typed variant records so
-    /// `advanceMeasurement` remains attached to each glyph ID.
-    pub fn vertical_variants(&self, glyph_id: u16) -> Vec<u16> {
-        let font = self.operation_view();
-        let mut out = vec![glyph_id];
-        out.extend(
-            font.vertical_variant_records(glyph_id)
-                .into_iter()
-                .map(|variant| variant.glyph_id),
-        );
-        out
-    }
-
-    /// SHA-256 hex of arbitrary font bytes.
-    #[must_use]
-    pub fn sha256_hex(bytes: &[u8]) -> String {
-        let d = crate::hash::sha256(bytes);
-        let mut s = String::with_capacity(64);
-        for b in d {
-            s.push_str(&hex_byte(b));
-        }
-        s
     }
 }
 
@@ -431,7 +344,6 @@ impl<'a> MathFontView<'a> {
             depth_fu = i64::from(-bbox.y_min).max(0);
         }
         Ok(GlyphMetrics {
-            ch,
             glyph_id: gid.0,
             advance_fu,
             advance: self.font_units(i64::from(advance_fu)),
@@ -635,49 +547,6 @@ impl<'a> MathFontView<'a> {
         glyph_id: u16,
     ) -> Result<Option<GlyphAssembly>, MathAssemblyDataError> {
         self.glyph_assembly_for_axis(glyph_id, MathAssemblyAxis::Vertical)
-    }
-
-    // Compatibility view for callers that explicitly require raw font-unit
-    // assembly data. Layout must not consume this untyped adapter.
-    pub(crate) fn horizontal_assembly_parts_fu(
-        &self,
-        glyph_id: u16,
-    ) -> Vec<(u16, u16, u16, u16, bool)> {
-        let mut out = Vec::new();
-        let Some(variants) = self.math_table().variants else {
-            return out;
-        };
-        let Some(construction) = variants
-            .horizontal_constructions
-            .get(ttf_parser::GlyphId(glyph_id))
-        else {
-            return out;
-        };
-        let Some(assembly) = construction.assembly else {
-            return out;
-        };
-        let part_count = usize::from(assembly.parts.len());
-        if part_count > MAX_ASSEMBLY_PARTS {
-            return out;
-        }
-        out.reserve(part_count);
-        for index in 0..assembly.parts.len() {
-            let part = assembly
-                .parts
-                .get(index)
-                .expect("parsed MATH assembly index is within its validated array");
-            let Ok(extender) = assembly_extender_flag(part.part_flags) else {
-                return Vec::new();
-            };
-            out.push((
-                part.glyph_id.0,
-                part.start_connector_length,
-                part.end_connector_length,
-                part.full_advance,
-                extender,
-            ));
-        }
-        out
     }
 
     #[inline]
@@ -1135,16 +1004,6 @@ fn ssty_alternate_glyph(
     set.alternates.get(alternate_index)
 }
 
-fn hex_byte(b: u8) -> String {
-    const H: &[u8; 16] = b"0123456789abcdef";
-    let hi = H[(b >> 4) as usize];
-    let lo = H[(b & 0xf) as usize];
-    let mut out = String::with_capacity(2);
-    out.push(hi as char);
-    out.push(lo as char);
-    out
-}
-
 #[cfg(test)]
 mod tests {
     use super::{math_kern_index, MathFont, MathFontView, MathKernCorner};
@@ -1423,66 +1282,6 @@ mod tests {
                 typed_part.full_advance,
                 crate::Dim::from_font_units(i64::from(raw_part.full_advance), font.units_per_em())
                     .expect("validated unitsPerEm")
-            );
-        }
-    }
-
-    #[test]
-    fn public_variant_id_views_project_the_typed_records_without_reordering() {
-        let font = stix();
-        let view = font.operation_view();
-
-        let horizontal_base = 732;
-        let mut expected_horizontal = vec![horizontal_base];
-        expected_horizontal.extend(
-            view.horizontal_variant_records(horizontal_base)
-                .into_iter()
-                .map(|variant| variant.glyph_id),
-        );
-        assert_eq!(
-            font.horizontal_variants(horizontal_base),
-            expected_horizontal
-        );
-
-        let vertical_base = view.glyph_index('(').expect("parenthesis cmap glyph");
-        let mut expected_vertical = vec![vertical_base];
-        expected_vertical.extend(
-            view.vertical_variant_records(vertical_base)
-                .into_iter()
-                .map(|variant| variant.glyph_id),
-        );
-        assert_eq!(font.vertical_variants(vertical_base), expected_vertical);
-    }
-
-    #[test]
-    fn public_raw_assembly_view_remains_an_exact_compatibility_projection() {
-        const GLYPH_ID: u16 = 746;
-
-        let font = stix();
-        let view = font.operation_view();
-        let variants = view.math_table().variants.expect("MATH variants");
-        let raw = variants
-            .horizontal_constructions
-            .get(ttf_parser::GlyphId(GLYPH_ID))
-            .and_then(|construction| construction.assembly)
-            .expect("raw horizontal assembly");
-        let actual = font.horizontal_assembly_parts(GLYPH_ID);
-
-        assert_eq!(actual.len(), usize::from(raw.parts.len()));
-        for (index, actual_part) in actual.iter().enumerate() {
-            let raw_part = raw
-                .parts
-                .get(u16::try_from(index).expect("assembly index fits u16"))
-                .expect("raw assembly part");
-            assert_eq!(
-                *actual_part,
-                (
-                    raw_part.glyph_id.0,
-                    raw_part.start_connector_length,
-                    raw_part.end_connector_length,
-                    raw_part.full_advance,
-                    raw_part.part_flags.extender(),
-                )
             );
         }
     }
