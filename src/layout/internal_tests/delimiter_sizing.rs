@@ -4,8 +4,7 @@ use crate::test_support::{
     layout_with_em_size_pt, parse, BoxContent, Dim, MathBox, MathFont, MathParams, MathStyle,
 };
 
-const STIX: &[u8] =
-    include_bytes!("../../../tests/fixtures/fonts/stix-two-math/STIXTwoMath-Regular.otf");
+const STIX: &[u8] = include_bytes!("../../../data/fonts/stix-two-math/STIXTwoMath-Regular.otf");
 const LIBERTINUS: &[u8] =
     include_bytes!("../../../tests/fixtures/fonts/libertinus-math/LibertinusMath-Regular.otf");
 const FIRA: &[u8] = include_bytes!("../../../tests/fixtures/fonts/fira-math/FiraMath-Regular.otf");

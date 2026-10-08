@@ -19,9 +19,7 @@ struct SmokeCase {
 const PROFILES: &[FontProfile] = &[
     FontProfile {
         name: "stix",
-        bytes: include_bytes!(
-            "../../../data/fonts/stix-two-math/STIXTwoMath-Regular.otf",
-        ),
+        bytes: include_bytes!("../../../data/fonts/stix-two-math/STIXTwoMath-Regular.otf",),
         face_index: 0,
     },
     FontProfile {

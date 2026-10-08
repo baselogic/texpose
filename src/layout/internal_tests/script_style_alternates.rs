@@ -17,9 +17,7 @@ struct ScriptProfile {
 const PROFILES: &[ScriptProfile] = &[
     ScriptProfile {
         name: "stix",
-        bytes: include_bytes!(
-            "../../../tests/fixtures/fonts/stix-two-math/STIXTwoMath-Regular.otf",
-        ),
+        bytes: include_bytes!("../../../data/fonts/stix-two-math/STIXTwoMath-Regular.otf",),
         covered: '\u{210E}',
         script_percent: 70,
         scriptscript_percent: 55,

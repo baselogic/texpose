@@ -2,8 +2,7 @@ use std::sync::Arc;
 
 use crate::test_support::{layout, parse, MathFont, MathStyle};
 
-const STIX: &[u8] =
-    include_bytes!("../../../data/fonts/stix-two-math/STIXTwoMath-Regular.otf");
+const STIX: &[u8] = include_bytes!("../../../data/fonts/stix-two-math/STIXTwoMath-Regular.otf");
 
 #[test]
 fn shared_font_storage_outlives_the_callers_handle_and_clones_without_copying() {

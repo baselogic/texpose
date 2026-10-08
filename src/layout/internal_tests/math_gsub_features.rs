@@ -1,7 +1,6 @@
 use crate::test_support::{layout, parse, BoxContent, MathBox, MathFont, MathStyle};
 
-const STIX: &[u8] =
-    include_bytes!("../../../tests/fixtures/fonts/stix-two-math/STIXTwoMath-Regular.otf");
+const STIX: &[u8] = include_bytes!("../../../data/fonts/stix-two-math/STIXTwoMath-Regular.otf");
 
 fn read_u16(bytes: &[u8], offset: usize) -> u16 {
     u16::from_be_bytes([bytes[offset], bytes[offset + 1]])
