@@ -2197,11 +2197,7 @@ fn apply_math_alphabet(node: MathNode, style: TextStyle) -> MathNode {
                 MathNode::Symbol(name)
             }
         }
-        MathNode::Row(v) => collapse_runs(MathNode::Row(
-            v.into_iter()
-                .map(|n| apply_math_alphabet(n, style))
-                .collect(),
-        )),
+        MathNode::Row(v) => apply_math_alphabet_row(v, style),
         MathNode::Substack(v) => MathNode::Substack(
             v.into_iter()
                 .map(|n| apply_math_alphabet(n, style))
@@ -2242,19 +2238,58 @@ fn apply_math_alphabet(node: MathNode, style: TextStyle) -> MathNode {
     }
 }
 
+// Fuse adjacent styled atoms directly into one run. A single-character String
+// is allocated only for the first character after a semantic boundary.
+fn append_styled_char(out: &mut Vec<MathNode>, ch: char, style: TextStyle) {
+    if let Some(MathNode::MathAlphabet(text, previous_style)) = out.last_mut() {
+        if *previous_style == style {
+            text.push(ch);
+            return;
+        }
+    }
+    out.push(MathNode::MathAlphabet(ch.to_string(), style));
+}
+
+// Shared coalescing rule for transformed nodes and the other callers of
+// collapse_runs. Literal text is deliberately never restyled.
+fn append_collapsed_node(out: &mut Vec<MathNode>, node: MathNode) {
+    match (out.last_mut(), &node) {
+        (Some(MathNode::MathAlphabet(a, sa)), MathNode::MathAlphabet(b, sb)) if sa == sb => {
+            a.push_str(b);
+        }
+        (Some(MathNode::LiteralText(a)), MathNode::LiteralText(b)) => a.push_str(b),
+        _ => out.push(node),
+    }
+}
+
+fn apply_math_alphabet_row(nodes: Vec<MathNode>, style: TextStyle) -> MathNode {
+    let mut out = Vec::new();
+    for node in nodes {
+        match node {
+            MathNode::Atom(ch, _) if crate::style_map::is_stylable(ch) => {
+                append_styled_char(&mut out, ch, style);
+            }
+            MathNode::Symbol(name) => {
+                match crate::symbols::glyph_char(&name)
+                    .filter(|ch| crate::style_map::is_stylable(*ch))
+                {
+                    Some(ch) => append_styled_char(&mut out, ch, style),
+                    None => append_collapsed_node(&mut out, MathNode::Symbol(name)),
+                }
+            }
+            other => append_collapsed_node(&mut out, apply_math_alphabet(other, style)),
+        }
+    }
+    wrap_row(out)
+}
+
 fn collapse_runs(node: MathNode) -> MathNode {
     let MathNode::Row(v) = node else {
         return node;
     };
-    let mut out: Vec<MathNode> = Vec::new();
+    let mut out = Vec::new();
     for n in v {
-        match (out.last_mut(), &n) {
-            (Some(MathNode::MathAlphabet(a, sa)), MathNode::MathAlphabet(b, sb)) if sa == sb => {
-                a.push_str(b);
-            }
-            (Some(MathNode::LiteralText(a)), MathNode::LiteralText(b)) => a.push_str(b),
-            _ => out.push(n),
-        }
+        append_collapsed_node(&mut out, n);
     }
     wrap_row(out)
 }
