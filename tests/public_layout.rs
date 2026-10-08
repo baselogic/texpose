@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use texpose::{
-    layout, layout_with_em_size_pt, parse, Color, Dim, LayoutDiagnostic, MathFont, MathOp,
-    MathStyle,
+    layout, layout_with_em_size_pt, layout_with_numbering, parse, Color, Dim, LayoutDiagnostic,
+    MathFont, MathOp, MathStyle, NumberFormat, NumberStyle, NumberingConfig, NumberingState,
 };
 
 const STIX: &[u8] = include_bytes!("fixtures/fonts/stix-two-math/STIXTwoMath-Regular.otf");
@@ -70,6 +70,7 @@ fn assert_finite_op(op: &MathOp) {
                 && height > 0.0
                 && thickness > 0.0
         ),
+        _ => {}
     }
 }
 
@@ -163,10 +164,12 @@ fn recoverable_diagnostics_are_never_discarded_by_public_layout() {
     let font = font();
     let ast = parse(&MISSING.to_string()).unwrap();
     let layout = layout(&ast, &font, MathStyle::Text).unwrap();
-    assert_eq!(
-        layout.diagnostics(),
-        &[LayoutDiagnostic::MissingGlyph { ch: MISSING }]
-    );
+    let diagnostics = layout.diagnostics();
+    assert_eq!(diagnostics.len(), 1);
+    match &diagnostics[0] {
+        LayoutDiagnostic::MissingGlyph { ch, .. } => assert_eq!(*ch, MISSING),
+        _ => panic!("unexpected layout diagnostic"),
+    }
 }
 
 #[test]
@@ -178,4 +181,26 @@ fn physical_sizes_are_normalized_before_the_single_float_boundary() {
     assert_eq!(layout.width().to_bits(), 0.1_f32.to_bits());
     assert_eq!(layout.height().to_bits(), 0.2_f32.to_bits());
     assert_eq!(layout.depth().to_bits(), 0.0_f32.to_bits());
+}
+
+#[test]
+fn public_layout_configuration_is_read_only_and_builder_driven() {
+    let color = Color::rgb(12, 34, 56);
+    assert_eq!(color.r(), 12);
+    assert_eq!(color.g(), 34);
+    assert_eq!(color.b(), 56);
+
+    let config = NumberingConfig::new()
+        .with_style(NumberStyle::Roman)
+        .with_start(4)
+        .with_format(NumberFormat::Bracketed);
+    assert_eq!(config.style(), NumberStyle::Roman);
+    assert_eq!(config.start(), 4);
+    assert_eq!(config.format(), NumberFormat::Bracketed);
+
+    let font = font();
+    let ast = parse(r"\begin{equation}\label{eq:public}x\end{equation}").unwrap();
+    let mut state = NumberingState::new(config);
+    layout_with_numbering(&ast, &font, MathStyle::Display, &mut state).unwrap();
+    assert_eq!(state.label("eq:public"), Some("[iv]"));
 }

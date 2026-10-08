@@ -2,7 +2,8 @@
 //!
 //! The current codebase is an independent hard fork of LaTeX-Rust 2.0.1 and is
 //! being reduced and reworked around backend-neutral parsing, font metrics, and
-//! layout. Parser and font boundaries are stabilized; layout API review remains in progress.
+//! layout. Parser, font, and layout boundaries are stabilized; compatibility-policy
+//! review remains in progress.
 //!
 //! Unsupported constructs return [`Error`] rather than fabricating output. Missing cmap entries are recoverable layout diagnostics with deterministic degradation.
 //!
@@ -69,6 +70,42 @@
 //!
 //! A native renderer obtains the exact bytes, face index, and units-per-em from
 //! `MathLayout::font()` and may parse those bytes with its own OpenType stack.
+//!
+//! Layout values are producer-owned. Consumers inspect display-list operations,
+//! diagnostics, colors, and numbering configuration without constructing internal
+//! invariant-bearing values directly:
+//!
+//! ```compile_fail
+//! let _ = texpose::Color { r: 1, g: 2, b: 3 };
+//! ```
+//!
+//! ```compile_fail
+//! let _ = texpose::MathOp::Rule {
+//!     x: 0.0,
+//!     y: 0.0,
+//!     width: 1.0,
+//!     height: 1.0,
+//!     color: texpose::Color::rgb(0, 0, 0),
+//! };
+//! ```
+//!
+//! ```compile_fail
+//! let _ = texpose::LayoutDiagnostic::MissingGlyph { ch: 'x' };
+//! ```
+//!
+//! ```compile_fail
+//! let _ = texpose::NumberingConfig {
+//!     style: texpose::NumberStyle::Arabic,
+//!     start: 1,
+//!     format: texpose::NumberFormat::Parenthesized,
+//! };
+//! ```
+//!
+//! TeX style transitions are layout-engine mechanics rather than public helpers:
+//!
+//! ```compile_fail
+//! let _ = texpose::MathStyle::Display.cramp();
+//! ```
 
 #![forbid(unsafe_code)]
 #![deny(dead_code)]

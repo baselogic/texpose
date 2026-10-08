@@ -5,15 +5,11 @@
 /// Display and text are script-level 0; `\scriptstyle` is 1; `\scriptscriptstyle`
 /// is 2. Cramped variants are used under radicals and in denominators.
 ///
-/// # Examples
-///
-/// ```
-/// use texpose::MathStyle;
-///
-/// assert_eq!(MathStyle::Display.numerator().gold(), "text");
-/// assert!(MathStyle::Display.cramp().is_cramped());
-/// ```
+/// Callers choose the style of the root formula. TeX style transitions such as
+/// cramped, numerator, denominator, and script styles are internal layout
+/// mechanics rather than consumer API.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum MathStyle {
     /// Display math (`$$`, `\[`).
     Display,
@@ -36,13 +32,13 @@ pub enum MathStyle {
 impl MathStyle {
     /// True for the two display styles.
     #[must_use]
-    pub fn is_display(self) -> bool {
+    pub(crate) fn is_display(self) -> bool {
         matches!(self, Self::Display | Self::DisplayCramped)
     }
 
     /// True when cramped.
     #[must_use]
-    pub fn is_cramped(self) -> bool {
+    pub(crate) fn is_cramped(self) -> bool {
         matches!(
             self,
             Self::DisplayCramped
@@ -54,7 +50,7 @@ impl MathStyle {
 
     /// Script nest level: 0 text/display, 1 script, 2 scriptscript.
     #[must_use]
-    pub fn script_level(self) -> u8 {
+    pub(crate) fn script_level(self) -> u8 {
         match self {
             Self::Display | Self::DisplayCramped | Self::Text | Self::TextCramped => 0,
             Self::Script | Self::ScriptCramped => 1,
@@ -64,7 +60,7 @@ impl MathStyle {
 
     /// Cramped form of this style.
     #[must_use]
-    pub fn cramp(self) -> Self {
+    pub(crate) fn cramp(self) -> Self {
         match self {
             Self::Display => Self::DisplayCramped,
             Self::Text => Self::TextCramped,
@@ -76,7 +72,7 @@ impl MathStyle {
 
     /// Style for a superscript or subscript of this style.
     #[must_use]
-    pub fn into_script(self) -> Self {
+    pub(crate) fn into_script(self) -> Self {
         let cramped = self.is_cramped();
         match self.script_level() {
             0 => {
@@ -98,7 +94,7 @@ impl MathStyle {
 
     /// Numerator style (TeX: display → text, otherwise one script tighter; not cramped).
     #[must_use]
-    pub fn numerator(self) -> Self {
+    pub(crate) fn numerator(self) -> Self {
         if self.is_display() {
             Self::Text
         } else {
@@ -108,13 +104,14 @@ impl MathStyle {
 
     /// Denominator style (numerator style, cramped).
     #[must_use]
-    pub fn denominator(self) -> Self {
+    pub(crate) fn denominator(self) -> Self {
         self.numerator().cramp()
     }
 
-    /// Gold name.
+    /// Gold name used by internal regression tests.
+    #[cfg(test)]
     #[must_use]
-    pub fn gold(self) -> &'static str {
+    pub(crate) fn gold(self) -> &'static str {
         match self {
             Self::Display => "display",
             Self::DisplayCramped => "display-cramped",

@@ -21,6 +21,12 @@ All positioning is completed in exact `Dim` before flattening. Each display-list
 
 `MathLayout::diagnostics()` is deterministic traversal order. Diagnostics describe recoverable degradation and do not invalidate the display list. Unrecoverable font, unsupported-construct, malformed-input, option, and exact-arithmetic failures remain `Err(Error)`.
 
+The public display list is read-only consumer data. `MathLayout` owns its storage and exposes it through accessors. `MathOp` and `LayoutDiagnostic` are non-exhaustive producer-owned enums: consumers may inspect known variants with `..` and must retain a wildcard arm, but cannot construct invariant-bearing operation or diagnostic variants outside TeXpose. This keeps requirements such as finite coordinates, positive rule/line dimensions, paint-order validity, and diagnostic provenance at the producing boundary.
+
+`Color` is an opaque 8-bit sRGB value constructed with `Color::rgb`; consumers read channels through `r()`, `g()`, and `b()`. Its fields are not public construction state. `MathStyle` remains the caller-supplied root-style enum, but cramped/script/numerator/denominator transitions are internal TeX layout mechanics rather than consumer API.
+
+Equation-number configuration is similarly opaque. `NumberingConfig::new()` supplies Arabic numbering starting at 1 with parenthesized display; `with_style`, `with_start`, and `with_format` produce customized values, while `style`, `start`, and `format` provide read access. `NumberingState` owns the mutable counter/label transaction across `layout_with_numbering` calls and exposes committed display labels through `label`.
+
 ## Internal exact geometry
 
 The internal `MathBox` tree is the sole hierarchical composition representation. It uses exact `Dim` values and is not part of the consumer API. One positioned traversal converts that tree to absolute exact primitives; both the differential oracle projection and public `MathLayout` use that same traversal. Floating-point conversion occurs only after this exact flattening step.

@@ -9,6 +9,7 @@ use crate::{
 
 /// How auto equation numbers are written.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum NumberStyle {
     /// `(1)`, `(2)`, …
     Arabic,
@@ -20,6 +21,7 @@ pub enum NumberStyle {
 
 /// Wrapper around the number body.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum NumberFormat {
     /// `(1)`
     Parenthesized,
@@ -36,19 +38,19 @@ pub enum NumberFormat {
 /// ```
 /// use texpose::{NumberFormat, NumberStyle, NumberingConfig};
 ///
-/// let cfg = NumberingConfig::new();
-/// assert_eq!(cfg.style, NumberStyle::Arabic);
-/// assert_eq!(cfg.start, 1);
-/// assert_eq!(cfg.format, NumberFormat::Parenthesized);
+/// let cfg = NumberingConfig::new()
+///     .with_style(NumberStyle::Roman)
+///     .with_start(4)
+///     .with_format(NumberFormat::Bracketed);
+/// assert_eq!(cfg.style(), NumberStyle::Roman);
+/// assert_eq!(cfg.start(), 4);
+/// assert_eq!(cfg.format(), NumberFormat::Bracketed);
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NumberingConfig {
-    /// Digit / roman / letter.
-    pub style: NumberStyle,
-    /// First auto number (usually 1).
-    pub start: usize,
-    /// Parentheses, brackets, or none.
-    pub format: NumberFormat,
+    style: NumberStyle,
+    start: usize,
+    format: NumberFormat,
 }
 
 impl Default for NumberingConfig {
@@ -66,6 +68,45 @@ impl NumberingConfig {
     #[must_use]
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Automatic-number style.
+    #[must_use]
+    pub fn style(&self) -> NumberStyle {
+        self.style
+    }
+
+    /// First automatic number.
+    #[must_use]
+    pub fn start(&self) -> usize {
+        self.start
+    }
+
+    /// Display wrapper used for automatic equation numbers.
+    #[must_use]
+    pub fn format(&self) -> NumberFormat {
+        self.format
+    }
+
+    /// Return this configuration with a different automatic-number style.
+    #[must_use]
+    pub fn with_style(mut self, style: NumberStyle) -> Self {
+        self.style = style;
+        self
+    }
+
+    /// Return this configuration with a different first automatic number.
+    #[must_use]
+    pub fn with_start(mut self, start: usize) -> Self {
+        self.start = start;
+        self
+    }
+
+    /// Return this configuration with a different display wrapper.
+    #[must_use]
+    pub fn with_format(mut self, format: NumberFormat) -> Self {
+        self.format = format;
+        self
     }
 }
 

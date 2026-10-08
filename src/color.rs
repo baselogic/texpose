@@ -23,12 +23,9 @@ const DVIPS: &str = include_str!("../data/dvipsnames.tsv");
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Color {
-    /// Red 0–255.
-    pub r: u8,
-    /// Green 0–255.
-    pub g: u8,
-    /// Blue 0–255.
-    pub b: u8,
+    r: u8,
+    g: u8,
+    b: u8,
 }
 
 impl Color {
@@ -43,6 +40,24 @@ impl Color {
     #[must_use]
     pub const fn rgb(r: u8, g: u8, b: u8) -> Self {
         Self { r, g, b }
+    }
+
+    /// Red channel, 0–255.
+    #[must_use]
+    pub const fn r(self) -> u8 {
+        self.r
+    }
+
+    /// Green channel, 0–255.
+    #[must_use]
+    pub const fn g(self) -> u8 {
+        self.g
+    }
+
+    /// Blue channel, 0–255.
+    #[must_use]
+    pub const fn b(self) -> u8 {
+        self.b
     }
 
     /// CSS hex `#rrggbb`.

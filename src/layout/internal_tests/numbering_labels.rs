@@ -49,10 +49,10 @@ fn references_use_unwrapped_value_while_labels_keep_display_format() {
 fn numbering_styles_and_formats_do_not_leak_into_reference_payloads() {
     let font = common::stix_two_math().expect("STIX Two Math");
 
-    let mut roman_cfg = NumberingConfig::new();
-    roman_cfg.style = NumberStyle::Roman;
-    roman_cfg.start = 4;
-    roman_cfg.format = NumberFormat::Bracketed;
+    let roman_cfg = NumberingConfig::new()
+        .with_style(NumberStyle::Roman)
+        .with_start(4)
+        .with_format(NumberFormat::Bracketed);
     let mut roman = NumberingState::new(roman_cfg);
     layout_numbered(
         r"\begin{equation}\label{eq:roman}x\end{equation}",
@@ -64,10 +64,10 @@ fn numbering_styles_and_formats_do_not_leak_into_reference_payloads() {
     let roman_ref = layout_numbered(r"\ref{eq:roman}", &mut roman, &font).expect("roman ref");
     assert_same_dims(&roman_ref, &layout_plain(r"\mathrm{iv}", &font));
 
-    let mut alpha_cfg = NumberingConfig::new();
-    alpha_cfg.style = NumberStyle::Alphabetic;
-    alpha_cfg.start = 27;
-    alpha_cfg.format = NumberFormat::Plain;
+    let alpha_cfg = NumberingConfig::new()
+        .with_style(NumberStyle::Alphabetic)
+        .with_start(27)
+        .with_format(NumberFormat::Plain);
     let mut alpha = NumberingState::new(alpha_cfg);
     layout_numbered(
         r"\begin{equation}\label{eq:alpha}x\end{equation}",
@@ -151,8 +151,7 @@ fn failed_layout_does_not_commit_numbers_or_labels() {
 fn equation_counter_overflow_fails_without_state_mutation() {
     let font = common::stix_two_math().expect("STIX Two Math");
 
-    let mut config = NumberingConfig::new();
-    config.start = usize::MAX;
+    let config = NumberingConfig::new().with_start(usize::MAX);
     let mut state = NumberingState::new(config);
     let err = layout_numbered(
         r"\begin{equation}\label{eq:max}x\end{equation}",

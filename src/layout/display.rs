@@ -68,8 +68,10 @@ impl MathLayout {
 
 /// One absolute drawing operation in a [`MathLayout`].
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum MathOp {
     /// Draw one glyph from [`MathLayout::font`].
+    #[non_exhaustive]
     Glyph {
         /// OpenType glyph id in the retained face.
         glyph_id: u16,
@@ -83,6 +85,7 @@ pub enum MathOp {
         color: Color,
     },
     /// Fill an axis-aligned rule rectangle.
+    #[non_exhaustive]
     Rule {
         /// Left edge in root-em units.
         x: f32,
@@ -96,6 +99,7 @@ pub enum MathOp {
         color: Color,
     },
     /// Stroke one free line segment.
+    #[non_exhaustive]
     Line {
         /// Start x coordinate in root-em units.
         x1: f32,
@@ -114,6 +118,7 @@ pub enum MathOp {
     ///
     /// The border occupies `thickness` inside all four edges and therefore
     /// does not expand the logical box.
+    #[non_exhaustive]
     Frame {
         /// Left edge in root-em units.
         x: f32,
@@ -129,6 +134,7 @@ pub enum MathOp {
         color: Color,
     },
     /// Fill a background rectangle.
+    #[non_exhaustive]
     Background {
         /// Left edge in root-em units.
         x: f32,

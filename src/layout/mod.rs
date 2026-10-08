@@ -29,17 +29,20 @@ use crate::error::{Error, NumericError};
 /// Diagnostics do not invalidate the returned display list. Every public
 /// [`MathLayout`] retains them in deterministic traversal order.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum LayoutDiagnostic {
     /// The selected face had no cmap entry for a required Unicode scalar.
     ///
     /// Layout continues with glyph id 0 when it has a usable horizontal
     /// advance, otherwise with the deterministic missing-glyph fallback box.
+    #[non_exhaustive]
     MissingGlyph {
         /// Unicode scalar that could not be resolved through cmap.
         ch: char,
     },
     /// OpenType MATH assembly data could not be used safely for a requested
     /// extension, so layout retained the largest valid ready-made variant.
+    #[non_exhaustive]
     ExtensibleFallback {
         /// Unicode scalar whose extensible construction degraded.
         ch: char,
