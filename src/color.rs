@@ -84,7 +84,7 @@ const BASE: &[(&str, Color)] = &[
     ("yellow", Color::rgb(255, 255, 0)),
 ];
 
-/// Named-color registry, including `\definecolor` overrides.
+/// Named-color registry: immutable standard names with parse-local `\definecolor` overrides.
 ///
 /// # Examples
 ///
@@ -98,7 +98,7 @@ const BASE: &[(&str, Color)] = &[
 /// ```
 #[derive(Clone, Debug)]
 pub struct ColorTable {
-    named: BTreeMap<String, Color>,
+    overrides: BTreeMap<String, Color>,
 }
 
 impl Default for ColorTable {
@@ -108,38 +108,44 @@ impl Default for ColorTable {
 }
 
 impl ColorTable {
-    /// Standard LaTeX names plus the 68 dvipsnames (CMYK → sRGB via `Dim`).
+    /// Use the shared standard names, without copying them or allocating entries.
     #[must_use]
     pub fn new() -> Self {
-        builtin().clone()
+        Self {
+            overrides: BTreeMap::new(),
+        }
     }
 
-    /// Number of registered names.
+    /// Number of visible names, counting redefinitions of standard names once.
     #[must_use]
     pub fn len(&self) -> usize {
-        self.named.len()
+        let standard = builtin();
+        standard.len()
+            + self
+                .overrides
+                .keys()
+                .filter(|name| !standard.contains_key(name.as_str()))
+                .count()
     }
 
     /// True when no names are registered.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.named.is_empty()
+        self.len() == 0
     }
 
-    /// Look up a named color. Unknown names are [`Error::Unsupported`].
+    /// Look up a named color. Local definitions shadow immutable standard names.
     pub fn get(&self, name: &str) -> Result<Color, Error> {
-        self.named
-            .get(name)
-            .copied()
-            .ok_or_else(|| Error::Unsupported {
-                what: format!("named color {name}"),
-            })
+        match self.overrides.get(name) {
+            Some(color) => Ok(*color),
+            None => named_color(name),
+        }
     }
 
-    /// `\definecolor{name}{model}{spec}`.
+    /// `\definecolor{name}{model}{spec}`. Errors leave the registry unchanged.
     pub fn define(&mut self, name: &str, model: &str, spec: &str) -> Result<Color, Error> {
         let c = parse_color_spec(model, spec, Some(self))?;
-        self.named.insert(name.to_string(), c);
+        self.overrides.insert(name.to_string(), c);
         Ok(c)
     }
 }
@@ -179,7 +185,7 @@ fn load_dvips() -> Vec<(String, Color)> {
 
 /// Parse `{model}{spec}` as in `\definecolor` / `\color[model]{spec}`.
 ///
-/// `named` uses `table` when provided, otherwise a fresh standard table.
+/// `named` uses `table` when provided, otherwise the shared standard names.
 ///
 /// # Arguments
 ///
@@ -216,7 +222,7 @@ pub fn parse_color_spec(
     match model {
         "named" => match table {
             Some(t) => t.get(spec),
-            None => builtin().get(spec),
+            None => named_color(spec),
         },
         "rgb" => {
             let v = unit_components(spec, 3)?;
@@ -250,8 +256,8 @@ pub fn parse_color_spec(
     }
 }
 
-fn builtin() -> &'static ColorTable {
-    static T: OnceLock<ColorTable> = OnceLock::new();
+fn builtin() -> &'static BTreeMap<String, Color> {
+    static T: OnceLock<BTreeMap<String, Color>> = OnceLock::new();
     T.get_or_init(|| {
         let mut named = BTreeMap::new();
         for (n, c) in BASE {
@@ -260,7 +266,7 @@ fn builtin() -> &'static ColorTable {
         for (n, c) in dvipsnames() {
             named.insert(n.clone(), *c);
         }
-        ColorTable { named }
+        named
     })
 }
 
@@ -287,7 +293,12 @@ fn builtin() -> &'static ColorTable {
 /// assert!(named_color("not-a-color").is_err());
 /// ```
 pub fn named_color(name: &str) -> Result<Color, Error> {
-    builtin().get(name)
+    builtin()
+        .get(name)
+        .copied()
+        .ok_or_else(|| Error::Unsupported {
+            what: format!("named color {name}"),
+        })
 }
 
 fn parse_html(spec: &str) -> Result<Color, Error> {
@@ -373,4 +384,51 @@ fn floor_u8(d: &Dim) -> u8 {
         bit /= 2;
     }
     ans
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{named_color, Color, ColorTable};
+
+    #[test]
+    fn new_color_tables_share_standard_names_without_copying_entries() {
+        let first = ColorTable::new();
+        let second = first.clone();
+        assert!(first.overrides.is_empty());
+        assert!(second.overrides.is_empty());
+        assert_eq!(first.len(), 76);
+        assert_eq!(first.len(), second.len());
+        assert!(!first.is_empty());
+        assert_eq!(
+            first.get("RoyalBlue").unwrap(),
+            named_color("RoyalBlue").unwrap()
+        );
+    }
+
+    #[test]
+    fn overrides_shadow_standard_names_without_leaking_or_changing_cardinality() {
+        let mut first = ColorTable::new();
+        let second = ColorTable::new();
+        let red = named_color("red").unwrap();
+        let custom = Color::rgb(1, 2, 3);
+
+        first.define("red", "HTML", "010203").unwrap();
+        assert_eq!(first.get("red").unwrap(), custom);
+        assert_eq!(second.get("red").unwrap(), red);
+        assert_eq!(named_color("red").unwrap(), red);
+        assert_eq!(first.len(), 76);
+
+        first.define("alias", "named", "red").unwrap();
+        assert_eq!(first.get("alias").unwrap(), custom);
+        assert_eq!(first.len(), 77);
+        assert!(second.get("alias").is_err());
+
+        first.define("alias", "named", "blue").unwrap();
+        assert_eq!(first.len(), 77);
+        assert_eq!(first.get("alias").unwrap(), named_color("blue").unwrap());
+
+        assert!(first.define("failed", "named", "not-a-color").is_err());
+        assert_eq!(first.len(), 77);
+        assert!(first.get("failed").is_err());
+    }
 }
