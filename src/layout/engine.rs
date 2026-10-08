@@ -2814,7 +2814,7 @@ impl<'font, 'state> Engine<'font, 'state> {
             for (column, cell) in row.iter().enumerate() {
                 let mut bx = self.clean_math_component(cell, MathStyle::Display)?;
                 if column % 2 == 1 {
-                    let leading = self.aligned_leading_ord_space(cell)?;
+                    let leading = self.aligned_leading_ord_space(cell, &bx.width)?;
                     if !leading.is_zero() {
                         bx = MathBox::hpack(vec![MathBox::kern(leading), bx])?;
                     }
@@ -2874,13 +2874,28 @@ impl<'font, 'state> Engine<'font, 'state> {
             .collect()
     }
 
-    fn aligned_leading_ord_space(&self, cell: &MathNode) -> Result<Dim, Error> {
-        // The cell has already been laid out by the caller. These two layouts
-        // are geometry probes, not additional semantic occurrences.
+    fn aligned_leading_ord_space(&self, cell: &MathNode, bare_width: &Dim) -> Result<Dim, Error> {
+        // A leading ordinary noad has zero Ord--Ord glue (TeX Table 18).
+        // Restrict this shortcut to a literal row with no preceding control
+        // or glue: the synthetic Ord must not change binary normalization.
+        if let MathNode::Row(items) = cell {
+            let sequence = normalize_row(items, MathStyle::Display);
+            if matches!(
+                sequence.get(1),
+                Some(SemanticItem::Noad {
+                    class: AtomKind::Ord,
+                    ..
+                })
+            ) {
+                return Ok(Dim::zero());
+            }
+        }
+
+        // Reuse the already computed cell width. Only the prefixed geometry
+        // requires a probe; it must not publish semantic side effects.
         let saved_idx = self.idx.get();
         let saved_diagnostics = self.diagnostics.borrow().len();
         let measured: Result<Dim, Error> = (|| {
-            let bare = self.clean_math_component(cell, MathStyle::Display)?;
             let empty_ord = MathNode::Row(Vec::new());
             let prefixed = match cell {
                 MathNode::Row(items) => {
@@ -2892,7 +2907,7 @@ impl<'font, 'state> Engine<'font, 'state> {
                 _ => MathNode::Row(vec![empty_ord, cell.clone()]),
             };
             let with_ord = self.layout(&prefixed, MathStyle::Display)?;
-            Ok(with_ord.width.checked_sub(&bare.width)?.clamp_nonneg())
+            Ok(with_ord.width.checked_sub(bare_width)?.clamp_nonneg())
         })();
         self.idx.set(saved_idx);
         self.diagnostics.borrow_mut().truncate(saved_diagnostics);

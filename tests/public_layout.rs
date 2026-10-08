@@ -223,3 +223,16 @@ fn aligned_probes_do_not_duplicate_missing_glyph_diagnostics() {
         "aligned geometry probes must not duplicate diagnostics"
     );
 }
+
+#[test]
+fn aligned_ordinary_leading_atom_matches_explicit_empty_ord() {
+    let font = font();
+    let implicit = parse(r"\begin{aligned}a&x+1\\b&y+2\end{aligned}").unwrap();
+    let explicit = parse(r"\begin{aligned}a&{}x+1\\b&{}y+2\end{aligned}").unwrap();
+    let bare = layout(&implicit, &font, MathStyle::Display).unwrap();
+    let prefixed = layout(&explicit, &font, MathStyle::Display).unwrap();
+    assert_eq!(bare.width().to_bits(), prefixed.width().to_bits());
+    assert_eq!(bare.height().to_bits(), prefixed.height().to_bits());
+    assert_eq!(bare.depth().to_bits(), prefixed.depth().to_bits());
+    assert_eq!(bare.diagnostics().len(), prefixed.diagnostics().len());
+}
