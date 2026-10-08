@@ -345,7 +345,7 @@ class TraceCaseDelta:
 PROFILES: dict[str, MathProfile] = {
     "stix": MathProfile(
         name="stix",
-        fixture="tests/fixtures/fonts/stix-two-math/STIXTwoMath-Regular.otf",
+        fixture="data/fonts/stix-two-math/STIXTwoMath-Regular.otf",
         sha256="f2076b9f1676438439dd41e23676f5ab99056e83d6b8f8c27841591ef2ccfa72",
         face_index=0,
         required_capabilities=("math-font", "canonical-corpus", "stress-corpus"),

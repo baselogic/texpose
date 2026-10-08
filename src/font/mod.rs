@@ -1009,7 +1009,7 @@ mod tests {
     use super::{math_kern_index, MathFont, MathFontView, MathKernCorner};
 
     const STIX_TWO_MATH: &[u8] =
-        include_bytes!("../../tests/fixtures/fonts/stix-two-math/STIXTwoMath-Regular.otf");
+        include_bytes!("../../data/fonts/stix-two-math/STIXTwoMath-Regular.otf");
 
     fn stix() -> MathFont {
         MathFont::from_bytes(STIX_TWO_MATH).expect("STIX Two Math fixture")
