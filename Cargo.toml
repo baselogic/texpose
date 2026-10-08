@@ -24,6 +24,10 @@ include = [
     "NOTICE",
 ]
 
+[features]
+default = []
+stix-two-math = []
+
 [dependencies]
 ttf-parser = { version = "0.25", default-features = false, features = ["std", "opentype-layout"] }
 

@@ -3,10 +3,10 @@ mod test_hash;
 
 use texpose::{FontError, MathFont};
 
-const STIX: &[u8] = include_bytes!("fixtures/fonts/stix-two-math/STIXTwoMath-Regular.otf");
+const STIX: &[u8] = include_bytes!("../data/fonts/stix-two-math/STIXTwoMath-Regular.otf");
 const FIRA: &[u8] = include_bytes!("fixtures/fonts/fira-math/FiraMath-Regular.otf");
 const DEJAVU_TTF: &[u8] = include_bytes!("fixtures/fonts/dejavu-math/DejaVuMathTeXGyre.ttf");
-const STIX_SOURCE: &str = include_str!("fixtures/fonts/stix-two-math/SOURCE.md");
+const STIX_SOURCE: &str = include_str!("../data/fonts/stix-two-math/SOURCE.md");
 const LIBERTINUS_SOURCE: &str = include_str!("fixtures/fonts/libertinus-math/SOURCE.md");
 const FIRA_SOURCE: &str = include_str!("fixtures/fonts/fira-math/SOURCE.md");
 const DEJAVU_SOURCE: &str = include_str!("fixtures/fonts/dejavu-math/SOURCE.md");

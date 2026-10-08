@@ -6,9 +6,9 @@ use texpose::MathFont;
 const FIXTURES: &[(&str, &[u8], &str, &str)] = &[
     (
         "stix-two-math",
-        include_bytes!("fixtures/fonts/stix-two-math/STIXTwoMath-Regular.otf"),
-        include_str!("fixtures/fonts/stix-two-math/SOURCE.md"),
-        include_str!("fixtures/fonts/stix-two-math/OFL.txt"),
+        include_bytes!("../data/fonts/stix-two-math/STIXTwoMath-Regular.otf"),
+        include_str!("../data/fonts/stix-two-math/SOURCE.md"),
+        include_str!("../data/fonts/stix-two-math/OFL.txt"),
     ),
     (
         "libertinus-math",

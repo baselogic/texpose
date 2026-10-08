@@ -5,7 +5,7 @@ use texpose::{
     MathFont, MathOp, MathStyle, NumberFormat, NumberStyle, NumberingConfig, NumberingState,
 };
 
-const STIX: &[u8] = include_bytes!("fixtures/fonts/stix-two-math/STIXTwoMath-Regular.otf");
+const STIX: &[u8] = include_bytes!("../data/fonts/stix-two-math/STIXTwoMath-Regular.otf");
 const MISSING: char = '\u{10FFFF}';
 
 fn font() -> MathFont {

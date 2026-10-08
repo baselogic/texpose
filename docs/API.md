@@ -106,6 +106,8 @@ MathFont::units_per_em(&self) -> u16
 
 The bytes and face index form the exact OpenType face identity. `units_per_em` is the validated denominator needed to convert emitted glyph outlines from font design units into root-em units. These values are read-only; callers cannot mutate the validated face through `MathFont`.
 
+With feature `stix-two-math`, TeXpose also exposes the verified STIX Two Math v2.13 bytes as `STIX_TWO_MATH_OTF`. This is an opt-in byte asset, not an implicit default: callers still construct `MathFont` and choose the face explicitly. The asset's source, SHA-256, and SIL OFL 1.1 license live beside it under `data/fonts/stix-two-math/`.
+
 `MathLayout` owns a cheap clone of the exact `MathFont` used during layout. A native renderer obtains the bytes, face index, and units-per-em through `MathLayout::font()` and resolves every emitted glyph id against that exact face. The renderer may use any OpenType library that can parse those bytes and address the retained face index.
 
 ## What is intentionally private

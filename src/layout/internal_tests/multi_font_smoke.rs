@@ -20,7 +20,7 @@ const PROFILES: &[FontProfile] = &[
     FontProfile {
         name: "stix",
         bytes: include_bytes!(
-            "../../../tests/fixtures/fonts/stix-two-math/STIXTwoMath-Regular.otf",
+            "../../../data/fonts/stix-two-math/STIXTwoMath-Regular.otf",
         ),
         face_index: 0,
     },

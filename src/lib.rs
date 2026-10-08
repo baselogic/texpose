@@ -136,6 +136,13 @@ pub use error::{
     SourceSpan,
 };
 pub use font::MathFont;
+#[cfg(feature = "stix-two-math")]
+/// Exact STIX Two Math v2.13 OpenType bytes bundled for callers that explicitly opt in.
+///
+/// The caller still constructs [`MathFont`] explicitly, so enabling the feature does not
+/// create a hidden default face.
+pub const STIX_TWO_MATH_OTF: &[u8] =
+    include_bytes!("../data/fonts/stix-two-math/STIXTwoMath-Regular.otf");
 pub use layout::{
     layout, layout_with_em_size_pt, layout_with_max_depth, layout_with_numbering,
     layout_with_numbering_and_em_size_pt, LayoutDiagnostic, MathLayout, MathOp, MathParams,
