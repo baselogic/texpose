@@ -1,26 +1,6 @@
-# Mathematical-core compatibility policy
+# Compatibility
 
-This document owns the Phase L4 cross-cutting compatibility policy for the first
-stable mathematical core. It does not replace the domain contracts that define
-syntax, parser API, font construction, exact layout, OpenType MATH coverage, or
-differential-oracle evidence. Instead it states which of those behaviors are
-part of the supported compatibility boundary and which adjacent capabilities are
-intentionally outside it.
-
-The detailed authorities remain:
-
-- `docs/SYNTAX.md` for accepted source syntax and literal-text grammar;
-- `docs/PARSER_API.md` for the public parser boundary;
-- `docs/FONT_API.md` for font ownership, face identity, and construction errors;
-- `docs/LAYOUT.md` for exact-to-public geometry and display-list semantics;
-- `docs/MATH_COVERAGE.md` for OpenType MATH field ownership and degradation;
-- `docs/ORACLE_PROFILES.md` for the pinned differential-reference profiles;
-- `docs/CI.md` and `docs/RELEASE.md` for verification and release evidence.
-
-If this summary and an owning domain contract disagree, the owning domain
-contract and executable behavior must be reconciled before release. This file is
-not authority to silently weaken a stronger TeX, LaTeX, amsmath, or OpenType
-contract already adopted by the project.
+Defines the supported mathematical-core behavior. For detailed contracts see [API](API.md), [syntax](SYNTAX.md), [layout](LAYOUT.md) and [verification](VERIFICATION.md).
 
 ## Stable compatibility matrix
 
@@ -182,7 +162,7 @@ means that arbitrary unsupported input was silently approximated.
 The contractual differential profiles are `stix`, `libertinus`, and `fira`.
 Each profile pins font bytes/hash, face index, corpus identity, tolerance policy,
 documented deviations, and the reference-environment identity defined in
-`docs/ORACLE_PROFILES.md`.
+`docs/VERIFICATION.md`.
 
 The pinned reference environment is MiKTeX 26.5 / LuaHBTeX 1.25.7 with
 environment SHA-256:
@@ -211,7 +191,7 @@ minimum it requires the affected focused contract tests, the core CI gate, and
 any applicable canonical external oracle. A change to oracle profiles,
 font-selection policy, MATH semantics, physical-size semantics, variable-font
 policy, or graceful-degradation behavior also requires review of the release
-evidence described in `docs/RELEASE.md`.
+evidence described in `docs/VERIFICATION.md`.
 
 Pure wording corrections that do not alter the contract remain documentation
 maintenance, but they must not be used to redefine behavior after verification.

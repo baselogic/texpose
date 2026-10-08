@@ -1,41 +1,30 @@
 # TeXpose
 
-TeXpose is a portable Rust engine for parsing and laying out TeX/LaTeX mathematical notation.
+TeXpose is a Rust library for TeX/LaTeX mathematical parsing and backend-neutral layout. It is an independent fork of LaTeX-Rust 2.0.1, not synchronized with upstream.
 
-TeXpose is an independent hard fork of LaTeX-Rust 2.0.1. It is not synchronized with the upstream project.
+The public output is `MathLayout`: a flat display list in root-em-normalized coordinates, with the exact math font face retained for glyph resolution. Applications handle rasterization, drawing, windows, GPU/device lifetime and pixel snapping. TeXpose produces no pixels.
 
-## Status
+## Supported scope
 
-TeXpose is in early development. The current core contains math parsing, OpenType MATH font metrics, exact TeX-style internal geometry, and a flat backend-neutral public display list. Rendering, rasterization, windows, surfaces, GPU/device lifetime, pixel snapping, and application UI are consumer responsibilities. Parser, font, and layout APIs are stabilized, and the first-stable mathematical-core compatibility policy is recorded in `docs/COMPATIBILITY.md`. The remaining roadmap work is final release-candidate verification and evidence review under `docs/RELEASE.md`.
+- Rust 1.76+, Edition 2021. The crate is not published (`publish = false`).
+- Use `parse` or `parse_with_options`; parse errors have UTF-8 byte spans.
+- Use `MathFont` with caller-provided OTF/TTF or indexed TTC/OTC bytes. Each formula uses one static math face; variable fonts are rejected.
+- Literal text uses the same face without general text shaping, bidi, kerning or fallback.
+- Style-relative `em`/`mu` and physical TeX `pt`/`bp` are distinct. MATH Device/VariationIndex corrections are not applied.
+- Invalid input produces typed errors; specified recoverable font failures produce layout diagnostics.
 
-The architecture is backend-neutral: TeXpose produces typed notation plus `MathLayout`, a flat root-em-normalized display list that applications consume through their native graphics stack. Planned domains may extend beyond mathematics to chemistry, SI units, and other scientific notation.
+See [API](docs/API.md), [syntax](docs/SYNTAX.md), [layout](docs/LAYOUT.md), [compatibility](docs/COMPATIBILITY.md) and [verification](docs/VERIFICATION.md).
 
-## Parser API
+## Local checks
 
-Consumer parsing starts at the crate-root `parse` or `parse_with_options` functions. Typed failures expose read-only source spans. Lexer/preprocessor machinery, the parser module itself, and test/golden helpers are implementation details. See `docs/PARSER_API.md` for the Phase L1 compatibility boundary and `docs/SYNTAX.md` for accepted syntax.
+```sh
+cargo fmt --check
+cargo test
+cargo clippy --all-targets -- -D warnings
+```
 
-## Provenance
-
-The initial codebase derives from LaTeX-Rust by Jeffrey S Carr. Source provenance and licensing attribution are preserved in this repository.
+The oracle environment, stress gates, MSRV matrix, fuzz targets, and historical candidate evidence are defined in [verification](docs/VERIFICATION.md). A passing historical candidate does not certify a later revision.
 
 ## License
 
-TeXpose is distributed under MIT OR Apache-2.0.
-
-Verification fonts live under `tests/fixtures/fonts/` and are not embedded in the production crate. Each fixture records its upstream source, SHA-256, and font license in its own directory.
-
-## Font input contract
-
-The first stable core accepts caller-provided non-variable OpenType OTF/TTF faces and TTC/OTC collections. The ownership-oriented constructor is `MathFont::from_shared_bytes(Arc<[u8]>, face_index)`, and clones of `MathFont` share that immutable allocation. The `from_bytes` / `from_bytes_at_index` convenience constructors copy borrowed slices into the same shared representation. The stable font boundary exposes the retained bytes, shared allocation, face index, and validated `unitsPerEm`; it does not expose `ttf-parser` types. Native renderers parse the exact retained bytes and face index with their own OpenType stack when they need outlines. Each layout operation parses one temporary OpenType face from the retained bytes and reuses it throughout that operation. Functional OpenType variable fonts are rejected with `FontError::VariableFontUnsupported`. Construction also validates the physical `MATH` table and mandatory `MathConstants`, preserving distinct typed failures for absence and malformed data. MATH `MathValueRecord` layout uses design-unit values and deliberately ignores PPEM-dependent Device corrections; see `docs/FONT_API.md`, `docs/MATH_COVERAGE.md`, and `docs/LAYOUT.md`.
-
-## Fuzzing
-
-Roadmap Phase H fuzz targets live in `fuzz/`. The maintained input domains,
-independent oracles, corpus policy, resource bounds, and reproduction commands
-are documented in `docs/FUZZING.md`. The fuzz package is separate from the
-production crate, so its oracle dependencies do not enter TeXpose's normal
-dependency graph.
-
-## Compatibility and release-candidate policy
-
-The first stable mathematical core uses one caller-supplied static math face per formula, keeps literal text on that face without a general text-shaping/fallback contract, preserves `em`/`mu` versus physical TeX `pt`/`bp` semantics, ignores OpenType MATH Device/VariationIndex corrections, rejects functional variable-font faces, and exposes only deterministic diagnostic-bearing degradation. See `docs/COMPATIBILITY.md`. Release-candidate evidence and the Phase M verification sequence are defined in `docs/RELEASE.md`.
+MIT OR Apache-2.0. The original project is LaTeX-Rust by Jeffrey S Carr. Font fixtures retain their own licensing and provenance.

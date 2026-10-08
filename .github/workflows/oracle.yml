@@ -9,7 +9,7 @@ on:
       - golds/**
       - tests/**
       - tools/**
-      - docs/ORACLE_PROFILES.md
+      - docs/VERIFICATION.md
       - .github/workflows/oracle.yml
   workflow_dispatch:
 
