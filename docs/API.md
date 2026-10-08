@@ -112,7 +112,7 @@ The bytes and face index form the exact OpenType face identity. `units_per_em` i
 
 TeXpose does not expose `ttf_parser::Face`, re-export the `ttf-parser` crate, or publish raw cmap, glyph-metric, MATH variant, MATH assembly, MathKern, accent-attachment, or GSUB query helpers. Those operations are layout implementation details. Keeping them private avoids coupling consumers to a dependency version or to intermediate representations that TeXpose may change without altering the display-list contract.
 
-The public `MathOp::Glyph` contract is sufficient for rendering: it supplies the final OpenType glyph id, position, scale, and color, while the layout-associated `MathFont` supplies exact face identity.
+The public `MathOp::Glyph` contract is sufficient for rendering: it supplies the final OpenType glyph id, position, scale, and color state, while the layout-associated `MathFont` supplies exact face identity. Every public `MathOp` color is `Option<Color>`: `None` means inherit the consumer's default foreground, while `Some(color)` records an explicit TeX color. This preserves the distinction between inherited black and an explicit `\\textcolor{black}{...}` without coupling layout to an application theme.
 
 ## Errors and diagnostics
 

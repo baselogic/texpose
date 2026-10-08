@@ -10,8 +10,6 @@ use crate::layout::style::MathStyle;
 use crate::layout::{BoxContent, LayoutDiagnostic, LayoutOutput, MathBox};
 use crate::parser::MathNode;
 
-const DEFAULT_COLOR: Color = Color::rgb(0, 0, 0);
-
 /// Flat backend-neutral mathematical display list.
 ///
 /// Coordinates are absolute root-em units. The origin is the formula left edge
@@ -81,8 +79,8 @@ pub enum MathOp {
         baseline: f32,
         /// Outline scale relative to the root em.
         scale: f32,
-        /// Foreground color.
-        color: Color,
+        /// Explicit foreground color, or `None` to inherit the consumer's default foreground.
+        color: Option<Color>,
     },
     /// Fill an axis-aligned rule rectangle.
     #[non_exhaustive]
@@ -95,8 +93,8 @@ pub enum MathOp {
         width: f32,
         /// Positive height in root-em units.
         height: f32,
-        /// Fill color.
-        color: Color,
+        /// Explicit fill color, or `None` to inherit the consumer's default foreground.
+        color: Option<Color>,
     },
     /// Stroke one free line segment.
     #[non_exhaustive]
@@ -111,8 +109,8 @@ pub enum MathOp {
         y2: f32,
         /// Positive stroke thickness in root-em units.
         thickness: f32,
-        /// Stroke color.
-        color: Color,
+        /// Explicit stroke color, or `None` to inherit the consumer's default foreground.
+        color: Option<Color>,
     },
     /// Paint an inward border on an axis-aligned outer rectangle.
     ///
@@ -130,8 +128,8 @@ pub enum MathOp {
         height: f32,
         /// Positive stroke thickness in root-em units.
         thickness: f32,
-        /// Stroke color.
-        color: Color,
+        /// Explicit stroke color, or `None` to inherit the consumer's default foreground.
+        color: Option<Color>,
     },
     /// Fill a background rectangle.
     #[non_exhaustive]
@@ -144,8 +142,8 @@ pub enum MathOp {
         width: f32,
         /// Positive height in root-em units.
         height: f32,
-        /// Fill color.
-        color: Color,
+        /// Explicit fill color, or `None` to inherit the consumer's default foreground.
+        color: Option<Color>,
     },
 }
 
@@ -156,14 +154,14 @@ pub(crate) enum ExactMathOp {
         x: Dim,
         baseline: Dim,
         scale: Dim,
-        color: Color,
+        color: Option<Color>,
     },
     Rule {
         x: Dim,
         y: Dim,
         width: Dim,
         height: Dim,
-        color: Color,
+        color: Option<Color>,
     },
     Line {
         x1: Dim,
@@ -171,7 +169,7 @@ pub(crate) enum ExactMathOp {
         x2: Dim,
         y2: Dim,
         thickness: Dim,
-        color: Color,
+        color: Option<Color>,
     },
     Frame {
         x: Dim,
@@ -179,14 +177,14 @@ pub(crate) enum ExactMathOp {
         width: Dim,
         height: Dim,
         thickness: Dim,
-        color: Color,
+        color: Option<Color>,
     },
     Background {
         x: Dim,
         y: Dim,
         width: Dim,
         height: Dim,
-        color: Color,
+        color: Option<Color>,
     },
 }
 
@@ -296,13 +294,7 @@ fn finish(font: &MathFont, exact: LayoutOutput) -> Result<MathLayout, Error> {
 
 pub(crate) fn flatten_exact(math_box: &MathBox) -> Result<Vec<ExactMathOp>, NumericError> {
     let mut out = Vec::new();
-    flatten_into(
-        math_box,
-        &Dim::zero(),
-        &Dim::zero(),
-        DEFAULT_COLOR,
-        &mut out,
-    )?;
+    flatten_into(math_box, &Dim::zero(), &Dim::zero(), None, &mut out)?;
     Ok(out)
 }
 
@@ -310,7 +302,7 @@ fn flatten_into(
     math_box: &MathBox,
     x: &Dim,
     parent_baseline: &Dim,
-    color: Color,
+    color: Option<Color>,
     out: &mut Vec<ExactMathOp>,
 ) -> Result<(), NumericError> {
     let baseline = parent_baseline.checked_add(&math_box.shift)?;
@@ -356,7 +348,7 @@ fn flatten_into(
                 }
             }
         }
-        BoxContent::Color(next, inner) => flatten_into(inner, x, &baseline, *next, out)?,
+        BoxContent::Color(next, inner) => flatten_into(inner, x, &baseline, Some(*next), out)?,
         BoxContent::BackColor(background, inner) => {
             let height = math_box.height.checked_add(&math_box.depth)?;
             if math_box.width > Dim::zero() && height > Dim::zero() {
@@ -365,7 +357,7 @@ fn flatten_into(
                     y: baseline.checked_sub(&math_box.depth)?,
                     width: math_box.width.clone(),
                     height,
-                    color: *background,
+                    color: Some(*background),
                 });
             }
             flatten_into(inner, x, &baseline, color, out)?;
@@ -403,7 +395,7 @@ fn flatten_into(
                     width: math_box.width.clone(),
                     height,
                     thickness: thickness.clone(),
-                    color: (*stroke).unwrap_or(color),
+                    color: (*stroke).or(color),
                 });
             }
         }
@@ -688,8 +680,8 @@ mod tests {
                     color: glyph_color,
                     ..
                 }
-            ] if *color == Color::rgb(255, 255, 0)
-                && *glyph_color == Color::rgb(255, 0, 0)
+            ] if *color == Some(Color::rgb(255, 255, 0))
+                && *glyph_color == Some(Color::rgb(255, 0, 0))
         ));
     }
 }

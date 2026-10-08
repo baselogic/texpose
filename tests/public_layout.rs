@@ -120,7 +120,7 @@ fn paint_order_carries_background_foreground_and_frame_colors() {
         .position(|op| {
             matches!(
                 op,
-                MathOp::Background { color, .. } if *color == Color::rgb(255, 255, 0)
+                MathOp::Background { color, .. } if *color == Some(Color::rgb(255, 255, 0))
             )
         })
         .expect("yellow background");
@@ -130,7 +130,7 @@ fn paint_order_carries_background_foreground_and_frame_colors() {
         .position(|op| {
             matches!(
                 op,
-                MathOp::Glyph { color, .. } if *color == Color::rgb(0, 0, 255)
+                MathOp::Glyph { color, .. } if *color == Some(Color::rgb(0, 0, 255))
             )
         })
         .expect("blue glyph");
@@ -140,12 +140,33 @@ fn paint_order_carries_background_foreground_and_frame_colors() {
         .position(|op| {
             matches!(
                 op,
-                MathOp::Frame { color, .. } if *color == Color::rgb(255, 0, 0)
+                MathOp::Frame { color, .. } if *color == Some(Color::rgb(255, 0, 0))
             )
         })
         .expect("red frame");
 
     assert!(background < glyph && glyph < frame);
+}
+
+#[test]
+fn inherited_and_explicit_black_remain_distinct() {
+    let font = font();
+    let ast = parse(r"x+\textcolor{black}{y}").unwrap();
+    let layout = layout(&ast, &font, MathStyle::Text).unwrap();
+
+    assert!(layout
+        .ops()
+        .iter()
+        .any(|op| matches!(op, MathOp::Glyph { color: None, .. })));
+    assert!(layout.ops().iter().any(|op| {
+        matches!(
+            op,
+            MathOp::Glyph {
+                color: Some(color),
+                ..
+            } if *color == Color::rgb(0, 0, 0)
+        )
+    }));
 }
 
 #[test]
