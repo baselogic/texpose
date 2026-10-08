@@ -2875,19 +2875,28 @@ impl<'font, 'state> Engine<'font, 'state> {
     }
 
     fn aligned_leading_ord_space(&self, cell: &MathNode) -> Result<Dim, Error> {
-        let bare = self.clean_math_component(cell, MathStyle::Display)?;
-        let empty_ord = MathNode::Row(Vec::new());
-        let prefixed = match cell {
-            MathNode::Row(items) => {
-                let mut with_ord = Vec::with_capacity(items.len().saturating_add(1));
-                with_ord.push(empty_ord);
-                with_ord.extend(items.iter().cloned());
-                MathNode::Row(with_ord)
-            }
-            _ => MathNode::Row(vec![empty_ord, cell.clone()]),
-        };
-        let with_ord = self.layout(&prefixed, MathStyle::Display)?;
-        Ok(with_ord.width.checked_sub(&bare.width)?.clamp_nonneg())
+        // The cell has already been laid out by the caller. These two layouts
+        // are geometry probes, not additional semantic occurrences.
+        let saved_idx = self.idx.get();
+        let saved_diagnostics = self.diagnostics.borrow().len();
+        let measured: Result<Dim, Error> = (|| {
+            let bare = self.clean_math_component(cell, MathStyle::Display)?;
+            let empty_ord = MathNode::Row(Vec::new());
+            let prefixed = match cell {
+                MathNode::Row(items) => {
+                    let mut with_ord = Vec::with_capacity(items.len().saturating_add(1));
+                    with_ord.push(empty_ord);
+                    with_ord.extend(items.iter().cloned());
+                    MathNode::Row(with_ord)
+                }
+                _ => MathNode::Row(vec![empty_ord, cell.clone()]),
+            };
+            let with_ord = self.layout(&prefixed, MathStyle::Display)?;
+            Ok(with_ord.width.checked_sub(&bare.width)?.clamp_nonneg())
+        })();
+        self.idx.set(saved_idx);
+        self.diagnostics.borrow_mut().truncate(saved_diagnostics);
+        measured
     }
 
     fn amsmath_strut(stretch: &Dim) -> Result<MathBox, Error> {

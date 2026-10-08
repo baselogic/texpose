@@ -204,3 +204,22 @@ fn public_layout_configuration_is_read_only_and_builder_driven() {
     layout_with_numbering(&ast, &font, MathStyle::Display, &mut state).unwrap();
     assert_eq!(state.label("eq:public"), Some("[iv]"));
 }
+
+#[test]
+fn aligned_probes_do_not_duplicate_missing_glyph_diagnostics() {
+    let font = font();
+    let source = format!(r"\begin{{aligned}}x&{}\end{{aligned}}", MISSING);
+    let ast = parse(&source).expect("aligned expression parses");
+    let result = layout(&ast, &font, MathStyle::Display).expect("aligned expression lays out");
+    let missing = result
+        .diagnostics()
+        .iter()
+        .filter(|diagnostic| {
+            matches!(diagnostic, LayoutDiagnostic::MissingGlyph { ch, .. } if *ch == MISSING)
+        })
+        .count();
+    assert_eq!(
+        missing, 1,
+        "aligned geometry probes must not duplicate diagnostics"
+    );
+}
