@@ -128,6 +128,7 @@ Primary references used by this contract map:
 - **Accepted syntax:** `aligned`, `align`, `gather`, `multline`, `equation`, and `split`; `\intertext{...}` and `\hline` are recognized row forms where the engine supports them.
 - **Semantic representation:** the corresponding `MatrixStyle` plus `Vec<EnvRow>`; equation-number metadata is carried in `EqNumber` and row labels.
 - **Malformed-input behavior:** malformed environment structure is `MalformedMatrix`; mismatched closing names are `MismatchedEnvironment`; resource budgets apply globally across environments.
+- **Nesting:** `equation`, `gather`, and `multline` are outer displays; `align` is outer or directly inside `gather`; `split` requires a direct `equation`, `align`, or `gather` parent. `aligned` and matrix/array environments may appear in math cells. Invalid parent/child combinations fail as `MalformedMatrix`.
 - **Unsupported forms:** starred environment spellings and other amsmath environments are outside the explicit parser list unless separately documented.
 - **Primary contract test:** `src/layout/internal_tests/amsmath_grid.rs`, `src/layout/internal_tests/env_golds.rs::env_golds`, and `src/layout/internal_tests/amsmath_substack.rs`.
 - **Governing authority:** LaTeX/amsmath environment contracts; TeX82 governs math content inside cells.

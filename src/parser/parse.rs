@@ -213,6 +213,7 @@ pub fn parse_with_options(input: &str, options: &ParseOptions) -> Result<MathNod
         max_cells: options.max_environment_cells,
         source_len: input.len(),
         colors: ColorTable::new(),
+        environments: Vec::new(),
     };
     let node = p.parse_list(Stop::eof())?;
     p.skip_ws();
@@ -401,6 +402,22 @@ struct Parser {
     cells: usize,
     max_cells: usize,
     source_len: usize,
+    /// Active environment path. Separate from the generic recursion depth.
+    environments: Vec<MatrixStyle>,
+}
+
+/// AMS display forms cannot generally nest. Inner alignment and matrix forms
+/// are math material; `split` requires an enclosing numbered/display row.
+fn environment_nesting_allowed(child: MatrixStyle, parent: Option<MatrixStyle>) -> bool {
+    match child {
+        MatrixStyle::Equation | MatrixStyle::Gather | MatrixStyle::Multline => parent.is_none(),
+        MatrixStyle::Align => parent.is_none() || parent == Some(MatrixStyle::Gather),
+        MatrixStyle::Split => matches!(
+            parent,
+            Some(MatrixStyle::Equation | MatrixStyle::Align | MatrixStyle::Gather)
+        ),
+        _ => true,
+    }
 }
 
 impl Parser {
@@ -1206,9 +1223,21 @@ impl Parser {
                 ));
             }
         };
-        let rows = self.parse_rows()?;
-        self.expect_end(&name.text)?;
-        Ok(MathNode::Matrix(style, colspec, rows))
+        if !environment_nesting_allowed(style, self.environments.last().copied()) {
+            return Err(self.malformed_at(
+                ParseErrorKind::MalformedMatrix,
+                name.span,
+                format!("invalid nesting of environment {}", name.text),
+            ));
+        }
+        self.environments.push(style);
+        let parsed = (|| {
+            let rows = self.parse_rows()?;
+            self.expect_end(&name.text)?;
+            Ok(rows)
+        })();
+        let _ = self.environments.pop();
+        Ok(MathNode::Matrix(style, colspec, parsed?))
     }
 
     fn parse_substack(&mut self) -> Result<MathNode, ParseError> {
