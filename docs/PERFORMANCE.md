@@ -20,7 +20,7 @@ cargo bench --bench layout
 
 The benchmark requires Cargo's optimized bench profile, uses the committed STIX Two Math fixture, calibrates each batch toward 10 ms, and records 31 samples. It reports minimum, median, p95, and maximum nanoseconds per operation. Parsing is performed outside each I3 layout measurement so the primitive workloads measure layout rather than parser cost.
 
-The maintained I1 boundaries are `MathFont` construction, `ttf_parser::Face::parse`, tokenization, parsing, simple layout, complex layout, and the committed `hard-brutal-core` stress case. Semantic normalization remains inside layout because it is a private proof boundary; Phase I does not widen production visibility solely for benchmarking. The recorded I1 baseline predates Phase J. J2/J5 now make exact positioned flattening and final `Dim -> f32` emission part of the public `layout` path, so post-J benchmark runs must be treated as a new public-layout baseline rather than compared as a same-boundary regression.
+The maintained I1 boundaries are `MathFont` construction, `ttf_parser::Face::parse`, parsing, simple layout, complex layout, and the committed `hard-brutal-core` stress case. Semantic normalization remains inside layout because it is a private proof boundary; Phase I does not widen production visibility solely for benchmarking. The recorded I1 baseline predates Phase J. J2/J5 now make exact positioned flattening and final `Dim -> f32` emission part of the public `layout` path, so post-J benchmark runs must be treated as a new public-layout baseline rather than compared as a same-boundary regression.
 
 The maintained I3 workloads are:
 
@@ -36,6 +36,10 @@ The maintained I3 workloads are:
 | aligned | 74 | Display | three-row aligned environment |
 
 The I1 simple and complex sources are 1 and 47 bytes respectively. The committed `hard-brutal-core` stress source is 298 bytes in the current fixture.
+
+### Phase L1 benchmark boundary
+
+L1 removes lexer/token types from the consumer API. The isolated `tokenize complex` row below remains historical Phase-I evidence only; it is no longer emitted by the maintained integration benchmark because retaining a public tokenizer solely for benchmark access would make test instrumentation define production API. Parser end-to-end cost remains measured by `parse complex`. Reintroducing a lexer-only benchmark requires an internal benchmark mechanism that does not widen the public crate surface.
 
 ## Validation snapshot — 2026-10-07
 

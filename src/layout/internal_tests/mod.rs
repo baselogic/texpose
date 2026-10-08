@@ -13,8 +13,7 @@ mod font_shared_storage;
 mod fraction_null_delimiter;
 mod fraction_semantics;
 mod glyph_assembly;
-#[path = "../../../tests/support/golds.rs"]
-mod gold_support;
+pub(crate) use crate::gold_support;
 mod golds;
 mod integral_scripts;
 mod large_operator_limits;

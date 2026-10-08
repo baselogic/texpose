@@ -20,7 +20,7 @@ Primary references used by this contract map:
 - **Semantic representation:** `MathNode::Atom(char, AtomKind)` with `Ord`, `Op`, `Bin`, `Rel`, `Open`, `Close`, `Punct`, or `Inner` where applicable.
 - **Malformed-input behavior:** structural tokens that cannot begin a nucleus return `MalformedArgument`; an unexpected `}` returns `UnexpectedGroupEnd`.
 - **Unsupported forms:** TeX category-code changes and arbitrary `\mathcode`/`\mathchar` programming are outside this subset.
-- **Primary contract test:** `tests/parse_golds.rs::parse_golds` and `src/layout/internal_tests/row_math_italic.rs::rows_add_math_italic_correction_without_duplicating_scripted_nuclei`.
+- **Primary contract test:** `src/parser/tests/parse_golds.rs::parse_golds` and `src/layout/internal_tests/row_math_italic.rs::rows_add_math_italic_correction_without_duplicating_scripted_nuclei`.
 - **Governing authority:** TeX82 math-list atom classes, narrowed by the TeXpose parser contract.
 
 ## Symbols
@@ -29,7 +29,7 @@ Primary references used by this contract map:
 - **Semantic representation:** `MathNode::Symbol(String)`; the symbol catalog supplies the glyph and atom class.
 - **Malformed-input behavior:** a control sequence absent from the supported catalog returns `UnknownCommand`; a catalog entry classified as a container/modifier but used as a bare symbol returns `UnsupportedCommand`.
 - **Unsupported forms:** runtime symbol-table mutation and arbitrary TeX symbol definitions are not parsed.
-- **Primary contract test:** `src/layout/internal_tests/symbol_golds.rs::symbol_golds` and `tests/parse_golds.rs::catalog_commands_parse`.
+- **Primary contract test:** `src/layout/internal_tests/symbol_golds.rs::symbol_golds` and `src/parser/tests/parse_golds.rs::catalog_commands_parse`.
 - **Governing authority:** TeXpose symbol catalog and explicit aliases; TeX82 governs the resulting math atom semantics.
 
 ## Math alphabets
@@ -65,7 +65,7 @@ Primary references used by this contract map:
 - **Semantic representation:** `MathNode::Radical(Option<Box<MathNode>>, Box<MathNode>)`.
 - **Malformed-input behavior:** a missing closing `]`, missing body, or unclosed group returns a typed parser error; parser budgets apply to nested radicals and indices.
 - **Unsupported forms:** arbitrary TeX radical primitives and custom radical delimiters are outside the subset.
-- **Primary contract test:** `src/layout/internal_tests/radical_geometry.rs`, `src/layout/internal_tests/radical_variant.rs`, and radical records in `tests/parse_golds.rs`.
+- **Primary contract test:** `src/layout/internal_tests/radical_geometry.rs`, `src/layout/internal_tests/radical_variant.rs`, and radical records in `src/parser/tests/parse_golds.rs`.
 - **Governing authority:** TeX82 radical semantics; OpenType MATH supplies radical constants and variants.
 
 ## Delimiters
@@ -74,7 +74,7 @@ Primary references used by this contract map:
 - **Semantic representation:** `MathNode::Delimited(Delimiter, body, Delimiter)` or `MathNode::SizedDelim(Delimiter, DelimSize, AtomKind)`.
 - **Malformed-input behavior:** unmatched fence forms return `UnmatchedDelimiter`; unknown delimiter spellings return `MalformedArgument`.
 - **Unsupported forms:** delimiter commands outside the explicit parser list are rejected rather than approximated.
-- **Primary contract test:** `src/layout/internal_tests/delimiter_sizing.rs` and delimiter records in `tests/parse_golds.rs`.
+- **Primary contract test:** `src/layout/internal_tests/delimiter_sizing.rs` and delimiter records in `src/parser/tests/parse_golds.rs`.
 - **Governing authority:** TeX82 delimiter sizing and null-delimiter semantics; OpenType MATH supplies glyph variants/assemblies.
 
 ## Accents
@@ -92,7 +92,7 @@ Primary references used by this contract map:
 - **Semantic representation:** `MathNode::Sum`, `Product`, `Limit`, `Operator`, `OverUnder`, or `StackRel`; explicit `\limits`/`\nolimits` is retained as `MathNode::Limits(..., LimitMode)`. `\overset`/`\underset` preserve only binary/relation spacing classes and otherwise become operators, while `\stackrel` is always represented as a relation. The semantic layout pass resolves default vs explicit placement and script styles before geometry.
 - **Malformed-input behavior:** missing over/under/name arguments, malformed optional x-arrow arguments, or `\limits`/`\nolimits` after a non-operator nucleus return `MalformedArgument`.
 - **Unsupported forms:** arbitrary operator declarations and macro-defined operators are outside the parser.
-- **Primary contract test:** `src/layout/internal_tests/large_operator_limits.rs`, `src/layout/internal_tests/amsmath_substack.rs`, and operator records in `tests/parse_golds.rs`.
+- **Primary contract test:** `src/layout/internal_tests/large_operator_limits.rs`, `src/layout/internal_tests/amsmath_substack.rs`, and operator records in `src/parser/tests/parse_golds.rs`.
 - **Governing authority:** TeX82 large-operator/limits semantics and LaTeX/amsmath operator commands; OpenType MATH supplies large-operator metrics.
 
 ## Integrals
@@ -146,7 +146,7 @@ Primary references used by this contract map:
 - **Semantic representation:** `MathNode::Color`, `TextColor`, `ColorBox`, or `FColorBox` carrying a typed `Color`; definitions update the parse-local `ColorTable`.
 - **Malformed-input behavior:** malformed color components return `MalformedArgument`; unsupported models or unknown named colors return `UnsupportedCommand` with the relevant specification span when available.
 - **Unsupported forms:** forward references to later color definitions and color models outside `parse_color_spec` are rejected.
-- **Primary contract test:** color records in `tests/parse_golds.rs`, `src/layout/internal_tests/layout_golds.rs::layout_golds`, and `src/layout/internal_tests/color_boxes_cancel.rs`.
+- **Primary contract test:** color records in `src/parser/tests/parse_golds.rs`, `src/layout/internal_tests/layout_golds.rs::layout_golds`, and `src/layout/internal_tests/color_boxes_cancel.rs`.
 - **Governing authority:** explicit TeXpose math-color subset using LaTeX command vocabulary. Foreground wrappers preserve geometry/class; color boxes use the standard physical `\fboxsep`/`\fboxrule` defaults while keeping their body in TeXpose math mode.
 
 ## Numbering
@@ -185,7 +185,7 @@ Primary references used by this contract map:
 - **Semantic representation:** `MathNode::Phantom(PhantomKind::{Full, Vertical, Horizontal}, body)`.
 - **Malformed-input behavior:** missing/unclosed body arguments return typed parser errors.
 - **Unsupported forms:** package-specific phantom variants are not inferred.
-- **Primary contract test:** `src/layout/internal_tests/phantom_overunder.rs` plus phantom records in `tests/parse_golds.rs`, `src/layout/internal_tests/layout_golds.rs`, and the math comparison corpus.
+- **Primary contract test:** `src/layout/internal_tests/phantom_overunder.rs` plus phantom records in `src/parser/tests/parse_golds.rs`, `src/layout/internal_tests/layout_golds.rs`, and the math comparison corpus.
 - **Governing authority:** TeX/LaTeX phantom semantics as narrowed by `PhantomKind`.
 
 ## Boxes and rules
@@ -210,10 +210,10 @@ Primary references used by this contract map:
 
 ## Diagnostic and resource contract
 
-`SourceSpan` offsets are byte offsets into the exact string passed to `parse*`/`tokenize_spanned`; they are half-open `[start, end)` ranges and therefore remain correct for UTF-8 source. Semantic preprocessing is identity-preserving, so parser diagnostics do not need to reverse-map rewritten text.
+`SourceSpan` offsets are byte offsets into the exact string passed to `parse` or `parse_with_options`; they are half-open `[start, end)` ranges and therefore remain correct for UTF-8 source. TeXpose has no semantic preprocessing stage: the exact caller source is tokenized directly, so diagnostics never need to reverse-map rewritten text. Spans are parser-produced read-only values inspected through `start()`, `end()`, `len()`, and `is_empty()`.
 
 The required parser failure categories are `TrailingBackslash`, `UnknownCommand`, `UnsupportedCommand`, `UnclosedGroup`, `UnexpectedGroupEnd`, `UnmatchedDelimiter`, `MismatchedEnvironment`, `MalformedArgument`, `MalformedDimension`, `MalformedMatrix`, and `ResourceLimit`. `tests/parser_diagnostics.rs` owns their typed reachability and span contracts.
 
-`ParseOptions` controls five independent budgets. The defaults are 32 nesting levels, 65,536 returned AST nodes, 4,096 total environment rows, 16,384 total environment cells, and 131,072 lexical tokens. Token, nesting, row, and cell limits are checked before accepting the next unit of that resource. The AST-node limit is an exact checked count of the completed returned tree; pre-tree parsing work remains independently bounded by the token, nesting, row, and cell budgets. Counter arithmetic is checked throughout. A would-exceed condition returns `ResourceLimit` with the resource and configured limit in `ParseErrorDetail`. `src/layout/internal_tests/depth_limit.rs::parser_resource_budgets_cover_hostile_shapes` owns hostile-input coverage.
+`ParseOptions` controls five independent budgets through `with_*` builders and read-only getters. The defaults are 32 nesting levels, 65,536 returned AST nodes, 4,096 total environment rows, 16,384 total environment cells, and 131,072 lexical tokens. Token, nesting, row, and cell limits are checked before accepting the next unit of that resource. The AST-node limit is an exact checked count of the completed returned tree; pre-tree parsing work remains independently bounded by the token, nesting, row, and cell budgets. Counter arithmetic is checked throughout. A would-exceed condition returns `ResourceLimit` with the resource and configured limit in `ParseErrorDetail`. `src/layout/internal_tests/depth_limit.rs::parser_resource_budgets_cover_hostile_shapes` owns hostile-input coverage.
 
 These five parser budgets do not impose a source-byte or individual control-word-length limit. Callers that accept untrusted inputs and require a hard byte-volume ceiling must enforce that separate boundary before calling the parser.

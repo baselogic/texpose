@@ -2,9 +2,34 @@
 //!
 //! The current codebase is an independent hard fork of LaTeX-Rust 2.0.1 and is
 //! being reduced and reworked around backend-neutral parsing, font metrics, and
-//! layout. Public API stability is not yet promised.
+//! layout. The parser boundary is stabilized; font and layout API review remains in progress.
 //!
 //! Unsupported constructs return [`Error`] rather than fabricating output. Missing cmap entries are recoverable layout diagnostics with deterministic degradation.
+//!
+//! Parser consumers use crate-root items rather than the private source module:
+//!
+//! ```compile_fail
+//! use texpose::parser::parse;
+//! ```
+//!
+//! Former lexer/preprocessor helpers are intentionally not consumer API:
+//!
+//! ```compile_fail
+//! use texpose::tokenize_spanned;
+//! ```
+//!
+//! ```compile_fail
+//! use texpose::parse_with_colors;
+//! ```
+//!
+//! ```compile_fail
+//! use texpose::preprocess;
+//! ```
+//!
+//! ```
+//! let ast = texpose::parse(r"\frac{1}{2}").unwrap();
+//! assert!(matches!(ast, texpose::MathNode::Fraction(_)));
+//! ```
 
 #![forbid(unsafe_code)]
 #![deny(dead_code)]
@@ -25,8 +50,7 @@ mod symbols;
 pub mod font;
 /// AST → backend-neutral [`MathLayout`](layout::MathLayout).
 pub mod layout;
-/// LaTeX math → [`MathNode`](parser::MathNode) AST.
-pub mod parser;
+mod parser;
 /// The OpenType parser this crate uses, re-exported so that consumers of
 /// [`MathFont::face`] name the same parser version.
 pub use ttf_parser;
@@ -45,12 +69,11 @@ pub use layout::{
     MathStyle, NumberFormat, NumberStyle, NumberingConfig, NumberingState,
 };
 pub use parser::{
-    format_tokens, parse, parse_with_colors, parse_with_options, preprocess, tokenize,
-    tokenize_spanned, AccentKind, AtomKind, ColSpec, DelimSize, Delimiter, EnvRow, EqNumber,
-    FractionAlignment, FractionRule, FractionSpec, FractionStyle, IntegralKind, Length, LimitMode,
-    MathNode, MathStyleDeclaration, MatrixStyle, ParseOptions, PhantomKind, SpaceKind,
-    SpannedToken, TextStyle, Token, DEFAULT_MAX_AST_NODES, DEFAULT_MAX_ENVIRONMENT_CELLS,
-    DEFAULT_MAX_ENVIRONMENT_ROWS, DEFAULT_MAX_NESTING_DEPTH, DEFAULT_MAX_TOKENS,
+    parse, parse_with_options, AccentKind, AtomKind, ColSpec, DelimSize, Delimiter, EnvRow,
+    EqNumber, FractionAlignment, FractionRule, FractionSpec, FractionStyle, IntegralKind, Length,
+    LimitMode, MathNode, MathStyleDeclaration, MatrixStyle, ParseOptions, PhantomKind, SpaceKind,
+    TextStyle, DEFAULT_MAX_AST_NODES, DEFAULT_MAX_ENVIRONMENT_CELLS, DEFAULT_MAX_ENVIRONMENT_ROWS,
+    DEFAULT_MAX_NESTING_DEPTH, DEFAULT_MAX_TOKENS,
 };
 pub use style_map::styled_char;
 pub use symbols::{category_count, glyph_char, lookup, symbols, SymbolEntry, SymbolKind};
@@ -59,20 +82,24 @@ pub use symbols::{category_count, glyph_char, lookup, symbols, SymbolEntry, Symb
 extern crate self as texpose;
 
 #[cfg(test)]
+#[path = "../tests/support/golds.rs"]
+pub(crate) mod gold_support;
+
+#[cfg(test)]
 pub(crate) mod test_support {
     pub(crate) use crate::layout::engine::{
         layout, layout_with_diagnostics, layout_with_em_size_pt,
         layout_with_em_size_pt_and_diagnostics, layout_with_max_depth, layout_with_numbering,
     };
     pub(crate) use crate::layout::{BoxContent, LayoutOutput, MathBox};
+    pub(crate) use crate::parser::{format_tokens, tokenize};
     pub(crate) use crate::{
-        category_count, format_tokens, lookup, named_color, parse, parse_color_spec,
-        parse_with_options, styled_char, symbol_atom_kind, symbols, tokenize, AccentKind, AtomKind,
-        Color, ColorTable, Dim, Error, FontError, FractionAlignment, FractionRule, FractionSpec,
-        FractionStyle, LayoutDiagnostic, Length, MathFont, MathNode, MathParams, MathStyle,
-        NumberFormat, NumberStyle, NumberingConfig, NumberingState, ParseError, ParseErrorKind,
-        ParseOptions, SpaceKind, SymbolKind, TextStyle, DEFAULT_MAX_AST_NODES,
-        DEFAULT_MAX_ENVIRONMENT_CELLS, DEFAULT_MAX_ENVIRONMENT_ROWS, DEFAULT_MAX_NESTING_DEPTH,
-        DEFAULT_MAX_TOKENS,
+        category_count, lookup, named_color, parse, parse_color_spec, parse_with_options,
+        styled_char, symbol_atom_kind, symbols, AccentKind, AtomKind, Color, ColorTable, Dim,
+        Error, FontError, FractionAlignment, FractionRule, FractionSpec, FractionStyle,
+        LayoutDiagnostic, Length, MathFont, MathNode, MathParams, MathStyle, NumberFormat,
+        NumberStyle, NumberingConfig, NumberingState, ParseError, ParseErrorKind, ParseOptions,
+        SpaceKind, SymbolKind, TextStyle, DEFAULT_MAX_AST_NODES, DEFAULT_MAX_ENVIRONMENT_CELLS,
+        DEFAULT_MAX_ENVIRONMENT_ROWS, DEFAULT_MAX_NESTING_DEPTH, DEFAULT_MAX_TOKENS,
     };
 }

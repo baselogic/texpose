@@ -1,9 +1,9 @@
 //! Gold runner: `golds/parse.toml` is the parser contract.
 
-#[path = "support/golds.rs"]
-mod gold_support;
+use crate::gold_support;
+use crate::{symbols, ParseError, ParseErrorKind, SymbolKind};
 
-use texpose::{parse, symbols, ParseError, SymbolKind};
+use super::super::parse;
 
 struct Rec {
     name: String,
@@ -37,17 +37,17 @@ fn load_golds() -> Vec<Rec> {
 
 fn variant_name(err: &ParseError) -> &'static str {
     match err.kind() {
-        texpose::ParseErrorKind::TrailingBackslash => "TrailingBackslash",
-        texpose::ParseErrorKind::UnknownCommand => "UnknownCommand",
-        texpose::ParseErrorKind::UnsupportedCommand => "UnsupportedCommand",
-        texpose::ParseErrorKind::UnclosedGroup => "UnclosedGroup",
-        texpose::ParseErrorKind::UnexpectedGroupEnd => "UnexpectedGroupEnd",
-        texpose::ParseErrorKind::UnmatchedDelimiter => "UnmatchedDelimiter",
-        texpose::ParseErrorKind::MismatchedEnvironment => "MismatchedEnvironment",
-        texpose::ParseErrorKind::MalformedArgument => "MalformedArgument",
-        texpose::ParseErrorKind::MalformedDimension => "MalformedDimension",
-        texpose::ParseErrorKind::MalformedMatrix => "MalformedMatrix",
-        texpose::ParseErrorKind::ResourceLimit => "ResourceLimit",
+        ParseErrorKind::TrailingBackslash => "TrailingBackslash",
+        ParseErrorKind::UnknownCommand => "UnknownCommand",
+        ParseErrorKind::UnsupportedCommand => "UnsupportedCommand",
+        ParseErrorKind::UnclosedGroup => "UnclosedGroup",
+        ParseErrorKind::UnexpectedGroupEnd => "UnexpectedGroupEnd",
+        ParseErrorKind::UnmatchedDelimiter => "UnmatchedDelimiter",
+        ParseErrorKind::MismatchedEnvironment => "MismatchedEnvironment",
+        ParseErrorKind::MalformedArgument => "MalformedArgument",
+        ParseErrorKind::MalformedDimension => "MalformedDimension",
+        ParseErrorKind::MalformedMatrix => "MalformedMatrix",
+        ParseErrorKind::ResourceLimit => "ResourceLimit",
     }
 }
 

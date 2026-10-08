@@ -8,7 +8,7 @@ use crate::error::{ParseError, ParseResource, SourceSpan};
 
 /// A single TeX-style math token.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Token {
+pub(crate) enum Token {
     /// Ordinary character (letter, digit, or other).
     Char(char),
     /// Control sequence without the leading backslash (`frac`, `[`, `,`).
@@ -33,11 +33,9 @@ pub enum Token {
 
 /// A token paired with its byte range in the original source.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SpannedToken {
-    /// Token kind/value.
-    pub token: Token,
-    /// Half-open byte range in the original source.
-    pub span: SourceSpan,
+pub(crate) struct SpannedToken {
+    pub(crate) token: Token,
+    pub(crate) span: SourceSpan,
 }
 
 impl fmt::Display for Token {
@@ -57,55 +55,29 @@ impl fmt::Display for Token {
     }
 }
 
-/// Format a token stream as a gold-stable string.
-///
-/// # Examples
-///
-/// ```
-/// use texpose::{format_tokens, tokenize};
-///
-/// let t = tokenize(r"a^2").unwrap();
-/// assert_eq!(format_tokens(&t), "char:a ^ char:2");
-/// ```
-#[must_use]
-pub fn format_tokens(tokens: &[Token]) -> String {
+#[cfg(test)]
+pub(crate) fn format_tokens(tokens: &[Token]) -> String {
     let mut out = String::new();
-    for (i, t) in tokens.iter().enumerate() {
+    for (i, token) in tokens.iter().enumerate() {
         if i > 0 {
             out.push(' ');
         }
-        out.push_str(&t.to_string());
+        out.push_str(&token.to_string());
     }
     out
 }
 
-/// Tokenize a LaTeX math string.
-///
-/// This compatibility view returns token values without source spans. Use
-/// [`tokenize_spanned`] when diagnostics or source mapping require byte ranges.
-/// ASCII spaces are retained as [`Token::Space`]; tabs/newlines and `%` line
-/// comments are skipped, matching the existing TeXpose math-token contract.
-///
-/// # Errors
-///
-/// Returns a typed [`ParseError`] if the source ends with a stray backslash.
-pub fn tokenize(input: &str) -> Result<Vec<Token>, ParseError> {
+#[cfg(test)]
+pub(crate) fn tokenize(input: &str) -> Result<Vec<Token>, ParseError> {
     Ok(tokenize_spanned(input)?
         .into_iter()
         .map(|item| item.token)
         .collect())
 }
 
-/// Tokenize a LaTeX math string while retaining original-source byte ranges.
-///
-/// Control-word whitespace consumed after a command is not included in the
-/// command span. Spans therefore identify the lexical token itself rather than
-/// incidental whitespace skipped by TeX command scanning.
-///
-/// # Errors
-///
-/// Returns a typed [`ParseError`] if the source ends with a stray backslash.
-pub fn tokenize_spanned(input: &str) -> Result<Vec<SpannedToken>, ParseError> {
+/// Tokenize while retaining exact original-source byte ranges.
+#[cfg(test)]
+pub(crate) fn tokenize_spanned(input: &str) -> Result<Vec<SpannedToken>, ParseError> {
     tokenize_spanned_with_limit(input, usize::MAX)
 }
 

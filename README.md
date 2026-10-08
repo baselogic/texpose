@@ -6,9 +6,13 @@ TeXpose is an independent hard fork of LaTeX-Rust 2.0.1. It is not synchronized 
 
 ## Status
 
-TeXpose is in early development. The current core contains math parsing, OpenType MATH font metrics, exact TeX-style internal geometry, and a flat backend-neutral public display list. Rendering, rasterization, windows, surfaces, GPU/device lifetime, pixel snapping, and application UI are consumer responsibilities. The public API and repository structure remain intentionally unstable while the hard-fork cutover is completed.
+TeXpose is in early development. The current core contains math parsing, OpenType MATH font metrics, exact TeX-style internal geometry, and a flat backend-neutral public display list. Rendering, rasterization, windows, surfaces, GPU/device lifetime, pixel snapping, and application UI are consumer responsibilities. The parser boundary is stabilized in Phase L1; font and layout API review remains separate work.
 
 The architecture is backend-neutral: TeXpose produces typed notation plus `MathLayout`, a flat root-em-normalized display list that applications consume through their native graphics stack. Planned domains may extend beyond mathematics to chemistry, SI units, and other scientific notation.
+
+## Parser API
+
+Consumer parsing starts at the crate-root `parse` or `parse_with_options` functions. Typed failures expose read-only source spans. Lexer/preprocessor machinery, the parser module itself, and test/golden helpers are implementation details. See `docs/PARSER_API.md` for the Phase L1 compatibility boundary and `docs/SYNTAX.md` for accepted syntax.
 
 ## Provenance
 

@@ -95,7 +95,7 @@ fn caller_can_raise_and_lower_the_limit() {
                     d_tight < d_default && d_default < d_roomy,
                     "{name}: {d_tight} {d_default} {d_roomy}"
                 );
-                let (ast, _) = parse_with_options(&make(d_roomy), &roomy).expect("roomy parse");
+                let ast = parse_with_options(&make(d_roomy), &roomy).expect("roomy parse");
                 assert!(
                     layout_with_max_depth(&ast, &font, MathStyle::Display, 128).is_ok(),
                     "{name}@{d_roomy}: roomy layout"
@@ -116,14 +116,17 @@ fn default_resource_budgets_are_stable() {
     assert_eq!(DEFAULT_MAX_TOKENS, 131_072);
 
     let defaults = ParseOptions::default();
-    assert_eq!(defaults.max_depth, DEFAULT_MAX_NESTING_DEPTH);
-    assert_eq!(defaults.max_ast_nodes, DEFAULT_MAX_AST_NODES);
-    assert_eq!(defaults.max_environment_rows, DEFAULT_MAX_ENVIRONMENT_ROWS);
+    assert_eq!(defaults.max_depth(), DEFAULT_MAX_NESTING_DEPTH);
+    assert_eq!(defaults.max_ast_nodes(), DEFAULT_MAX_AST_NODES);
     assert_eq!(
-        defaults.max_environment_cells,
+        defaults.max_environment_rows(),
+        DEFAULT_MAX_ENVIRONMENT_ROWS
+    );
+    assert_eq!(
+        defaults.max_environment_cells(),
         DEFAULT_MAX_ENVIRONMENT_CELLS
     );
-    assert_eq!(defaults.max_tokens, DEFAULT_MAX_TOKENS);
+    assert_eq!(defaults.max_tokens(), DEFAULT_MAX_TOKENS);
 }
 
 fn assert_resource_limit(
@@ -237,5 +240,5 @@ fn exact_resource_boundaries_accept_limit_and_reject_next_unit() {
     let error = parse_with_options("αβ", &ParseOptions::new().with_max_tokens(1))
         .expect_err("second UTF-8 token must exceed budget");
     assert_eq!(error.kind(), texpose::ParseErrorKind::ResourceLimit);
-    assert_eq!(error.span(), texpose::SourceSpan { start: 2, end: 4 });
+    assert_eq!((error.span().start(), error.span().end()), (2, 4));
 }

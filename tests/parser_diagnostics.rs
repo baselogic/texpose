@@ -1,34 +1,14 @@
 //! Parser diagnostics carry typed kinds and byte spans in the original source.
 
-use texpose::{parse, tokenize_spanned, ParseErrorDetail, ParseErrorKind, SourceSpan, Token};
+use texpose::{parse, ParseErrorDetail, ParseErrorKind, SourceSpan};
 
-fn span_of(source: &str, needle: &str) -> SourceSpan {
+fn span_of(source: &str, needle: &str) -> (usize, usize) {
     let start = source.find(needle).expect("needle");
-    SourceSpan {
-        start,
-        end: start + needle.len(),
-    }
+    (start, start + needle.len())
 }
 
-#[test]
-fn tokenizer_spans_are_original_utf8_byte_ranges() {
-    let source = "α % skipped\n\\frac  {β}{2}";
-    let tokens = tokenize_spanned(source).expect("tokenize");
-
-    assert_eq!(tokens[0].token, Token::Char('α'));
-    assert_eq!(tokens[0].span, SourceSpan { start: 0, end: 2 });
-
-    let command = tokens
-        .iter()
-        .find(|item| matches!(&item.token, Token::Command(name) if name == "frac"))
-        .expect("frac token");
-    assert_eq!(command.span, span_of(source, r"\frac"));
-
-    let beta = tokens
-        .iter()
-        .find(|item| item.token == Token::Char('β'))
-        .expect("beta token");
-    assert_eq!(beta.span, span_of(source, "β"));
+fn assert_span(actual: SourceSpan, expected: (usize, usize)) {
+    assert_eq!((actual.start(), actual.end()), expected);
 }
 
 #[test]
@@ -44,32 +24,24 @@ fn parser_errors_keep_typed_kind_and_original_source_span() {
             ParseErrorKind::UnknownCommand,
             span_of("α+\\doesnotexist", r"\doesnotexist"),
         ),
-        (
-            "{α",
-            ParseErrorKind::UnclosedGroup,
-            SourceSpan { start: 0, end: 1 },
-        ),
-        (
-            "x}",
-            ParseErrorKind::UnexpectedGroupEnd,
-            SourceSpan { start: 1, end: 2 },
-        ),
+        ("{α", ParseErrorKind::UnclosedGroup, (0, 1)),
+        ("x}", ParseErrorKind::UnexpectedGroupEnd, (1, 2)),
         (
             r"\hspace{12zz}",
             ParseErrorKind::MalformedDimension,
             span_of(r"\hspace{12zz}", "12zz"),
         ),
-        (
-            "x__y",
-            ParseErrorKind::MalformedArgument,
-            SourceSpan { start: 2, end: 3 },
-        ),
+        ("x__y", ParseErrorKind::MalformedArgument, (2, 3)),
     ];
 
     for (source, kind, span) in cases {
         let error = parse(source).expect_err(source);
         assert_eq!(error.kind(), kind, "{source}: {error}");
-        assert_eq!(error.span(), span, "{source}: {error}");
+        assert_eq!(
+            (error.span().start(), error.span().end()),
+            span,
+            "{source}: {error}"
+        );
     }
 }
 
@@ -78,7 +50,7 @@ fn environment_mismatch_carries_both_names_and_closing_name_span() {
     let source = r"\begin{matrix}x\end{aligned}";
     let error = parse(source).expect_err("mismatch");
     assert_eq!(error.kind(), ParseErrorKind::MismatchedEnvironment);
-    assert_eq!(error.span(), span_of(source, "aligned"));
+    assert_span(error.span(), span_of(source, "aligned"));
     assert_eq!(
         error.detail(),
         &ParseErrorDetail::Environment {

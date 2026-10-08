@@ -4,7 +4,7 @@
 //! distributions instead of enforcing machine-specific latency thresholds.
 //!
 //! I1 measures production boundaries that exist today: `MathFont` construction,
-//! `ttf_parser::Face::parse`, tokenization, parsing, and simple, complex, and
+//! `ttf_parser::Face::parse`, parsing, and simple, complex, and
 //! stress layout. I3 adds representative primitive-layout workloads for scripts,
 //! fractions, radicals, large delimiters, glyph assemblies, large operators,
 //! matrices, and aligned environments. Semantic normalization is included in
@@ -19,7 +19,7 @@ use std::time::{Duration, Instant};
 #[path = "../tests/common/mod.rs"]
 mod common;
 
-use texpose::{layout, parse, tokenize_spanned, MathStyle};
+use texpose::{layout, parse, MathStyle};
 
 const SIMPLE: &str = "x";
 const COMPLEX: &str = r"\sum_{n=1}^{N}\frac{1}{n^{2}}=\frac{\pi^{2}}{6}";
@@ -162,10 +162,6 @@ fn main() {
         )
         .expect("STIX Two Math face");
         black_box(face.number_of_glyphs())
-    });
-
-    measure("tokenize complex", || {
-        tokenize_spanned(black_box(COMPLEX)).expect("tokenize complex")
     });
 
     measure("parse complex", || {

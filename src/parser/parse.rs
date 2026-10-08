@@ -8,7 +8,6 @@ use super::ast::{
     FractionRule, FractionSpec, FractionStyle, IntegralKind, Length, LimitMode, MathNode,
     MathStyleDeclaration, MatrixStyle, PhantomKind, SpaceKind, TextStyle,
 };
-use super::preproc::preprocess;
 use super::token::{tokenize_spanned_with_limit, SpannedToken, Token};
 use crate::color::{parse_color_spec, Color, ColorTable};
 use crate::dim::Dim;
@@ -42,6 +41,16 @@ pub const DEFAULT_MAX_TOKENS: usize = 131_072;
 
 /// Options for [`parse_with_options`].
 ///
+/// Configuration fields are intentionally private. Use the `with_*` builders to
+/// change budgets and the read-only getters to inspect the resulting value.
+///
+/// ```compile_fail
+/// use texpose::ParseOptions;
+///
+/// let options = ParseOptions::new();
+/// let _ = options.max_depth;
+/// ```
+///
 /// # Examples
 ///
 /// ```
@@ -55,16 +64,11 @@ pub const DEFAULT_MAX_TOKENS: usize = 131_072;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct ParseOptions {
-    /// Deepest parser recursion accepted. Defaults to [`DEFAULT_MAX_NESTING_DEPTH`].
-    pub max_depth: usize,
-    /// Maximum nodes in the returned AST. Defaults to [`DEFAULT_MAX_AST_NODES`].
-    pub max_ast_nodes: usize,
-    /// Maximum total environment rows. Defaults to [`DEFAULT_MAX_ENVIRONMENT_ROWS`].
-    pub max_environment_rows: usize,
-    /// Maximum total environment cells. Defaults to [`DEFAULT_MAX_ENVIRONMENT_CELLS`].
-    pub max_environment_cells: usize,
-    /// Maximum lexical tokens produced from the source. Defaults to [`DEFAULT_MAX_TOKENS`].
-    pub max_tokens: usize,
+    max_depth: usize,
+    max_ast_nodes: usize,
+    max_environment_rows: usize,
+    max_environment_cells: usize,
+    max_tokens: usize,
 }
 
 impl Default for ParseOptions {
@@ -84,6 +88,36 @@ impl ParseOptions {
     #[must_use]
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Deepest parser recursion accepted.
+    #[must_use]
+    pub const fn max_depth(&self) -> usize {
+        self.max_depth
+    }
+
+    /// Maximum number of nodes in the returned AST.
+    #[must_use]
+    pub const fn max_ast_nodes(&self) -> usize {
+        self.max_ast_nodes
+    }
+
+    /// Maximum total number of rows across parsed environments.
+    #[must_use]
+    pub const fn max_environment_rows(&self) -> usize {
+        self.max_environment_rows
+    }
+
+    /// Maximum total number of cells across parsed environments.
+    #[must_use]
+    pub const fn max_environment_cells(&self) -> usize {
+        self.max_environment_cells
+    }
+
+    /// Maximum number of lexical tokens produced from the source.
+    #[must_use]
+    pub const fn max_tokens(&self) -> usize {
+        self.max_tokens
     }
 
     /// Set the deepest parser recursion accepted.
@@ -125,18 +159,11 @@ impl ParseOptions {
     }
 }
 
-/// Parse a LaTeX math string into a [`MathNode`] using a fresh color table.
+/// Parse a LaTeX math string into a [`MathNode`].
 ///
 /// Accepts raw math, `$...$`, `$$...$$`, `\(...\)`, or `\[...\]`. Binding of
-/// `_` / `^` / primes is Pratt-style (tight postfix on the nucleus).
-///
-/// # Arguments
-///
-/// * `input` — math source, with or without delimiter fences.
-///
-/// # Returns
-///
-/// The typed AST, or a [`ParseError`] naming the problem.
+/// `_` / `^` / primes is Pratt-style (tight postfix on the nucleus). Color
+/// definitions are parse-local state; resolved colors are stored directly in the AST.
 ///
 /// # Errors
 ///
@@ -148,44 +175,16 @@ impl ParseOptions {
 /// # Examples
 ///
 /// ```
-/// use texpose::parse;
+/// use texpose::{parse, MathNode};
 ///
 /// let ast = parse(r"\frac{1}{2}").unwrap();
-/// assert_eq!(ast.gold(), r#"(frac (atom Ord "1") (atom Ord "2"))"#);
+/// assert!(matches!(ast, MathNode::Fraction(_)));
 /// ```
 pub fn parse(input: &str) -> Result<MathNode, ParseError> {
-    parse_with_colors(input).map(|(n, _)| n)
-}
-
-/// Parse a math string, returning the AST and the color table after `\definecolor`.
-///
-/// # Arguments
-///
-/// * `input` — math source, with or without delimiter fences.
-///
-/// # Returns
-///
-/// The AST and the color table including any `\definecolor` names from `input`.
-///
-/// # Errors
-///
-/// Same as [`parse`].
-///
-/// # Examples
-///
-/// ```
-/// use texpose::parse_with_colors;
-///
-/// let (ast, table) = parse_with_colors(r"\definecolor{ok}{named}{red}x").unwrap();
-/// assert!(table.get("ok").is_ok());
-/// let _ = ast;
-/// ```
-pub fn parse_with_colors(input: &str) -> Result<(MathNode, ColorTable), ParseError> {
     parse_with_options(input, &ParseOptions::default())
 }
 
-/// Parse a math string with explicit [`ParseOptions`], returning the AST and
-/// the color table after `\definecolor`.
+/// Parse a math string with explicit [`ParseOptions`].
 ///
 /// # Errors
 ///
@@ -200,12 +199,8 @@ pub fn parse_with_colors(input: &str) -> Result<(MathNode, ColorTable), ParseErr
 /// let tight = ParseOptions::new().with_max_depth(4);
 /// assert!(parse_with_options(r"\frac{1}{\frac{1}{\frac{1}{2}}}", &tight).is_err());
 /// ```
-pub fn parse_with_options(
-    input: &str,
-    options: &ParseOptions,
-) -> Result<(MathNode, ColorTable), ParseError> {
-    let sanitized = preprocess(input);
-    let tokens = tokenize_spanned_with_limit(&sanitized, options.max_tokens)?;
+pub fn parse_with_options(input: &str, options: &ParseOptions) -> Result<MathNode, ParseError> {
+    let tokens = tokenize_spanned_with_limit(input, options.max_tokens)?;
     let tokens = strip_fences(&tokens)?;
     let mut p = Parser {
         tokens,
@@ -216,7 +211,7 @@ pub fn parse_with_options(
         max_rows: options.max_environment_rows,
         cells: 0,
         max_cells: options.max_environment_cells,
-        source_len: sanitized.len(),
+        source_len: input.len(),
         colors: ColorTable::new(),
     };
     let node = p.parse_list(Stop::eof())?;
@@ -230,8 +225,8 @@ pub fn parse_with_options(
             format!("unexpected leftover token {token}"),
         ));
     }
-    enforce_ast_node_limit(&node, options.max_ast_nodes, sanitized.len())?;
-    Ok((node, p.colors))
+    enforce_ast_node_limit(&node, options.max_ast_nodes, input.len())?;
+    Ok(node)
 }
 
 #[derive(Clone, Copy)]
@@ -1566,7 +1561,7 @@ impl Parser {
                 ))
             }
         }
-        let content_start = open_span.end;
+        let content_start = open_span.end();
         let initial_depth = self.depth.checked_add(1).ok_or_else(|| {
             ParseError::resource_limit(open_span, ParseResource::NestingDepth, self.max_depth)
         })?;
@@ -1619,7 +1614,7 @@ impl Parser {
                     if depth == 0 {
                         return Ok(SpannedText {
                             text,
-                            span: SourceSpan::new(content_start, token_span.start),
+                            span: SourceSpan::new(content_start, token_span.start()),
                         });
                     }
                     text.push('}');

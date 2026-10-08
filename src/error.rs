@@ -18,12 +18,19 @@ pub enum NumericError {
 }
 
 /// Byte range in the original math source, half-open as `[start, end)`.
+///
+/// Spans are created by TeXpose and are read-only consumer values. Use the
+/// accessors rather than depending on the representation.
+///
+/// ```compile_fail
+/// let error = texpose::parse("{").unwrap_err();
+/// let span = error.span();
+/// let _ = span.start;
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SourceSpan {
-    /// Inclusive starting byte offset.
-    pub start: usize,
-    /// Exclusive ending byte offset.
-    pub end: usize,
+    start: usize,
+    end: usize,
 }
 
 impl SourceSpan {
@@ -37,10 +44,35 @@ impl SourceSpan {
             end: offset,
         }
     }
+
+    /// Inclusive starting byte offset.
+    #[must_use]
+    pub const fn start(self) -> usize {
+        self.start
+    }
+
+    /// Exclusive ending byte offset.
+    #[must_use]
+    pub const fn end(self) -> usize {
+        self.end
+    }
+
+    /// Length of the covered byte range.
+    #[must_use]
+    pub const fn len(self) -> usize {
+        self.end - self.start
+    }
+
+    /// True when the span is a point between bytes.
+    #[must_use]
+    pub const fn is_empty(self) -> bool {
+        self.start == self.end
+    }
 }
 
 /// Parser resource controlled by [`crate::ParseOptions`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ParseResource {
     /// Recursive parser nesting.
     NestingDepth,
@@ -68,6 +100,7 @@ impl fmt::Display for ParseResource {
 
 /// Typed parser failure category.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ParseErrorKind {
     /// Input ended with a stray `\` and no command character.
     TrailingBackslash,
@@ -95,12 +128,16 @@ pub enum ParseErrorKind {
 
 /// Structured parser-error details.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ParseErrorDetail {
     /// No additional detail is required.
     None,
     /// Command or construct name involved in the failure.
     Command(String),
-    /// Free-form construct-specific diagnostic text.
+    /// Human-readable construct-specific diagnostic context.
+    ///
+    /// This text is not a machine-stable discriminator; callers should branch on
+    /// [`ParseErrorKind`] and typed detail variants instead.
     Message(String),
     /// Environment closing mismatch.
     Environment {
@@ -139,7 +176,10 @@ impl ParseError {
         self.span
     }
 
-    /// Construct-specific information for diagnostics and callers.
+    /// Construct-specific typed information for diagnostics and callers.
+    ///
+    /// Free-form [`ParseErrorDetail::Message`] text is human-facing and is not a
+    /// compatibility discriminator.
     #[must_use]
     pub const fn detail(&self) -> &ParseErrorDetail {
         &self.detail

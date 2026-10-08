@@ -5,6 +5,7 @@ use crate::dim::Dim;
 
 /// TeX math atom class (Appendix G).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum AtomKind {
     /// Ordinary (`x`, `1`, `\alpha` as a letter-like glyph).
     Ord,
@@ -41,6 +42,7 @@ impl AtomKind {
 
 /// Accent or decoration applied to a nucleus.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum AccentKind {
     /// `\hat`
     Hat,
@@ -143,6 +145,7 @@ impl AccentKind {
 
 /// Math-alphabet style for a run of mathematical characters.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum TextStyle {
     /// `\mathrm`
     Rm,
@@ -188,6 +191,7 @@ impl TextStyle {
 
 /// Parsed TeX/LaTeX length whose unit is preserved until layout.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Length {
     /// Math-style em units.
     Em(Dim),
@@ -212,6 +216,7 @@ impl Length {
 
 /// Horizontal skip.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum SpaceKind {
     /// `\,`
     Thin,
@@ -233,6 +238,7 @@ pub enum SpaceKind {
 
 /// Matrix / alignment environment.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum MatrixStyle {
     /// `{matrix}`
     Matrix,
@@ -286,7 +292,7 @@ impl MatrixStyle {
 
     /// `align` / `gather` / `multline` / `equation` take display style and numbers.
     #[must_use]
-    pub fn is_display_env(self) -> bool {
+    pub(crate) fn is_display_env(self) -> bool {
         matches!(
             self,
             Self::Align | Self::Gather | Self::Multline | Self::Equation
@@ -295,19 +301,20 @@ impl MatrixStyle {
 
     /// Rows are numbered unless `\nonumber` / `\notag` / `\tag` says otherwise.
     #[must_use]
-    pub fn numbers_rows(self) -> bool {
+    pub(crate) fn numbers_rows(self) -> bool {
         matches!(self, Self::Align | Self::Gather)
     }
 
     /// One equation number for the whole environment (last line for `multline`).
     #[must_use]
-    pub fn numbers_once(self) -> bool {
+    pub(crate) fn numbers_once(self) -> bool {
         matches!(self, Self::Equation | Self::Multline)
     }
 }
 
 /// One column of an `{array}` preamble (`l`, `c`, `r`, `|`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ColSpec {
     /// `l`
     Left,
@@ -331,13 +338,14 @@ impl ColSpec {
 
     /// True for `|`.
     #[must_use]
-    pub fn is_rule(self) -> bool {
+    pub(crate) fn is_rule(self) -> bool {
         matches!(self, Self::VRule)
     }
 }
 
 /// Per-row equation number in numbered environments.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum EqNumber {
     /// Auto number when the environment numbers rows; none otherwise.
     Default,
@@ -354,6 +362,7 @@ pub enum EqNumber {
 
 /// One row of a matrix / alignment environment.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum EnvRow {
     /// Alignment cells (`&`-separated).
     Cells {
@@ -419,6 +428,7 @@ impl EnvRow {
 
 /// Which integral glyph.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum IntegralKind {
     /// `\int`
     Int,
@@ -446,6 +456,7 @@ impl IntegralKind {
 
 /// Explicit TeX math-style declaration retained in the syntax tree.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum MathStyleDeclaration {
     /// `\displaystyle`
     Display,
@@ -470,6 +481,7 @@ impl MathStyleDeclaration {
 
 /// Explicit TeX operator-limit control retained until semantic normalization.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum LimitMode {
     /// `\limits` forces limits above and below the operator.
     Limits,
@@ -488,6 +500,7 @@ impl LimitMode {
 
 /// `\phantom` / `\vphantom` / `\hphantom`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum PhantomKind {
     /// `\phantom`
     Full,
@@ -509,6 +522,7 @@ impl PhantomKind {
 
 /// A `\left` / `\right` delimiter (or `.` for empty).
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Delimiter {
     /// `\left.` / `\right.`
     Empty,
@@ -536,6 +550,7 @@ impl Delimiter {
 
 /// Math style explicitly requested by a generalized fraction command.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum FractionStyle {
     /// Inherit the surrounding math style (`\frac`, `\over`, `\choose`).
     Inherit,
@@ -563,6 +578,7 @@ impl FractionStyle {
 
 /// Fraction-rule policy retained from syntax until fraction layout.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum FractionRule {
     /// Use the font's normal fraction-rule thickness.
     Default,
@@ -585,6 +601,7 @@ impl FractionRule {
 /// Numerator alignment policy. `Default` identifies ordinary fractions;
 /// explicit center/left/right values retain `\cfrac` semantics.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum FractionAlignment {
     /// Ordinary fraction centering.
     Default,
@@ -652,6 +669,7 @@ impl FractionSpec {
 
 /// `\big` / `\Big` / `\bigg` / `\Bigg` (and `l`/`r`/`m` siblings).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum DelimSize {
     /// `\big` — about 1.2 em.
     Big,
@@ -675,7 +693,7 @@ impl DelimSize {
 
     /// Map a control sequence to a size. `None` if it is not a `\big` family command.
     #[must_use]
-    pub fn from_command(name: &str) -> Option<Self> {
+    pub(crate) fn from_command(name: &str) -> Option<Self> {
         match name {
             "big" | "bigl" | "bigr" | "bigm" => Some(Self::Big),
             "Big" | "Bigl" | "Bigr" | "Bigm" => Some(Self::Big2),
@@ -687,7 +705,7 @@ impl DelimSize {
 
     /// Open / Close / Rel from the `l` / `r` / `m` suffix; `None` for unsuffixed `\big`.
     #[must_use]
-    pub fn class_from_command(name: &str) -> Option<AtomKind> {
+    pub(crate) fn class_from_command(name: &str) -> Option<AtomKind> {
         if name.ends_with('l') {
             Some(AtomKind::Open)
         } else if name.ends_with('r') {
@@ -702,7 +720,9 @@ impl DelimSize {
 
 /// Typed math-mode syntax tree.
 ///
-/// Produced by [`crate::parse()`]. [`MathNode::gold`] is the gold-stable debug form.
+/// Produced by [`crate::parse()`]. Variants are public for inspection and
+/// programmatic construction, but the enum is non-exhaustive so consumers must
+/// retain a fallback arm when matching future syntax additions.
 ///
 /// # Examples
 ///
@@ -710,9 +730,20 @@ impl DelimSize {
 /// use texpose::parse;
 ///
 /// let n = parse("x^2").unwrap();
-/// assert!(n.gold().contains("sup"));
+/// match n {
+///     texpose::MathNode::Superscript(_, _) => {}
+///     _ => panic!("expected superscript"),
+/// }
+/// ```
+///
+/// Repository gold formatting is intentionally not consumer API:
+///
+/// ```compile_fail
+/// let n = texpose::parse("x").unwrap();
+/// let _ = n.gold();
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum MathNode {
     /// Single character with a TeX atom class.
     Atom(char, AtomKind),
@@ -803,7 +834,7 @@ pub enum MathNode {
 impl MathNode {
     /// Gold-stable S-expression. One space between items; no trailing space.
     #[must_use]
-    pub fn gold(&self) -> String {
+    pub(crate) fn gold(&self) -> String {
         match self {
             Self::Atom(c, k) => format!("(atom {} {})", k.gold(), quote_atom(*c)),
             Self::Fraction(spec) if spec.is_plain_frac() => {
