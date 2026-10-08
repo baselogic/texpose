@@ -257,3 +257,29 @@ fn aligned_ordinary_leading_atom_matches_explicit_empty_ord() {
     assert_eq!(bare.depth().to_bits(), prefixed.depth().to_bits());
     assert_eq!(bare.diagnostics().len(), prefixed.diagnostics().len());
 }
+
+#[test]
+fn aligned_nonordinary_leading_probes_publish_one_missing_glyph() {
+    let font = font();
+    // These starts must retain the conservative prefixed-layout probe:
+    // in particular, a leading Bin may be normalized differently by {}.
+    for rhs in [
+        format!("+{MISSING}"),
+        format!("={MISSING}"),
+        format!("({MISSING})"),
+        format!("\\left({MISSING}\\right)"),
+    ] {
+        let source = format!("\\begin{{aligned}}x&{rhs}\\end{{aligned}}");
+        let ast = parse(&source).expect("aligned source parses");
+        let laid = layout(&ast, &font, MathStyle::Display).expect("aligned layout succeeds");
+        let missing = laid
+            .diagnostics()
+            .iter()
+            .filter(|diagnostic| {
+                matches!(diagnostic, LayoutDiagnostic::MissingGlyph { ch, .. } if *ch == MISSING)
+            })
+            .count();
+        assert_eq!(missing, 1, "unexpected diagnostic count for {source}");
+        assert!(laid.width().is_finite(), "nonfinite width for {source}");
+    }
+}
