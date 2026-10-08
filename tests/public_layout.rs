@@ -281,5 +281,48 @@ fn aligned_nonordinary_leading_probes_publish_one_missing_glyph() {
             .count();
         assert_eq!(missing, 1, "unexpected diagnostic count for {source}");
         assert!(laid.width().is_finite(), "nonfinite width for {source}");
+        assert!(laid.height().is_finite(), "nonfinite height for {source}");
+        assert!(laid.depth().is_finite(), "nonfinite depth for {source}");
+
+        // An auxiliary measurement must not advance numbering or accumulate
+        // diagnostics across independently constructed layouts.
+        let repeated =
+            layout(&ast, &font, MathStyle::Display).expect("repeated aligned layout succeeds");
+        assert_eq!(
+            laid.width().to_bits(),
+            repeated.width().to_bits(),
+            "{source}"
+        );
+        assert_eq!(
+            laid.height().to_bits(),
+            repeated.height().to_bits(),
+            "{source}"
+        );
+        assert_eq!(
+            laid.depth().to_bits(),
+            repeated.depth().to_bits(),
+            "{source}"
+        );
+        assert_eq!(
+            laid.diagnostics().len(),
+            repeated.diagnostics().len(),
+            "{source}"
+        );
+
+        // This is a separate input, not an assumed geometry oracle: a
+        // leading binary operator can change class after an explicit Ord.
+        let prefixed_source = format!("\\begin{{aligned}}x&{{}}{rhs}\\end{{aligned}}");
+        let prefixed = parse(&prefixed_source).expect("prefixed aligned source parses");
+        let prefixed_layout =
+            layout(&prefixed, &font, MathStyle::Display).expect("prefixed aligned layout succeeds");
+        assert!(prefixed_layout.width().is_finite(), "{prefixed_source}");
+        let prefixed_missing = prefixed_layout
+            .diagnostics()
+            .iter()
+            .filter(|diagnostic| {
+                matches!(diagnostic, LayoutDiagnostic::MissingGlyph { ch, .. } if *ch == MISSING)
+            })
+            .count();
+        assert_eq!(prefixed_missing, 1, "{prefixed_source}");
     }
 }
