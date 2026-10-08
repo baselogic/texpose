@@ -403,7 +403,34 @@ struct Parser {
     max_cells: usize,
     source_len: usize,
     /// Active environment path. Separate from the generic recursion depth.
-    environments: Vec<MatrixStyle>,
+    environments: Vec<EnvironmentContext>,
+}
+
+/// A display row records only `split` directly nested in this environment.
+#[derive(Clone, Copy)]
+struct EnvironmentContext {
+    style: MatrixStyle,
+    split_span: Option<SourceSpan>,
+}
+
+/// A split is a complete display row, except for row metadata and empty groups.
+/// The row metadata is peeled by `peel_row_meta` before this check.
+fn sole_split(node: &MathNode) -> bool {
+    match node {
+        MathNode::Matrix(MatrixStyle::Split, _, _) => true,
+        MathNode::Row(items) => {
+            let mut found = false;
+            for item in items {
+                match item {
+                    MathNode::Row(empty) if empty.is_empty() => {}
+                    _ if !found && sole_split(item) => found = true,
+                    _ => return false,
+                }
+            }
+            found
+        }
+        _ => false,
+    }
 }
 
 /// AMS display forms cannot generally nest. Inner alignment and matrix forms
@@ -1223,14 +1250,20 @@ impl Parser {
                 ));
             }
         };
-        if !environment_nesting_allowed(style, self.environments.last().copied()) {
+        if !environment_nesting_allowed(style, self.environments.last().map(|env| env.style)) {
             return Err(self.malformed_at(
                 ParseErrorKind::MalformedMatrix,
                 name.span,
                 format!("invalid nesting of environment {}", name.text),
             ));
         }
-        self.environments.push(style);
+        if let (MatrixStyle::Split, Some(parent)) = (style, self.environments.last_mut()) {
+            parent.split_span = Some(name.span);
+        }
+        self.environments.push(EnvironmentContext {
+            style,
+            split_span: None,
+        });
         let parsed = (|| {
             let rows = self.parse_rows()?;
             self.expect_end(&name.text)?;
@@ -1291,6 +1324,23 @@ impl Parser {
         Ok(MathNode::Substack(lines))
     }
 
+    fn check_split_row(&mut self, cells: &[MathNode]) -> Result<(), ParseError> {
+        let split_span = self
+            .environments
+            .last_mut()
+            .and_then(|env| env.split_span.take());
+        if let Some(span) = split_span {
+            if cells.len() != 1 || !sole_split(&cells[0]) {
+                return Err(self.malformed_at(
+                    ParseErrorKind::MalformedMatrix,
+                    span,
+                    "split must occupy its entire enclosing row",
+                ));
+            }
+        }
+        Ok(())
+    }
+
     fn parse_rows(&mut self) -> Result<Vec<EnvRow>, ParseError> {
         self.skip_ws();
         if matches!(self.peek(), Some(Token::Command(n)) if n == "end") {
@@ -1332,6 +1382,7 @@ impl Parser {
                     }
                     Some(Token::Command(n)) if n == "\\" || n == "cr" => {
                         self.bump();
+                        self.check_split_row(&cells)?;
                         rows.push(finish_env_row(cells, number, labels));
                         self.skip_ws();
                         if matches!(self.peek(), Some(Token::Command(e)) if e == "end") {
@@ -1340,6 +1391,7 @@ impl Parser {
                         break;
                     }
                     Some(Token::Command(n)) if n == "end" => {
+                        self.check_split_row(&cells)?;
                         rows.push(finish_env_row(cells, number, labels));
                         return Ok(rows);
                     }
