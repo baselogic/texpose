@@ -305,6 +305,13 @@ fn layout_impl(
             diagnostics: RefCell::new(Vec::new()),
         };
         let math_box = engine.layout(node, style)?;
+        // Number assignments and display consumers must agree before state is committed.
+        // An absent assignment can mean suppression, so check the final cursor.
+        if engine.idx.get() != numbering.assignment_count() {
+            return Err(Error::Malformed {
+                what: "equation-numbering plan and layout traversal disagree".into(),
+            });
+        }
         LayoutOutput {
             math_box,
             diagnostics: engine.diagnostics.into_inner(),

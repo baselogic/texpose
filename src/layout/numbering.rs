@@ -147,6 +147,10 @@ pub(crate) struct NumberingPlan {
 }
 
 impl NumberingPlan {
+    pub(crate) fn assignment_count(&self) -> usize {
+        self.assigned.len()
+    }
+
     pub(crate) fn assigned(&self, i: usize) -> Option<&str> {
         self.assigned.get(i).and_then(|o| o.as_deref())
     }
