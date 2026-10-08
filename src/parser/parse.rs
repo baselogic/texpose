@@ -906,7 +906,7 @@ impl Parser {
             "mathcal" => self.math_alphabet(TextStyle::Cal),
             "mathfrak" => self.math_alphabet(TextStyle::Frak),
             "mathscr" => self.math_alphabet(TextStyle::Scr),
-            "boldsymbol" => self.math_alphabet(TextStyle::Boldsymbol),
+            "boldsymbol" => self.boldsymbol(command_span),
             "pmb" => Ok(MathNode::Pmb(Box::new(self.parse_arg()?))),
             "textrm" | "textbf" | "textit" | "textsf" | "texttt" => {
                 Err(ParseError::unsupported(command_span, format!("\\{name}")))
@@ -1094,6 +1094,20 @@ impl Parser {
     fn math_alphabet(&mut self, style: TextStyle) -> Result<MathNode, ParseError> {
         let inner = self.parse_arg()?;
         Ok(collapse_runs(apply_math_alphabet(inner, style)))
+    }
+
+    fn boldsymbol(&mut self, command_span: SourceSpan) -> Result<MathNode, ParseError> {
+        let inner = self.parse_arg()?;
+        if !boldsymbol_supported(&inner) {
+            return Err(ParseError::unsupported(
+                command_span,
+                "\\boldsymbol requires a supported mathematical bold glyph variant".into(),
+            ));
+        }
+        Ok(collapse_runs(apply_math_alphabet(
+            inner,
+            TextStyle::Boldsymbol,
+        )))
     }
 
     fn parse_literal_text(&mut self) -> Result<MathNode, ParseError> {
@@ -2048,6 +2062,32 @@ fn apply_scripts(nucleus: MathNode, sub: Option<MathNode>, sup: Option<MathNode>
             (None, Some(e)) => MathNode::Superscript(Box::new(other), Box::new(e)),
             (Some(s), Some(e)) => MathNode::SubSup(Box::new(other), Box::new(s), Box::new(e)),
         },
+    }
+}
+
+/// Only characters with a distinct Unicode bold math variant can be rendered
+/// through the current single-face math-alphabet mechanism. The other math
+/// constructs must fail instead of silently keeping their regular glyphs.
+fn boldsymbol_supported(node: &MathNode) -> bool {
+    fn has_bold_variant(ch: char) -> bool {
+        crate::style_map::styled_char(ch, TextStyle::Boldsymbol) != ch
+    }
+
+    match node {
+        MathNode::Atom(ch, _) => has_bold_variant(*ch),
+        MathNode::Symbol(name) => crate::symbols::glyph_char(name).is_some_and(has_bold_variant),
+        MathNode::MathAlphabet(chars, _) => {
+            chars.chars().all(|ch| ch == ' ' || has_bold_variant(ch))
+        }
+        MathNode::Row(items) => items.iter().all(boldsymbol_supported),
+        MathNode::Superscript(base, sup) | MathNode::Subscript(base, sup) => {
+            boldsymbol_supported(base) && boldsymbol_supported(sup)
+        }
+        MathNode::SubSup(base, sub, sup) => {
+            boldsymbol_supported(base) && boldsymbol_supported(sub) && boldsymbol_supported(sup)
+        }
+        MathNode::Space(_) => true,
+        _ => false,
     }
 }
 
