@@ -3,6 +3,7 @@
 //! Source tables live in `documents/`. Flutter UI columns are not loaded.
 //! Duplicate `\sqrt{}` rows were collapsed to one entry.
 
+use std::collections::HashMap;
 use std::sync::OnceLock;
 
 const TSV: &str = include_str!("../data/symbols.tsv");
@@ -126,6 +127,37 @@ fn catalog() -> &'static [SymbolEntry] {
     CAT.get_or_init(|| parse_tsv(TSV)).as_slice()
 }
 
+/// Preserve table-order precedence for non-unique command names.
+struct CommandMatches {
+    first: usize,
+    bare: Option<usize>,
+}
+
+struct LookupIndex {
+    exact: HashMap<&'static str, usize>,
+    commands: HashMap<&'static str, CommandMatches>,
+}
+
+fn lookup_index() -> &'static LookupIndex {
+    static INDEX: OnceLock<LookupIndex> = OnceLock::new();
+    INDEX.get_or_init(|| {
+        let mut exact = HashMap::new();
+        let mut commands = HashMap::new();
+        for (position, entry) in catalog().iter().enumerate() {
+            exact.entry(entry.latex).or_insert(position);
+            let name = entry.command_name();
+            let matches = commands.entry(name).or_insert(CommandMatches {
+                first: position,
+                bare: None,
+            });
+            if matches.bare.is_none() && is_bare_latex(entry.latex, name) {
+                matches.bare = Some(position);
+            }
+        }
+        LookupIndex { exact, commands }
+    })
+}
+
 /// All shipped symbols, in table order.
 ///
 /// # Examples
@@ -164,18 +196,25 @@ pub fn symbols() -> &'static [SymbolEntry] {
 pub fn lookup(query: &str) -> Option<&'static SymbolEntry> {
     let q = query.trim();
     let q_name = command_name(q);
-    if let Some(e) = catalog().iter().find(|e| e.latex == q) {
-        return Some(e);
-    }
-    if let Some(e) = catalog()
-        .iter()
-        .find(|e| e.command_name() == q_name && is_bare_latex(e.latex, q_name))
-    {
-        return Some(e);
-    }
-    catalog()
-        .iter()
-        .find(|e| e.command_name() == q || e.command_name() == q_name)
+    let index = lookup_index();
+    let by_name = index.commands.get(q_name);
+    let position = index
+        .exact
+        .get(q)
+        .copied()
+        .or_else(|| by_name.and_then(|entry| entry.bare))
+        .or_else(|| {
+            // The previous linear search matched either name in table order.
+            // The earliest position wins even when both keys are present.
+            index
+                .commands
+                .get(q)
+                .map(|entry| entry.first)
+                .into_iter()
+                .chain(by_name.map(|entry| entry.first))
+                .min()
+        })?;
+    catalog().get(position)
 }
 
 /// Single-character catalog glyph for `query`, if the row is a lone code point.
@@ -214,4 +253,54 @@ fn is_bare_latex(latex: &str, name: &str) -> bool {
 #[must_use]
 pub fn category_count(category: &str) -> usize {
     catalog().iter().filter(|e| e.category == category).count()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{catalog, command_name, is_bare_latex, lookup, symbols, SymbolEntry};
+
+    // Independent reference for the old table-order selection policy.
+    fn linear_lookup(query: &str) -> Option<&'static SymbolEntry> {
+        let q = query.trim();
+        let name = command_name(q);
+        catalog()
+            .iter()
+            .find(|entry| entry.latex == q)
+            .or_else(|| {
+                catalog()
+                    .iter()
+                    .find(|entry| entry.command_name() == name && is_bare_latex(entry.latex, name))
+            })
+            .or_else(|| {
+                catalog()
+                    .iter()
+                    .find(|entry| entry.command_name() == q || entry.command_name() == name)
+            })
+    }
+
+    #[test]
+    fn index_preserves_exact_bare_and_alias_precedence_for_every_catalog_entry() {
+        for entry in symbols() {
+            for query in [
+                entry.latex.to_string(),
+                entry.command_name().to_string(),
+                format!(r"\{}", entry.command_name()),
+                format!(" \t{} \n", entry.latex),
+            ] {
+                let actual = lookup(&query);
+                let expected = linear_lookup(&query);
+                assert!(
+                    match (actual, expected) {
+                        (Some(actual), Some(expected)) => std::ptr::eq(actual, expected),
+                        (None, None) => true,
+                        _ => false,
+                    },
+                    "lookup chose a different catalog row for {query:?}"
+                );
+            }
+        }
+        for query in ["", " \t ", r"\not_a_symbol", "not_a_symbol"] {
+            assert_eq!(lookup(query), linear_lookup(query), "{query:?}");
+        }
+    }
 }

@@ -19,11 +19,12 @@ use std::time::{Duration, Instant};
 #[path = "../tests/common/mod.rs"]
 mod common;
 
-use texpose::{layout, parse, MathStyle};
+use texpose::{layout, lookup, parse, MathStyle};
 
 const SIMPLE: &str = "x";
 const COMPLEX: &str = r"\sum_{n=1}^{N}\frac{1}{n^{2}}=\frac{\pi^{2}}{6}";
 const STRESS_CASE: &str = "hard-brutal-core";
+const SYMBOL_HEAVY: &str = r"\alpha+\beta+\gamma+\delta+\epsilon+\zeta+\eta+\theta+\iota+\kappa";
 const STRESS_TSV: &str = include_str!("../tests/fixtures/math_compare_stress.tsv");
 
 const PRIMITIVE_CASES: [(&str, &str, MathStyle); 8] = [
@@ -166,6 +167,17 @@ fn main() {
 
     measure("parse complex", || {
         parse(black_box(COMPLEX)).expect("parse complex")
+    });
+
+    // Symbol resolution uses the public catalog boundary. These cases distinguish
+    // early/late table entries, aliases, composite names, and misses.
+    measure("lookup early", || lookup(black_box(r"\alpha")));
+    measure("lookup late", || lookup(black_box(r"\backepsilon")));
+    measure("lookup bare alias", || lookup(black_box("aleph")));
+    measure("lookup composite", || lookup(black_box(r"\aleph_0")));
+    measure("lookup missing", || lookup(black_box(r"\not_a_symbol")));
+    measure("parse symbol-heavy", || {
+        parse(black_box(SYMBOL_HEAVY)).expect("parse symbol-heavy")
     });
 
     let font = common::stix_two_math().expect("STIX Two Math");
