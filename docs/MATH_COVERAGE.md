@@ -1,5 +1,7 @@
 # OpenType MATH coverage
 
+This document owns field-level OpenType MATH coverage and degradation details. `docs/COMPATIBILITY.md` indexes the cross-cutting first-stable Device-correction, static-face, variable-font, and graceful-degradation policy without replacing this matrix.
+
 TeXpose treats the OpenType `MATH` table as validated font input rather than optional layout state. `MathFont` construction inspects the selected face's raw SFNT directory before layout begins.
 
 ## Construction contract

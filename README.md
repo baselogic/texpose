@@ -6,7 +6,7 @@ TeXpose is an independent hard fork of LaTeX-Rust 2.0.1. It is not synchronized 
 
 ## Status
 
-TeXpose is in early development. The current core contains math parsing, OpenType MATH font metrics, exact TeX-style internal geometry, and a flat backend-neutral public display list. Rendering, rasterization, windows, surfaces, GPU/device lifetime, pixel snapping, and application UI are consumer responsibilities. The parser boundary is stabilized in Phase L1; font and layout API review remains separate work.
+TeXpose is in early development. The current core contains math parsing, OpenType MATH font metrics, exact TeX-style internal geometry, and a flat backend-neutral public display list. Rendering, rasterization, windows, surfaces, GPU/device lifetime, pixel snapping, and application UI are consumer responsibilities. Parser, font, and layout APIs are stabilized, and the first-stable mathematical-core compatibility policy is recorded in `docs/COMPATIBILITY.md`. The remaining roadmap work is final release-candidate verification and evidence review under `docs/RELEASE.md`.
 
 The architecture is backend-neutral: TeXpose produces typed notation plus `MathLayout`, a flat root-em-normalized display list that applications consume through their native graphics stack. Planned domains may extend beyond mathematics to chemistry, SI units, and other scientific notation.
 
@@ -35,3 +35,7 @@ independent oracles, corpus policy, resource bounds, and reproduction commands
 are documented in `docs/FUZZING.md`. The fuzz package is separate from the
 production crate, so its oracle dependencies do not enter TeXpose's normal
 dependency graph.
+
+## Compatibility and release-candidate policy
+
+The first stable mathematical core uses one caller-supplied static math face per formula, keeps literal text on that face without a general text-shaping/fallback contract, preserves `em`/`mu` versus physical TeX `pt`/`bp` semantics, ignores OpenType MATH Device/VariationIndex corrections, rejects functional variable-font faces, and exposes only deterministic diagnostic-bearing degradation. See `docs/COMPATIBILITY.md`. Release-candidate evidence and the Phase M verification sequence are defined in `docs/RELEASE.md`.

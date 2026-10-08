@@ -1,6 +1,6 @@
 # Font API contract
 
-`MathFont` is the stable public boundary between caller-owned OpenType data and TeXpose layout. The concrete OpenType parser used internally is an implementation detail and is not re-exported.
+`MathFont` is the stable public boundary between caller-owned OpenType data and TeXpose layout. The concrete OpenType parser used internally is an implementation detail and is not re-exported. Cross-cutting static-face, variable-font, Device-correction, literal-text, and degradation compatibility policy is indexed by `docs/COMPATIBILITY.md`.
 
 ## Construction and ownership
 

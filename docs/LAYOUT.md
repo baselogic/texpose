@@ -1,6 +1,6 @@
 # Layout contract
 
-TeXpose layout is backend-neutral. Exact rational geometry remains internal; the public rendering boundary is [`MathLayout`], a flat absolute-coordinate display list using finite root-em-normalized `f32`. Rendering, DPI selection, rasterization, pixel snapping, and application UI belong to consumers.
+TeXpose layout is backend-neutral. Exact rational geometry remains internal; the public rendering boundary is [`MathLayout`], a flat absolute-coordinate display list using finite root-em-normalized `f32`. Rendering, DPI selection, rasterization, pixel snapping, and application UI belong to consumers. The cross-cutting first-stable compatibility policy is indexed by `docs/COMPATIBILITY.md`.
 
 ## Public consumer contract
 

@@ -1,6 +1,6 @@
 # Performance evidence and decisions
 
-This document is the durable Phase I performance record. `benches/layout.rs` is the maintained benchmark surface; historical experiments and rejected implementations are not kept live merely as evidence.
+This document is the durable Phase I performance record. `benches/layout.rs` is the maintained benchmark surface; historical experiments and rejected implementations are not kept live merely as evidence. `docs/RELEASE.md` indexes this record as the Phase M2 performance baseline without converting the local timing snapshot into a cross-machine release threshold.
 
 ## Current policy
 

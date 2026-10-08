@@ -49,6 +49,12 @@ The scheduled time is 03:17 UTC. The exact clock time has no semantic meaning; t
 
 A failed oracle run remains a failed gate. Artifact upload uses `if: always()` so evidence produced before another profile fails is retained, but `tools/verify.py` writes a profile JSON only after that profile passes its complete contractual checks. CI logs remain the failure evidence for a profile that aborts before successful evidence publication.
 
+## Trusted direct-main release-candidate runs
+
+All three workflows expose `workflow_dispatch`. A trusted `main` revision may therefore be verified without creating a release branch: dispatch `Core CI`, `Canonical oracle`, and `Stress oracle` against the exact candidate revision. The oracle jobs still require the pinned self-hosted runner.
+
+For release-candidate evidence, success is tied to the workflow head SHA. A successful run for an older `main` revision does not cover a later commit, and a queued/cancelled oracle job is not evidence. `docs/RELEASE.md` owns the Phase M sequence and final candidate-evidence checklist.
+
 ## Dependency gate
 
 The `dependencies` job in `.github/workflows/ci.yml` executes:

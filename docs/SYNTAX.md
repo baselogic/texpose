@@ -1,6 +1,6 @@
 # TeXpose supported math syntax
 
-This document is the contract map for the syntax supported by the portable TeXpose core. It describes a subset of TeX/LaTeX, not those languages in general. Only forms documented here are contractual; incidental parser acceptance outside this file is not a supported semantic promise and may be tightened as later semantic phases land. Documented unsupported input fails explicitly rather than being assigned guessed semantics.
+This document is the contract map for the syntax supported by the portable TeXpose core. It describes a subset of TeX/LaTeX, not those languages in general. Only forms documented here are contractual; incidental parser acceptance outside this file is not a supported semantic promise and may be tightened as later semantic phases land. Documented unsupported input fails explicitly rather than being assigned guessed semantics. Cross-cutting first-stable compatibility policy, including literal-text and unit policy, is indexed by `docs/COMPATIBILITY.md`.
 
 The parser preserves original-source byte positions in `SourceSpan`. `ParseError` exposes a typed `ParseErrorKind`, the source span associated with the failure, and construct-specific `ParseErrorDetail` where applicable. `ParseOptions` bounds nesting depth, returned AST nodes, environment rows, environment cells, and lexical tokens; budget exhaustion is `ParseErrorKind::ResourceLimit`.
 

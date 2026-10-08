@@ -4,6 +4,9 @@ This document records the durable Phase F contract for the LuaLaTeX differential
 oracle. The oracle is independent evidence: `tools/verify.py` owns the selected
 font file, copies it into an isolated workspace, and gives the same immutable
 bytes and face index to the TeXpose probe and the LuaLaTeX reference.
+`docs/COMPATIBILITY.md` indexes which named profiles and reference-environment
+identity are part of the first-stable compatibility policy; this file remains
+the authority for their exact hashes, censuses, deviations, and evidence rules.
 
 ## Reference environment identity
 

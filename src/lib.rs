@@ -2,8 +2,8 @@
 //!
 //! The current codebase is an independent hard fork of LaTeX-Rust 2.0.1 and is
 //! being reduced and reworked around backend-neutral parsing, font metrics, and
-//! layout. Parser, font, and layout boundaries are stabilized; compatibility-policy
-//! review remains in progress.
+//! layout. Parser, font, layout, and first-stable compatibility boundaries are
+//! stabilized; release-candidate verification remains separate work.
 //!
 //! Unsupported constructs return [`Error`] rather than fabricating output. Missing cmap entries are recoverable layout diagnostics with deterministic degradation.
 //!

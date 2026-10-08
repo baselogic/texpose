@@ -1,6 +1,6 @@
 # Parser API contract
 
-This document owns the Phase L1 public parser boundary. It defines which parser interfaces are consumer API and which parser implementation details intentionally remain private. Syntax acceptance and malformed-input behavior remain owned by `docs/SYNTAX.md`.
+This document owns the Phase L1 public parser boundary. It defines which parser interfaces are consumer API and which parser implementation details intentionally remain private. Syntax acceptance and malformed-input behavior remain owned by `docs/SYNTAX.md`; the cross-cutting first-stable compatibility policy is indexed by `docs/COMPATIBILITY.md`.
 
 ## Entry points
 

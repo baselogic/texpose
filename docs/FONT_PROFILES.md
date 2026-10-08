@@ -1,6 +1,6 @@
 # Verification font profiles
 
-This document owns the committed verification-font census used by the multi-font smoke matrix. It records source-font capabilities, not TeXpose feature support. Engine support and degradation policy remain owned by [`MATH_COVERAGE.md`](MATH_COVERAGE.md).
+This document owns the committed verification-font census used by the multi-font smoke matrix. It records source-font capabilities, not TeXpose feature support. Engine support and degradation policy remain owned by [`MATH_COVERAGE.md`](MATH_COVERAGE.md). The cross-cutting compatibility policy in `docs/COMPATIBILITY.md` distinguishes this smoke matrix from the three named LuaLaTeX differential-oracle profiles.
 
 ## E12 smoke contract
 
