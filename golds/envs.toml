@@ -164,7 +164,7 @@ name = "array-lcr-dims"
 kind = "dims"
 style = "display"
 input = "\\begin{array}{lcr} a & b & c \\\\ d & e & f \\end{array}"
-expect = "w=2.762111111111111111111111 h=0.705 d=1.148"
+expect = "w=2.762111111111111111111111 h=0.84 d=1.56"
 
 [[gold]]
 name = "array-hline-ast"
@@ -177,7 +177,7 @@ name = "array-hline-dims"
 kind = "dims"
 style = "display"
 input = "\\begin{array}{c} a \\\\ \\hline b \\end{array}"
-expect = "w=0.555 h=0.479 d=0.797"
+expect = "w=0.555 h=0.84 d=1.628"
 
 [[gold]]
 name = "array-vrule-ast"
@@ -190,7 +190,7 @@ name = "array-vrule-dims"
 kind = "dims"
 style = "display"
 input = "\\begin{array}{|c|c|} a & b \\\\ c & d \\end{array}"
-expect = "w=1.315 h=0.705 d=0.929"
+expect = "w=1.315 h=0.84 d=1.56"
 
 [[gold]]
 name = "split-in-equation-ast"

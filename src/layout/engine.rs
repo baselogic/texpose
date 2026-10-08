@@ -3275,7 +3275,11 @@ impl<'font, 'state> Engine<'font, 'state> {
             .fraction_rule_thickness
             .checked_mul(&self.params.scale(style))?;
         let col_sep = self.params.mu(style)?.checked_mul(&Dim::from_i64(10))?;
-        let row_sep = self.params.em(style)?.checked_div(&Dim::from_i64(5))?;
+        // Standard 10pt LaTeX array strut: 12pt baseline split 7:3.
+        // Physical points must be resolved against the root em, not the MATH face.
+        let strut_height = Dim::ratio(42, 5)?.checked_div(self.root_em_size.tex_points())?;
+        let strut_depth = Dim::ratio(18, 5)?.checked_div(self.root_em_size.tex_points())?;
+        let intertext_sep = self.params.em(style)?.checked_div(&Dim::from_i64(5))?;
         let mut kinds = Vec::new();
         let mut data: Vec<Vec<MathBox>> = Vec::new();
         let mut ncols_data = 0;
@@ -3342,31 +3346,38 @@ impl<'font, 'state> Engine<'font, 'state> {
         }
         let mut packed = Vec::new();
         let mut di = 0;
+        let mut after_intertext = false;
         for kind in kinds {
             match kind {
                 RowKind::Hline => {
                     packed.push(MathBox::rule(table_w.clone(), thick.clone(), Dim::zero()));
+                    after_intertext = false;
                 }
                 RowKind::Intertext(t) => {
                     if !packed.is_empty() {
-                        packed.push(sep_row(row_sep.clone()));
+                        packed.push(sep_row(intertext_sep.clone()));
                     }
                     packed.push(*t);
+                    after_intertext = true;
                 }
                 RowKind::Cells => {
-                    if !packed.is_empty()
-                        && !matches!(packed.last().map(|b| &b.content), Some(BoxContent::Rule))
-                    {
-                        packed.push(sep_row(row_sep.clone()));
+                    if after_intertext {
+                        packed.push(sep_row(intertext_sep.clone()));
                     }
+                    after_intertext = false;
+                    // Adjacent data rows touch; their struts supply the spacing.
                     let row = &data[di];
-                    let mut rh = Dim::zero();
-                    let mut rd = Dim::zero();
+                    let mut rh = strut_height.clone();
+                    let mut rd = strut_depth.clone();
                     for c in row {
                         rh = rh.max_ref(&c.height);
                         rd = rd.max_ref(&c.depth);
                     }
-                    let mut parts = Vec::new();
+                    let mut parts = vec![MathBox::rule(
+                        Dim::zero(),
+                        strut_height.clone(),
+                        strut_depth.clone(),
+                    )];
                     let mut dj = 0;
                     for (j, sp) in spec.iter().enumerate() {
                         if j > 0 && !sp.is_rule() && !spec[j - 1].is_rule() {
