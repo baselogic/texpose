@@ -907,7 +907,7 @@ impl Parser {
             "mathfrak" => self.math_alphabet(TextStyle::Frak),
             "mathscr" => self.math_alphabet(TextStyle::Scr),
             "boldsymbol" => self.math_alphabet(TextStyle::Boldsymbol),
-            "pmb" => self.math_alphabet(TextStyle::Pmb),
+            "pmb" => Ok(MathNode::Pmb(Box::new(self.parse_arg()?))),
             "textrm" | "textbf" | "textit" | "textsf" | "texttt" => {
                 Err(ParseError::unsupported(command_span, format!("\\{name}")))
             }
@@ -1838,6 +1838,7 @@ fn enforce_ast_node_limit(
                 }
             }
             MathNode::Tag { body, .. }
+            | MathNode::Pmb(body)
             | MathNode::Intertext(body)
             | MathNode::Accent(body, _)
             | MathNode::Color(_, body)
@@ -2063,6 +2064,7 @@ fn apply_math_alphabet(node: MathNode, style: TextStyle) -> MathNode {
         }
         MathNode::MathAlphabet(s, _) => MathNode::MathAlphabet(s, style),
         MathNode::LiteralText(s) => MathNode::LiteralText(s),
+        MathNode::Pmb(body) => MathNode::Pmb(Box::new(apply_math_alphabet(*body, style))),
         MathNode::Symbol(name) => {
             if let Some(ch) = crate::symbols::glyph_char(&name) {
                 if crate::style_map::is_stylable(ch) {

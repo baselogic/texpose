@@ -257,7 +257,8 @@ fn first_glyph_id(bx: &MathBox) -> Option<u16> {
         | BoxContent::Overlap(children) => children.iter().find_map(first_glyph_id),
         BoxContent::Color(_, inner)
         | BoxContent::BackColor(_, inner)
-        | BoxContent::Frame { inner, .. } => first_glyph_id(inner),
+        | BoxContent::Frame { inner, .. }
+        | BoxContent::PaintCopies { inner, .. } => first_glyph_id(inner),
         _ => None,
     }
 }

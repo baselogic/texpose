@@ -10,6 +10,9 @@ use crate::layout::style::MathStyle;
 use crate::layout::{BoxContent, LayoutDiagnostic, LayoutOutput, MathBox};
 use crate::parser::MathNode;
 
+// Bound nested paint repetition independently of AST limits.
+const MAX_PMB_PAINT_STEPS: usize = 65_536;
+
 /// Flat backend-neutral mathematical display list.
 ///
 /// Coordinates are absolute root-em units. The origin is the formula left edge
@@ -294,7 +297,15 @@ fn finish(font: &MathFont, exact: LayoutOutput) -> Result<MathLayout, Error> {
 
 pub(crate) fn flatten_exact(math_box: &MathBox) -> Result<Vec<ExactMathOp>, NumericError> {
     let mut out = Vec::new();
-    flatten_into(math_box, &Dim::zero(), &Dim::zero(), None, &mut out)?;
+    let mut paint_budget = MAX_PMB_PAINT_STEPS;
+    flatten_into(
+        math_box,
+        &Dim::zero(),
+        &Dim::zero(),
+        None,
+        &mut out,
+        &mut paint_budget,
+    )?;
     Ok(out)
 }
 
@@ -304,6 +315,7 @@ fn flatten_into(
     parent_baseline: &Dim,
     color: Option<Color>,
     out: &mut Vec<ExactMathOp>,
+    paint_budget: &mut usize,
 ) -> Result<(), NumericError> {
     let baseline = parent_baseline.checked_add(&math_box.shift)?;
     match &math_box.content {
@@ -332,23 +344,25 @@ fn flatten_into(
         BoxContent::HList(children) => {
             let mut child_x = x.clone();
             for child in children {
-                flatten_into(child, &child_x, &baseline, color, out)?;
+                flatten_into(child, &child_x, &baseline, color, out, paint_budget)?;
                 child_x = child_x.checked_add(&child.width)?;
             }
         }
         BoxContent::VList(children) => {
             if let Some((first, rest)) = children.split_first() {
                 let mut child_baseline = baseline.clone();
-                flatten_into(first, x, &child_baseline, color, out)?;
+                flatten_into(first, x, &child_baseline, color, out, paint_budget)?;
                 child_baseline = child_baseline.checked_sub(&first.depth)?;
                 for child in rest {
                     child_baseline = child_baseline.checked_sub(&child.height)?;
-                    flatten_into(child, x, &child_baseline, color, out)?;
+                    flatten_into(child, x, &child_baseline, color, out, paint_budget)?;
                     child_baseline = child_baseline.checked_sub(&child.depth)?;
                 }
             }
         }
-        BoxContent::Color(next, inner) => flatten_into(inner, x, &baseline, Some(*next), out)?,
+        BoxContent::Color(next, inner) => {
+            flatten_into(inner, x, &baseline, Some(*next), out, paint_budget)?
+        }
         BoxContent::BackColor(background, inner) => {
             let height = math_box.height.checked_add(&math_box.depth)?;
             if math_box.width > Dim::zero() && height > Dim::zero() {
@@ -360,12 +374,24 @@ fn flatten_into(
                     color: Some(*background),
                 });
             }
-            flatten_into(inner, x, &baseline, color, out)?;
+            flatten_into(inner, x, &baseline, color, out, paint_budget)?;
         }
         BoxContent::Overlap(children) => {
             for child in children {
-                flatten_into(child, x, &baseline, color, out)?;
+                flatten_into(child, x, &baseline, color, out, paint_budget)?;
             }
+        }
+        BoxContent::PaintCopies { inner, dx } => {
+            // Nested repeats multiply paint commands despite linear box storage.
+            if out.len() >= MAX_PMB_PAINT_STEPS || *paint_budget == 0 {
+                return Err(NumericError::OutOfRange);
+            }
+            *paint_budget -= 1;
+            let second_x = x.checked_add(dx)?;
+            let third_x = second_x.checked_add(dx)?;
+            flatten_into(inner, x, &baseline, color, out, paint_budget)?;
+            flatten_into(inner, &second_x, &baseline, color, out, paint_budget)?;
+            flatten_into(inner, &third_x, &baseline, color, out, paint_budget)?;
         }
         BoxContent::Line {
             x1,
@@ -386,7 +412,7 @@ fn flatten_into(
             stroke,
             inner,
         } => {
-            flatten_into(inner, x, &baseline, color, out)?;
+            flatten_into(inner, x, &baseline, color, out, paint_budget)?;
             let height = math_box.height.checked_add(&math_box.depth)?;
             if math_box.width > Dim::zero() && height > Dim::zero() && thickness > &Dim::zero() {
                 out.push(ExactMathOp::Frame {

@@ -88,7 +88,8 @@ fn glyph_xs(b: &MathBox, x: texpose::Dim, ch: char, out: &mut Vec<texpose::Dim>)
         }
         BoxContent::Color(_, inner)
         | BoxContent::BackColor(_, inner)
-        | BoxContent::Frame { inner, .. } => glyph_xs(inner, x, ch, out),
+        | BoxContent::Frame { inner, .. }
+        | BoxContent::PaintCopies { inner, .. } => glyph_xs(inner, x, ch, out),
         _ => {}
     }
 }

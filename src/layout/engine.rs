@@ -577,6 +577,13 @@ impl<'font, 'state> Engine<'font, 'state> {
                     bx,
                 })
             }
+            MathNode::Pmb(body) => {
+                let mut item = self.item(body, style)?;
+                // A one-atom group keeps its mathematical class, even when
+                // the generic row box is represented as an ordinary item.
+                item.class = noad_class(body);
+                self.pmb_item(item, style)
+            }
             MathNode::MathAlphabet(s, ts) => self.math_alphabet_noad(s, *ts, style),
             MathNode::LiteralText(s) => self.literal_text_run(s, style),
             MathNode::OverUnder(base, over, under) => self.over_under(
@@ -770,7 +777,8 @@ impl<'font, 'state> Engine<'font, 'state> {
 
     fn math_alphabet_run(&self, s: &str, ts: TextStyle, style: MathStyle) -> Result<Item, Error> {
         if ts == TextStyle::Pmb {
-            return self.pmb(s, style);
+            let base = self.math_alphabet_run(s, TextStyle::Rm, style)?;
+            return self.pmb_item(base, style);
         }
 
         let mut kids = Vec::new();
@@ -825,19 +833,38 @@ impl<'font, 'state> Engine<'font, 'state> {
         })
     }
 
-    fn pmb(&self, s: &str, style: MathStyle) -> Result<Item, Error> {
-        let base = self.math_alphabet_run(s, TextStyle::Rm, style)?;
+    fn pmb_item(&self, base: Item, style: MathStyle) -> Result<Item, Error> {
         let dx = self.params.em(style)?.checked_div(&Dim::from_i64(25))?;
-        let shifted = MathBox::hpack(vec![MathBox::kern(dx.clone()), base.bx.clone()])?;
+        let MathBox {
+            width,
+            height,
+            depth,
+            italic,
+            shift,
+            content,
+        } = base.bx;
+        // Reuse the laid-out subtree. Keep its shift inside the wrapper so it
+        // is applied once per impression, not twice by nested box traversal.
+        let inner = MathBox {
+            width: width.clone(),
+            height: height.clone(),
+            depth: depth.clone(),
+            italic: italic.clone(),
+            shift,
+            content,
+        };
         Ok(Item {
-            class: Some(AtomKind::Ord),
+            class: base.class,
             bx: MathBox {
-                width: base.bx.width.checked_add(&dx)?,
-                height: base.bx.height.clone(),
-                depth: base.bx.depth.clone(),
-                italic: Dim::zero(),
+                width,
+                height,
+                depth,
+                italic,
                 shift: Dim::zero(),
-                content: BoxContent::Overlap(vec![base.bx, shifted]),
+                content: BoxContent::PaintCopies {
+                    inner: Box::new(inner),
+                    dx,
+                },
             },
         })
     }
@@ -3908,6 +3935,7 @@ fn math_italic(c: char) -> char {
 // row packing must not add it again for Superscript/Subscript/SubSup nodes.
 fn row_needs_math_italic_kern(node: &MathNode) -> bool {
     match node {
+        MathNode::Pmb(body) => row_needs_math_italic_kern(body),
         MathNode::Atom(ch, class) => *class == AtomKind::Ord && is_default_math_variable(*ch),
 
         MathNode::Symbol(name) => {

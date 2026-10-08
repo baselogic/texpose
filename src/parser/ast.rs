@@ -167,7 +167,8 @@ pub enum TextStyle {
     Scr,
     /// `\boldsymbol`
     Boldsymbol,
-    /// `\pmb`
+    /// Legacy math-alphabet selector for a manually constructed `MathAlphabet`.
+    /// Parsed `\pmb` uses [`MathNode::Pmb`] instead.
     Pmb,
 }
 
@@ -804,6 +805,9 @@ pub enum MathNode {
     Accent(Box<MathNode>, AccentKind),
     /// `\cancelto{value}{expr}`
     CancelTo(Box<MathNode>, Box<MathNode>),
+    /// Poor man's bold: paint an arbitrary math expression three times,
+    /// preserving its mathematical atom class and logical dimensions.
+    Pmb(Box<MathNode>),
     /// Math-alphabet character run (`\mathrm`, `\mathbf`, …).
     MathAlphabet(String, TextStyle),
     /// Literal text run (`\text`, `\mbox`, `\intertext`).
@@ -923,6 +927,7 @@ impl MathNode {
             Self::StackRel(b, over) => format!("(stackrel {} {})", b.gold(), over.gold()),
             Self::Accent(b, a) => format!("(accent {} {})", a.gold(), b.gold()),
             Self::CancelTo(v, e) => format!("(cancelto {} {})", v.gold(), e.gold()),
+            Self::Pmb(body) => format!("(pmb {})", body.gold()),
             Self::MathAlphabet(t, st) => {
                 format!("(mathalpha {} {})", st.gold(), quote_text(t))
             }

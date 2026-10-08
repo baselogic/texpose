@@ -400,6 +400,11 @@ fn box_stats(math_box: &MathBox) -> BoxStats {
             }
         }
         BoxContent::Color(_, inner) => stats.add(box_stats(inner)),
+        BoxContent::PaintCopies { inner, .. } => {
+            for _ in 0..3 {
+                stats.add(box_stats(inner));
+            }
+        }
         BoxContent::BackColor(_, inner) => {
             stats.ops = 1;
             stats.add(box_stats(inner));

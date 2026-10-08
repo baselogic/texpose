@@ -10,7 +10,8 @@ fn literal_glyphs(node: &crate::layout::MathBox) -> Vec<char> {
         | BoxContent::Overlap(children) => children.iter().flat_map(literal_glyphs).collect(),
         BoxContent::Color(_, inner)
         | BoxContent::BackColor(_, inner)
-        | BoxContent::Frame { inner, .. } => literal_glyphs(inner),
+        | BoxContent::Frame { inner, .. }
+        | BoxContent::PaintCopies { inner, .. } => literal_glyphs(inner),
         _ => Vec::new(),
     }
 }

@@ -181,7 +181,9 @@ pub(super) fn noad_class(node: &MathNode) -> Option<AtomKind> {
         | MathNode::Ref(_)
         | MathNode::Tag { .. }
         | MathNode::Intertext(_) => Some(AtomKind::Ord),
-        MathNode::Color(_, body) | MathNode::TextColor(_, body) => noad_class(body),
+        MathNode::Color(_, body) | MathNode::TextColor(_, body) | MathNode::Pmb(body) => {
+            noad_class(body)
+        }
         MathNode::Phantom(_, _) => Some(AtomKind::Ord),
         MathNode::Row(nodes) if nodes.len() == 1 => noad_class(&nodes[0]),
         MathNode::Row(_) | MathNode::Strut(_, _) | MathNode::Rule(_, _) => Some(AtomKind::Ord),

@@ -71,7 +71,8 @@ fn collect_lines(b: &MathBox, out: &mut Vec<String>) {
         }
         BoxContent::Color(_, inner)
         | BoxContent::BackColor(_, inner)
-        | BoxContent::Frame { inner, .. } => collect_lines(inner, out),
+        | BoxContent::Frame { inner, .. }
+        | BoxContent::PaintCopies { inner, .. } => collect_lines(inner, out),
         _ => {}
     }
 }

@@ -53,7 +53,9 @@ fn parse_style(s: &str) -> MathStyle {
 fn first_color(b: &MathBox) -> Option<Color> {
     match &b.content {
         BoxContent::Color(c, inner) => first_color(inner).or(Some(*c)),
-        BoxContent::BackColor(_, inner) | BoxContent::Frame { inner, .. } => first_color(inner),
+        BoxContent::BackColor(_, inner)
+        | BoxContent::Frame { inner, .. }
+        | BoxContent::PaintCopies { inner, .. } => first_color(inner),
         BoxContent::HList(v) | BoxContent::VList(v) | BoxContent::Overlap(v) => {
             v.iter().find_map(first_color)
         }
@@ -64,7 +66,9 @@ fn first_color(b: &MathBox) -> Option<Color> {
 fn first_back_color(b: &MathBox) -> Option<Color> {
     match &b.content {
         BoxContent::BackColor(c, _) => Some(*c),
-        BoxContent::Color(_, inner) | BoxContent::Frame { inner, .. } => first_back_color(inner),
+        BoxContent::Color(_, inner)
+        | BoxContent::Frame { inner, .. }
+        | BoxContent::PaintCopies { inner, .. } => first_back_color(inner),
         BoxContent::HList(v) | BoxContent::VList(v) | BoxContent::Overlap(v) => {
             v.iter().find_map(first_back_color)
         }
@@ -75,7 +79,9 @@ fn first_back_color(b: &MathBox) -> Option<Color> {
 fn first_frame_stroke(b: &MathBox) -> Option<Color> {
     match &b.content {
         BoxContent::Frame { stroke, inner, .. } => stroke.or_else(|| first_frame_stroke(inner)),
-        BoxContent::Color(_, inner) | BoxContent::BackColor(_, inner) => first_frame_stroke(inner),
+        BoxContent::Color(_, inner)
+        | BoxContent::BackColor(_, inner)
+        | BoxContent::PaintCopies { inner, .. } => first_frame_stroke(inner),
         BoxContent::HList(v) | BoxContent::VList(v) | BoxContent::Overlap(v) => {
             v.iter().find_map(first_frame_stroke)
         }
@@ -87,9 +93,9 @@ fn has_nested_color(b: &MathBox, outer: Color, inner: Color) -> bool {
     match &b.content {
         BoxContent::Color(c, body) if *c == outer => first_color(body) == Some(inner),
         BoxContent::Color(_, body) => has_nested_color(body, outer, inner),
-        BoxContent::BackColor(_, body) | BoxContent::Frame { inner: body, .. } => {
-            has_nested_color(body, outer, inner)
-        }
+        BoxContent::BackColor(_, body)
+        | BoxContent::Frame { inner: body, .. }
+        | BoxContent::PaintCopies { inner: body, .. } => has_nested_color(body, outer, inner),
         BoxContent::HList(v) | BoxContent::VList(v) | BoxContent::Overlap(v) => {
             v.iter().any(|k| has_nested_color(k, outer, inner))
         }

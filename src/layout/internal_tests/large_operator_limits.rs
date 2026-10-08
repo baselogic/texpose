@@ -55,7 +55,8 @@ fn find_glyph_box(tree: &MathBox, expected_ch: char) -> Option<&MathBox> {
             .find_map(|child| find_glyph_box(child, expected_ch)),
         BoxContent::Color(_, inner)
         | BoxContent::BackColor(_, inner)
-        | BoxContent::Frame { inner, .. } => find_glyph_box(inner, expected_ch),
+        | BoxContent::Frame { inner, .. }
+        | BoxContent::PaintCopies { inner, .. } => find_glyph_box(inner, expected_ch),
         _ => None,
     }
 }

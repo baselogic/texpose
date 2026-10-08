@@ -174,7 +174,8 @@ fn trace_glyphs(bx: &MathBox, x: &Dim, parent_baseline: &Dim, out: &mut Vec<Glyp
         }
         BoxContent::Color(_, inner)
         | BoxContent::BackColor(_, inner)
-        | BoxContent::Frame { inner, .. } => trace_glyphs(inner, x, &baseline, out),
+        | BoxContent::Frame { inner, .. }
+        | BoxContent::PaintCopies { inner, .. } => trace_glyphs(inner, x, &baseline, out),
         BoxContent::Empty | BoxContent::Kern(_) | BoxContent::Rule | BoxContent::Line { .. } => {}
     }
 }

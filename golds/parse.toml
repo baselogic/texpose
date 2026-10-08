@@ -497,7 +497,7 @@ expect = "(mathalpha boldsymbol \"x\")"
 name = "font_pmb"
 kind = "ast"
 input = "\\pmb{x}"
-expect = "(mathalpha pmb \"x\")"
+expect = "(pmb (atom Ord \"x\"))"
 
 [[gold]]
 name = "text"

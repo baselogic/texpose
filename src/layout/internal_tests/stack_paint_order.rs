@@ -17,7 +17,8 @@ fn first_visible(boxed: &MathBox) -> Option<VisibleHead> {
         | BoxContent::Overlap(children) => children.iter().find_map(first_visible),
         BoxContent::Color(_, inner)
         | BoxContent::BackColor(_, inner)
-        | BoxContent::Frame { inner, .. } => first_visible(inner),
+        | BoxContent::Frame { inner, .. }
+        | BoxContent::PaintCopies { inner, .. } => first_visible(inner),
         BoxContent::Empty | BoxContent::Kern(_) | BoxContent::Line { .. } => None,
     }
 }

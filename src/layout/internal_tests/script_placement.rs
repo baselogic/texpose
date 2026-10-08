@@ -53,7 +53,8 @@ fn paired_script_shifts(bx: &MathBox) -> Option<(&Dim, &Dim)> {
 
         BoxContent::Color(_, inner)
         | BoxContent::BackColor(_, inner)
-        | BoxContent::Frame { inner, .. } => paired_script_shifts(inner),
+        | BoxContent::Frame { inner, .. }
+        | BoxContent::PaintCopies { inner, .. } => paired_script_shifts(inner),
 
         BoxContent::Empty
         | BoxContent::Rule

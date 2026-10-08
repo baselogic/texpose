@@ -67,7 +67,9 @@ fn first_glyph_x(math_box: &MathBox) -> Option<Dim> {
                 children.iter().find_map(|child| visit(child, x))
             }
             BoxContent::Color(_, inner) | BoxContent::BackColor(_, inner) => visit(inner, x),
-            BoxContent::Frame { inner, .. } => visit(inner, x),
+            BoxContent::Frame { inner, .. } | BoxContent::PaintCopies { inner, .. } => {
+                visit(inner, x)
+            }
             BoxContent::Empty
             | BoxContent::Rule
             | BoxContent::Kern(_)
@@ -88,7 +90,9 @@ fn glyph_scales(math_box: &MathBox, scales: &mut Vec<Dim>) {
                 glyph_scales(child, scales);
             }
         }
-        BoxContent::Color(_, inner) | BoxContent::BackColor(_, inner) => {
+        BoxContent::Color(_, inner)
+        | BoxContent::BackColor(_, inner)
+        | BoxContent::PaintCopies { inner, .. } => {
             glyph_scales(inner, scales);
         }
         BoxContent::Frame { inner, .. } => glyph_scales(inner, scales),
@@ -105,9 +109,9 @@ fn count_rules(content: &BoxContent) -> usize {
             .iter()
             .map(|child| count_rules(&child.content))
             .sum(),
-        BoxContent::Color(_, child) | BoxContent::BackColor(_, child) => {
-            count_rules(&child.content)
-        }
+        BoxContent::Color(_, child)
+        | BoxContent::BackColor(_, child)
+        | BoxContent::PaintCopies { inner: child, .. } => count_rules(&child.content),
         BoxContent::Frame { inner, .. } => count_rules(&inner.content),
         _ => 0,
     }

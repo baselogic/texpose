@@ -34,7 +34,9 @@ fn first_frame(boxed: &MathBox) -> Option<(&Dim, &MathBox)> {
         BoxContent::HList(children)
         | BoxContent::VList(children)
         | BoxContent::Overlap(children) => children.iter().find_map(first_frame),
-        BoxContent::Color(_, inner) | BoxContent::BackColor(_, inner) => first_frame(inner),
+        BoxContent::Color(_, inner)
+        | BoxContent::BackColor(_, inner)
+        | BoxContent::PaintCopies { inner, .. } => first_frame(inner),
         _ => None,
     }
 }
@@ -57,7 +59,8 @@ fn lines<'a>(boxed: &'a MathBox, out: &mut Vec<(&'a Dim, &'a Dim, &'a Dim, &'a D
         }
         BoxContent::Color(_, inner)
         | BoxContent::BackColor(_, inner)
-        | BoxContent::Frame { inner, .. } => lines(inner, out),
+        | BoxContent::Frame { inner, .. }
+        | BoxContent::PaintCopies { inner, .. } => lines(inner, out),
         _ => {}
     }
 }
@@ -74,7 +77,8 @@ fn glyph_scales(boxed: &MathBox, out: &mut Vec<Dim>) {
         }
         BoxContent::Color(_, inner)
         | BoxContent::BackColor(_, inner)
-        | BoxContent::Frame { inner, .. } => glyph_scales(inner, out),
+        | BoxContent::Frame { inner, .. }
+        | BoxContent::PaintCopies { inner, .. } => glyph_scales(inner, out),
         _ => {}
     }
 }

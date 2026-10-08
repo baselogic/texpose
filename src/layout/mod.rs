@@ -126,6 +126,9 @@ pub(crate) enum BoxContent {
     /// Children share the left edge; each child's [`MathBox::shift`] is its baseline.
     /// Child order is paint order.
     Overlap(Vec<MathBox>),
+    /// Repeat one laid-out subtree at x offsets 0, dx, and 2*dx.
+    /// Logical dimensions come from the single child; shifted ink may overhang.
+    PaintCopies { inner: Box<MathBox>, dx: Dim },
     /// Diagonal or free line in em, relative to the box left and baseline (`y` up).
     Line {
         /// Start x (em from left).

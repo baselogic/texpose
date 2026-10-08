@@ -96,7 +96,8 @@ fn glyph_ids(b: &MathBox, out: &mut Vec<u16>) {
         }
         BoxContent::Color(_, inner)
         | BoxContent::BackColor(_, inner)
-        | BoxContent::Frame { inner, .. } => glyph_ids(inner, out),
+        | BoxContent::Frame { inner, .. }
+        | BoxContent::PaintCopies { inner, .. } => glyph_ids(inner, out),
         BoxContent::Empty | BoxContent::Rule | BoxContent::Kern(_) | BoxContent::Line { .. } => {}
     }
 }

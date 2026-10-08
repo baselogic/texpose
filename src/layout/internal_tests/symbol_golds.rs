@@ -54,7 +54,8 @@ fn glyphs(b: &MathBox) -> Vec<char> {
         }
         BoxContent::Color(_, inner)
         | BoxContent::BackColor(_, inner)
-        | BoxContent::Frame { inner, .. } => glyphs(inner),
+        | BoxContent::Frame { inner, .. }
+        | BoxContent::PaintCopies { inner, .. } => glyphs(inner),
         _ => vec![],
     }
 }

@@ -275,6 +275,7 @@ fn collect_node(
             collect_node(r, config, plan)?;
         }
         MathNode::Delimited(_, b, _)
+        | MathNode::Pmb(b)
         | MathNode::Limits(b, _)
         | MathNode::Accent(b, _)
         | MathNode::Color(_, b)
@@ -410,7 +411,7 @@ fn node_plain(n: &MathNode) -> String {
         MathNode::MathAlphabet(s, _) | MathNode::LiteralText(s) => s.clone(),
         MathNode::Symbol(name) => name.clone(),
         MathNode::Row(v) => v.iter().map(node_plain).collect(),
-        MathNode::Tag { body, .. } => node_plain(body),
+        MathNode::Tag { body, .. } | MathNode::Pmb(body) => node_plain(body),
         other => other.gold(),
     }
 }

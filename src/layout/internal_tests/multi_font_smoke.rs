@@ -157,6 +157,11 @@ fn assert_box_dims_valid(math_box: &MathBox, profile: &str, family: &str) {
         BoxContent::Color(_, inner) | BoxContent::BackColor(_, inner) => {
             assert_box_dims_valid(inner, profile, family);
         }
+        BoxContent::PaintCopies { inner, dx } => {
+            assert_dim_valid(dx, profile, family, "paint dx");
+            assert!(dx >= &Dim::zero(), "{profile}/{family}: paint dx < 0");
+            assert_box_dims_valid(inner, profile, family);
+        }
         BoxContent::Line {
             x1,
             y1,
@@ -203,7 +208,8 @@ fn glyph_ids(math_box: &MathBox, out: &mut Vec<u16>) {
         }
         BoxContent::Color(_, inner)
         | BoxContent::BackColor(_, inner)
-        | BoxContent::Frame { inner, .. } => glyph_ids(inner, out),
+        | BoxContent::Frame { inner, .. }
+        | BoxContent::PaintCopies { inner, .. } => glyph_ids(inner, out),
         BoxContent::Empty | BoxContent::Rule | BoxContent::Kern(_) | BoxContent::Line { .. } => {}
     }
 }
