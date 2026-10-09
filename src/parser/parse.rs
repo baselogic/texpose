@@ -389,8 +389,8 @@ struct SpannedText {
     span: SourceSpan,
 }
 
-struct Parser {
-    tokens: Vec<SpannedToken>,
+struct Parser<'input> {
+    tokens: Vec<SpannedToken<'input>>,
     pos: usize,
     colors: ColorTable,
     /// Current nesting depth, bounded by `max_depth`.
@@ -447,7 +447,7 @@ fn environment_nesting_allowed(child: MatrixStyle, parent: Option<MatrixStyle>) 
     }
 }
 
-impl Parser {
+impl<'input> Parser<'input> {
     fn skip_ws(&mut self) {
         while matches!(
             self.tokens.get(self.pos).map(|item| &item.token),
@@ -457,7 +457,7 @@ impl Parser {
         }
     }
 
-    fn peek(&self) -> Option<&Token> {
+    fn peek(&self) -> Option<&Token<'input>> {
         self.tokens.get(self.pos).map(|item| &item.token)
     }
 
@@ -467,30 +467,30 @@ impl Parser {
             .map_or(SourceSpan::point(self.source_len), |item| item.span)
     }
 
-    fn peek_ws(&mut self) -> Option<&Token> {
+    fn peek_ws(&mut self) -> Option<&Token<'input>> {
         self.skip_ws();
         self.peek()
     }
 
-    fn bump(&mut self) -> Option<Token> {
+    fn bump(&mut self) -> Option<Token<'input>> {
         self.skip_ws();
         self.bump_raw()
     }
 
-    fn bump_raw(&mut self) -> Option<Token> {
+    fn bump_raw(&mut self) -> Option<Token<'input>> {
         let t = self.tokens.get(self.pos)?.token.clone();
         self.pos += 1;
         Some(t)
     }
 
-    fn is_stop(&self, tok: &Token, stop: Stop) -> bool {
+    fn is_stop(&self, tok: &Token<'input>, stop: Stop) -> bool {
         match tok {
             Token::EndGroup if stop.end_group => true,
             Token::AlignmentTab if stop.amp => true,
-            Token::Command(s) if s == "\\" && stop.cr => true,
-            Token::Command(s) if s == "cr" && stop.cr => true,
-            Token::Command(s) if s == "right" && stop.right => true,
-            Token::Command(s) if s == "end" && stop.end_env => true,
+            Token::Command(s) if *s == "\\" && stop.cr => true,
+            Token::Command(s) if *s == "cr" && stop.cr => true,
+            Token::Command(s) if *s == "right" && stop.right => true,
+            Token::Command(s) if *s == "end" && stop.end_env => true,
             Token::Char(']') if stop.rbracket => true,
             _ => false,
         }
@@ -596,7 +596,7 @@ impl Parser {
                         "unexpected math shift",
                     ));
                 }
-                Token::Command(n) if n == "over" || n == "choose" => {
+                Token::Command(n) if *n == "over" || *n == "choose" => {
                     if !stop.end_group {
                         return Err(self.malformed_here(
                             ParseErrorKind::MalformedArgument,
@@ -612,7 +612,7 @@ impl Parser {
                     self.bump();
                     let denominator = self.parse_list_inner(stop, false)?.into_node();
                     return Ok(ParsedList::Infix {
-                        kind: if n == "choose" {
+                        kind: if *n == "choose" {
                             InfixFractionKind::Choose
                         } else {
                             InfixFractionKind::Over
@@ -621,7 +621,7 @@ impl Parser {
                         denominator,
                     });
                 }
-                Token::Command(n) if n == "color" => {
+                Token::Command(n) if *n == "color" => {
                     self.bump();
                     let color = self.parse_color_from_cmd()?;
                     let rest = self
@@ -630,7 +630,7 @@ impl Parser {
                         .prepend(items);
                     return Ok(rest);
                 }
-                Token::Command(n) if n == "definecolor" => {
+                Token::Command(n) if *n == "definecolor" => {
                     self.bump();
                     self.parse_definecolor()?;
                     continue;
@@ -647,12 +647,12 @@ impl Parser {
         let mut limit_mode = None;
         loop {
             match self.peek_ws() {
-                Some(Token::Command(n)) if n == "limits" => {
+                Some(Token::Command(n)) if *n == "limits" => {
                     let span = self.current_span();
                     self.bump();
                     limit_mode = Some((LimitMode::Limits, span));
                 }
-                Some(Token::Command(n)) if n == "nolimits" => {
+                Some(Token::Command(n)) if *n == "nolimits" => {
                     let span = self.current_span();
                     self.bump();
                     limit_mode = Some((LimitMode::NoLimits, span));
@@ -694,7 +694,7 @@ impl Parser {
             Some(Token::Command(name)) => {
                 let command_span = self.current_span();
                 self.bump();
-                self.parse_command(&name, command_span)
+                self.parse_command(name, command_span)
             }
             Some(other) => Err(self.malformed_here(
                 ParseErrorKind::MalformedArgument,
@@ -1162,7 +1162,7 @@ impl Parser {
         let open = self.parse_delimiter()?;
         let body = self.parse_list(Stop::delim())?;
         match self.bump() {
-            Some(Token::Command(n)) if n == "right" => {}
+            Some(Token::Command("right")) => {}
             _ => return Err(ParseError::unmatched_delimiter(self.current_span())),
         }
         let close = self.parse_delimiter()?;
@@ -1194,13 +1194,15 @@ impl Parser {
             Some(Token::Char(c)) if matches!(c, '(' | ')' | '[' | ']' | '|' | '/' | '<' | '>') => {
                 Ok(Delimiter::Char(c))
             }
-            Some(Token::Command(n)) => match n.as_str() {
+            Some(Token::Command(n)) => match n {
                 "." => Ok(Delimiter::Empty),
-                "{" | "}" | "|" => Ok(Delimiter::Named(n)),
+                "{" | "}" | "|" => Ok(Delimiter::Named(n.to_string())),
                 "langle" | "rangle" | "lfloor" | "rfloor" | "lceil" | "rceil" | "lvert"
                 | "rvert" | "lVert" | "rVert" | "vert" | "Vert" | "uparrow" | "downarrow"
                 | "Uparrow" | "Downarrow" | "updownarrow" | "Updownarrow" | "backslash"
-                | "lgroup" | "rgroup" | "lmoustache" | "rmoustache" => Ok(Delimiter::Named(n)),
+                | "lgroup" | "rgroup" | "lmoustache" | "rmoustache" => {
+                    Ok(Delimiter::Named(n.to_string()))
+                }
                 other => Err(self.malformed_at(
                     ParseErrorKind::MalformedArgument,
                     delimiter_span,
@@ -1297,7 +1299,7 @@ impl Parser {
             lines.push(line);
             self.skip_ws();
             match self.peek() {
-                Some(Token::Command(n)) if n == "\\" || n == "cr" => {
+                Some(Token::Command(n)) if *n == "\\" || *n == "cr" => {
                     self.bump();
                 }
                 Some(Token::EndGroup) => {
@@ -1343,23 +1345,23 @@ impl Parser {
 
     fn parse_rows(&mut self) -> Result<Vec<EnvRow>, ParseError> {
         self.skip_ws();
-        if matches!(self.peek(), Some(Token::Command(n)) if n == "end") {
+        if matches!(self.peek(), Some(Token::Command(n)) if *n == "end") {
             return Ok(Vec::new());
         }
         let mut rows = Vec::new();
         loop {
             self.skip_ws();
-            if matches!(self.peek(), Some(Token::Command(n)) if n == "end") {
+            if matches!(self.peek(), Some(Token::Command(n)) if *n == "end") {
                 return Ok(rows);
             }
             let row_span = self.current_span();
             self.consume_environment_row(row_span)?;
-            if matches!(self.peek(), Some(Token::Command(n)) if n == "hline") {
+            if matches!(self.peek(), Some(Token::Command(n)) if *n == "hline") {
                 self.bump();
                 rows.push(EnvRow::Hline);
                 continue;
             }
-            if matches!(self.peek(), Some(Token::Command(n)) if n == "intertext") {
+            if matches!(self.peek(), Some(Token::Command(n)) if *n == "intertext") {
                 self.bump();
                 let text = self.collect_literal_text()?;
                 rows.push(EnvRow::Intertext(Box::new(MathNode::LiteralText(text))));
@@ -1380,17 +1382,17 @@ impl Parser {
                     Some(Token::AlignmentTab) => {
                         self.bump();
                     }
-                    Some(Token::Command(n)) if n == "\\" || n == "cr" => {
+                    Some(Token::Command(n)) if *n == "\\" || *n == "cr" => {
                         self.bump();
                         self.check_split_row(&cells)?;
                         rows.push(finish_env_row(cells, number, labels));
                         self.skip_ws();
-                        if matches!(self.peek(), Some(Token::Command(e)) if e == "end") {
+                        if matches!(self.peek(), Some(Token::Command(e)) if *e == "end") {
                             return Ok(rows);
                         }
                         break;
                     }
-                    Some(Token::Command(n)) if n == "end" => {
+                    Some(Token::Command(n)) if *n == "end" => {
                         self.check_split_row(&cells)?;
                         rows.push(finish_env_row(cells, number, labels));
                         return Ok(rows);
@@ -1417,7 +1419,7 @@ impl Parser {
         self.skip_ws();
         let end_span = self.current_span();
         match self.bump() {
-            Some(Token::Command(n)) if n == "end" => {}
+            Some(Token::Command("end")) => {}
             _ => {
                 return Err(self.malformed_at(
                     ParseErrorKind::MalformedMatrix,
@@ -1607,7 +1609,7 @@ impl Parser {
                 Some(Token::EndGroup) => return Ok(text),
                 Some(Token::Space) => text.push(' '),
                 Some(Token::Char(c)) => text.push(c),
-                Some(Token::Command(name)) => match name.as_str() {
+                Some(Token::Command(name)) => match name {
                     "{" => text.push('{'),
                     "}" => text.push('}'),
                     "%" => text.push('%'),
@@ -1721,7 +1723,7 @@ impl Parser {
                         text.push(n.chars().next().unwrap_or('\\'));
                     } else {
                         text.push('\\');
-                        text.push_str(&n);
+                        text.push_str(n);
                     }
                 }
                 Some(other) => {
@@ -1788,7 +1790,9 @@ impl Parser {
     }
 }
 
-fn strip_fences(tokens: &[SpannedToken]) -> Result<Vec<SpannedToken>, ParseError> {
+fn strip_fences<'input>(
+    tokens: &[SpannedToken<'input>],
+) -> Result<Vec<SpannedToken<'input>>, ParseError> {
     let t = trim_spaces(tokens);
     if t.len() >= 2 {
         let first = &t[0].token;
@@ -1796,10 +1800,10 @@ fn strip_fences(tokens: &[SpannedToken]) -> Result<Vec<SpannedToken>, ParseError
         let inner = match (first, last) {
             (Token::MathShift, Token::MathShift) => Some(&t[1..t.len() - 1]),
             (Token::DisplayShift, Token::DisplayShift) => Some(&t[1..t.len() - 1]),
-            (Token::Command(a), Token::Command(b)) if a == "[" && b == "]" => {
+            (Token::Command(a), Token::Command(b)) if *a == "[" && *b == "]" => {
                 Some(&t[1..t.len() - 1])
             }
-            (Token::Command(a), Token::Command(b)) if a == "(" && b == ")" => {
+            (Token::Command(a), Token::Command(b)) if *a == "(" && *b == ")" => {
                 Some(&t[1..t.len() - 1])
             }
             _ => None,
@@ -1808,13 +1812,13 @@ fn strip_fences(tokens: &[SpannedToken]) -> Result<Vec<SpannedToken>, ParseError
             return Ok(trim_spaces(inner).to_vec());
         }
         if matches!(first, Token::MathShift | Token::DisplayShift)
-            || matches!(first, Token::Command(s) if s == "[" || s == "(")
+            || matches!(first, Token::Command(s) if *s == "[" || *s == "(")
         {
             return Err(ParseError::unmatched_delimiter(t[0].span));
         }
     } else if let Some(first) = t.first() {
         if matches!(&first.token, Token::MathShift | Token::DisplayShift)
-            || matches!(&first.token, Token::Command(s) if s == "[" || s == "(")
+            || matches!(&first.token, Token::Command(s) if *s == "[" || *s == "(")
         {
             return Err(ParseError::unmatched_delimiter(first.span));
         }
@@ -1822,7 +1826,9 @@ fn strip_fences(tokens: &[SpannedToken]) -> Result<Vec<SpannedToken>, ParseError
     Ok(t.to_vec())
 }
 
-fn trim_spaces(tokens: &[SpannedToken]) -> &[SpannedToken] {
+fn trim_spaces<'slice, 'input>(
+    tokens: &'slice [SpannedToken<'input>],
+) -> &'slice [SpannedToken<'input>] {
     let mut a = 0;
     let mut b = tokens.len();
     while a < b && matches!(&tokens[a].token, Token::Space) {

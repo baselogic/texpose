@@ -8,11 +8,11 @@ use crate::error::{ParseError, ParseResource, SourceSpan};
 
 /// A single TeX-style math token.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum Token {
+pub(crate) enum Token<'input> {
     /// Ordinary character (letter, digit, or other).
     Char(char),
     /// Control sequence without the leading backslash (`frac`, `[`, `,`).
-    Command(String),
+    Command(&'input str),
     /// `{`
     BeginGroup,
     /// `}`
@@ -33,12 +33,12 @@ pub(crate) enum Token {
 
 /// A token paired with its byte range in the original source.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct SpannedToken {
-    pub(crate) token: Token,
+pub(crate) struct SpannedToken<'input> {
+    pub(crate) token: Token<'input>,
     pub(crate) span: SourceSpan,
 }
 
-impl fmt::Display for Token {
+impl fmt::Display for Token<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Char(c) => write!(f, "char:{c}"),
@@ -56,7 +56,7 @@ impl fmt::Display for Token {
 }
 
 #[cfg(test)]
-pub(crate) fn format_tokens(tokens: &[Token]) -> String {
+pub(crate) fn format_tokens(tokens: &[Token<'_>]) -> String {
     let mut out = String::new();
     for (i, token) in tokens.iter().enumerate() {
         if i > 0 {
@@ -68,7 +68,7 @@ pub(crate) fn format_tokens(tokens: &[Token]) -> String {
 }
 
 #[cfg(test)]
-pub(crate) fn tokenize(input: &str) -> Result<Vec<Token>, ParseError> {
+pub(crate) fn tokenize(input: &str) -> Result<Vec<Token<'_>>, ParseError> {
     Ok(tokenize_spanned(input)?
         .into_iter()
         .map(|item| item.token)
@@ -77,14 +77,14 @@ pub(crate) fn tokenize(input: &str) -> Result<Vec<Token>, ParseError> {
 
 /// Tokenize while retaining exact original-source byte ranges.
 #[cfg(test)]
-pub(crate) fn tokenize_spanned(input: &str) -> Result<Vec<SpannedToken>, ParseError> {
+pub(crate) fn tokenize_spanned(input: &str) -> Result<Vec<SpannedToken<'_>>, ParseError> {
     tokenize_spanned_with_limit(input, usize::MAX)
 }
 
 pub(crate) fn tokenize_spanned_with_limit(
     input: &str,
     max_tokens: usize,
-) -> Result<Vec<SpannedToken>, ParseError> {
+) -> Result<Vec<SpannedToken<'_>>, ParseError> {
     let mut chars = input.char_indices().peekable();
     let mut out = Vec::new();
     while let Some((start, c)) = chars.next() {
@@ -114,7 +114,7 @@ pub(crate) fn tokenize_spanned_with_limit(
                     simple(Token::MathShift, start, c)
                 }
             }
-            '\\' => command(input.len(), start, &mut chars)?,
+            '\\' => command(input, start, &mut chars)?,
             other => simple(Token::Char(other), start, other),
         };
         push_token(&mut out, item, max_tokens)?;
@@ -122,16 +122,16 @@ pub(crate) fn tokenize_spanned_with_limit(
     Ok(out)
 }
 
-fn simple(token: Token, start: usize, c: char) -> SpannedToken {
+fn simple<'input>(token: Token<'input>, start: usize, c: char) -> SpannedToken<'input> {
     SpannedToken {
         token,
         span: SourceSpan::new(start, start + c.len_utf8()),
     }
 }
 
-fn push_token(
-    out: &mut Vec<SpannedToken>,
-    token: SpannedToken,
+fn push_token<'input>(
+    out: &mut Vec<SpannedToken<'input>>,
+    token: SpannedToken<'input>,
     max_tokens: usize,
 ) -> Result<(), ParseError> {
     let next = out
@@ -157,23 +157,21 @@ fn skip_line(chars: &mut Peekable<CharIndices<'_>>) {
     }
 }
 
-fn command(
-    input_len: usize,
+fn command<'input>(
+    input: &'input str,
     slash_start: usize,
     chars: &mut Peekable<CharIndices<'_>>,
-) -> Result<SpannedToken, ParseError> {
+) -> Result<SpannedToken<'input>, ParseError> {
     let Some(&(first_start, first)) = chars.peek() else {
         return Err(ParseError::trailing_backslash(SourceSpan::new(
             slash_start,
-            input_len,
+            input.len(),
         )));
     };
     if first.is_ascii_alphabetic() {
-        let mut name = String::new();
         let mut end = first_start;
         while let Some(&(offset, c)) = chars.peek() {
             if c.is_ascii_alphabetic() {
-                name.push(c);
                 chars.next();
                 end = offset + c.len_utf8();
             } else {
@@ -188,13 +186,13 @@ fn command(
             chars.next();
         }
         Ok(SpannedToken {
-            token: Token::Command(name),
+            token: Token::Command(&input[first_start..end]),
             span,
         })
     } else {
         chars.next();
         Ok(SpannedToken {
-            token: Token::Command(first.to_string()),
+            token: Token::Command(&input[first_start..first_start + first.len_utf8()]),
             span: SourceSpan::new(slash_start, first_start + first.len_utf8()),
         })
     }

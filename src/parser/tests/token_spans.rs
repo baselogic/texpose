@@ -17,7 +17,7 @@ fn tokenizer_spans_are_original_utf8_byte_ranges() {
 
     let command = tokens
         .iter()
-        .find(|item| matches!(&item.token, Token::Command(name) if name == "frac"))
+        .find(|item| matches!(&item.token, Token::Command(name) if *name == "frac"))
         .expect("frac token");
     assert_eq!(
         (command.span.start(), command.span.end()),
