@@ -72,6 +72,24 @@ fn overunder_class(base: &MathNode) -> AtomKind {
 
 /// Build and binary-normalize the semantic sequence for one syntax row.
 pub(super) fn normalize_row<'a>(items: &'a [MathNode], style: MathStyle) -> Vec<SemanticItem<'a>> {
+    normalize_row_with_initial_class(items, style, None)
+}
+
+/// Normalize a right alignment field with its implicit leading empty Ord.
+/// The artificial noad contributes no geometry; it only changes TeX binary
+/// reclassification and introduces spacing before the first effective noad.
+pub(super) fn normalize_row_with_leading_ord<'a>(
+    items: &'a [MathNode],
+    style: MathStyle,
+) -> Vec<SemanticItem<'a>> {
+    normalize_row_with_initial_class(items, style, Some(AtomKind::Ord))
+}
+
+fn normalize_row_with_initial_class<'a>(
+    items: &'a [MathNode],
+    style: MathStyle,
+    preceding: Option<AtomKind>,
+) -> Vec<SemanticItem<'a>> {
     let mut out = Vec::with_capacity(items.len() + 1);
     let mut current_style = style;
     out.push(SemanticItem::Style(current_style));
@@ -90,7 +108,7 @@ pub(super) fn normalize_row<'a>(items: &'a [MathNode], style: MathStyle) -> Vec<
         }
     }
 
-    reclassify_bins(&mut out);
+    reclassify_bins(&mut out, preceding);
     out
 }
 
@@ -256,14 +274,14 @@ fn operator_core(
     }
 }
 
-fn reclassify_bins(items: &mut [SemanticItem<'_>]) {
+fn reclassify_bins(items: &mut [SemanticItem<'_>], preceding: Option<AtomKind>) {
     let noads: Vec<usize> = items
         .iter()
         .enumerate()
         .filter_map(|(index, item)| matches!(item, SemanticItem::Noad { .. }).then_some(index))
         .collect();
 
-    let mut previous = None;
+    let mut previous = preceding;
     for (position, &index) in noads.iter().enumerate() {
         let next = noads
             .get(position + 1)
@@ -319,6 +337,54 @@ mod tests {
     fn classes(input: &str) -> Vec<AtomKind> {
         let ast = parse(input).unwrap();
         classes_from_node(&ast)
+    }
+
+    #[test]
+    fn implicit_leading_ord_matches_an_explicit_empty_ord_in_binary_normalization() {
+        use super::normalize_row_with_leading_ord;
+
+        fn noad_classes(items: &[SemanticItem<'_>]) -> Vec<AtomKind> {
+            items
+                .iter()
+                .filter_map(|item| match item {
+                    SemanticItem::Noad { class, .. } => Some(*class),
+                    _ => None,
+                })
+                .collect()
+        }
+
+        for source in ["+b", "=b", "a+b", r"\displaystyle +b", r"\,=b", "{}+b"] {
+            let ast = parse(source).expect("valid alignment cell");
+            let items = match &ast {
+                MathNode::Row(items) => items.as_slice(),
+                node => core::slice::from_ref(node),
+            };
+            let implicit = normalize_row_with_leading_ord(items, MathStyle::Display);
+            let mut explicit = Vec::with_capacity(items.len() + 1);
+            explicit.push(MathNode::Row(Vec::new()));
+            explicit.extend(items.iter().cloned());
+            let explicit = normalize_row(&explicit, MathStyle::Display);
+            let implicit_classes = noad_classes(&implicit);
+            let explicit_classes = noad_classes(&explicit);
+            assert_eq!(
+                implicit_classes.as_slice(),
+                &explicit_classes[1..],
+                "{source}"
+            );
+        }
+
+        let ast = parse("+b").expect("leading binary");
+        let MathNode::Row(items) = ast else {
+            panic!("expected two noads");
+        };
+        assert_eq!(
+            noad_classes(&normalize_row(&items, MathStyle::Display))[0],
+            AtomKind::Ord
+        );
+        assert_eq!(
+            noad_classes(&normalize_row_with_leading_ord(&items, MathStyle::Display))[0],
+            AtomKind::Bin
+        );
     }
 
     fn classes_from_node(ast: &MathNode) -> Vec<AtomKind> {

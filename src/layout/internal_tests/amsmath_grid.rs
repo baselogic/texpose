@@ -300,6 +300,52 @@ fn aligned_applies_empty_ord_right_field_preamble() {
 }
 
 #[test]
+fn aligned_right_field_matches_explicit_empty_ord_for_all_leading_classes() {
+    let font = common::stix_two_math().expect("STIX Two Math");
+    for source in [
+        "=b",
+        "+b",
+        r"\displaystyle +b",
+        r"\,=b",
+        "{}=b",
+        r"\textcolor{red}{=b}",
+        r"\pmb{=b}",
+        r"\left(x\right)",
+        r"\sum",
+        r"\frac{a}{b}",
+    ] {
+        for size in [10, 20] {
+            let em_size_pt = Dim::from_i64(size);
+            let ast = parse(&format!(r"\begin{{aligned}}a&{source}\end{{aligned}}"))
+                .expect("valid aligned row");
+            let aligned = layout_with_em_size_pt(&ast, &font, MathStyle::Text, &em_size_pt)
+                .expect("aligned geometry");
+            let rows = vlist_children(environment_stack(&aligned));
+            assert_eq!(rows.len(), 1);
+
+            let prefixed = parse(&format!("{{}}{source}")).expect("explicit empty Ord");
+            let prefixed =
+                layout_with_em_size_pt(&prefixed, &font, MathStyle::Display, &em_size_pt)
+                    .expect("prefixed field geometry");
+            let left = layout_with_em_size_pt(
+                &parse("a").expect("left cell"),
+                &font,
+                MathStyle::Display,
+                &em_size_pt,
+            )
+            .expect("left field geometry");
+            let expected = add(&left.width, &prefixed.width);
+            assert!(
+                rows[0].width.eq_dim(&expected),
+                "{source} at {size}pt: aligned={} explicit={}",
+                rows[0].width.to_dec_string(),
+                expected.to_dec_string()
+            );
+        }
+    }
+}
+
+#[test]
 fn aligned_uses_displaystyle_cells_and_physical_minalignsep() {
     let font = common::stix_two_math().expect("STIX Two Math");
 
