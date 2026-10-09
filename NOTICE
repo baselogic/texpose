@@ -5,7 +5,7 @@ Copyright 2026 Jeffrey S Carr
 
 LaTeX-Rust and derived code are licensed under MIT OR Apache-2.0.
 
-Verification fixtures under tests/fixtures/fonts/ include STIX Two Math,
+Verification fixtures under fonts/ include STIX Two Math,
 Libertinus Math, Fira Math, and DejaVu Math TeX Gyre. These fonts are
 test/oracle resources and are not embedded in the production crate. STIX,
 Libertinus, and Fira are distributed under the SIL Open Font License 1.1.

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use texpose::{layout_with_numbering, parse, Error, MathFont, MathStyle, NumberingState};
 
-const STIX: &[u8] = include_bytes!("../data/fonts/stix-two-math/STIXTwoMath-Regular.otf");
+const STIX: &[u8] = include_bytes!("../fonts/stix-two-math/STIXTwoMath-Regular.otf");
 
 fn numbered(source: &str, state: &mut NumberingState, font: &MathFont) -> Result<(), Error> {
     let ast = parse(source)?;

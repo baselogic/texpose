@@ -19,24 +19,22 @@ struct SmokeCase {
 const PROFILES: &[FontProfile] = &[
     FontProfile {
         name: "stix",
-        bytes: include_bytes!("../../../data/fonts/stix-two-math/STIXTwoMath-Regular.otf",),
+        bytes: include_bytes!("../../../fonts/stix-two-math/STIXTwoMath-Regular.otf",),
         face_index: 0,
     },
     FontProfile {
         name: "libertinus",
-        bytes: include_bytes!(
-            "../../../tests/fixtures/fonts/libertinus-math/LibertinusMath-Regular.otf",
-        ),
+        bytes: include_bytes!("../../../fonts/libertinus-math/LibertinusMath-Regular.otf"),
         face_index: 0,
     },
     FontProfile {
         name: "fira",
-        bytes: include_bytes!("../../../tests/fixtures/fonts/fira-math/FiraMath-Regular.otf"),
+        bytes: include_bytes!("../../../fonts/fira-math/FiraMath-Regular.otf"),
         face_index: 0,
     },
     FontProfile {
         name: "dejavu",
-        bytes: include_bytes!("../../../tests/fixtures/fonts/dejavu-math/DejaVuMathTeXGyre.ttf"),
+        bytes: include_bytes!("../../../fonts/dejavu-math/DejaVuMathTeXGyre.ttf"),
         face_index: 0,
     },
 ];

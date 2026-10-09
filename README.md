@@ -9,7 +9,7 @@ The public output is `MathLayout`: a flat display list in root-em-normalized coo
 - Rust 1.76+, Edition 2021. The crate is not published (`publish = false`).
 - Use `parse` or `parse_with_options`; parse errors have UTF-8 byte spans.
 - Use `MathFont` with caller-provided OTF/TTF or indexed TTC/OTC bytes. Each formula uses one static math face; variable fonts are rejected.
-- Feature `stix-two-math` exposes the repository's verified STIX Two Math v2.13 bytes as `STIX_TWO_MATH_OTF`; callers still select and construct the face explicitly.
+- Math fonts are supplied by callers; `fonts/` contains pinned verification fixtures only, not a runtime default or public bundled-font API.
 - Literal text uses the same face without general text shaping, bidi, kerning or fallback.
 - Style-relative `em`/`mu` and physical TeX `pt`/`bp` are distinct. MATH Device/VariationIndex corrections are not applied.
 - Invalid input produces typed errors; specified recoverable font failures produce layout diagnostics.

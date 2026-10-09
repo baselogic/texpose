@@ -6,21 +6,21 @@ use texpose::MathFont;
 const FIXTURES: &[(&str, &[u8], &str, &str)] = &[
     (
         "stix-two-math",
-        include_bytes!("../data/fonts/stix-two-math/STIXTwoMath-Regular.otf"),
-        include_str!("../data/fonts/stix-two-math/SOURCE.md"),
-        include_str!("../data/fonts/stix-two-math/OFL.txt"),
+        include_bytes!("../fonts/stix-two-math/STIXTwoMath-Regular.otf"),
+        include_str!("../fonts/stix-two-math/SOURCE.md"),
+        include_str!("../fonts/stix-two-math/OFL.txt"),
     ),
     (
         "libertinus-math",
-        include_bytes!("fixtures/fonts/libertinus-math/LibertinusMath-Regular.otf"),
-        include_str!("fixtures/fonts/libertinus-math/SOURCE.md"),
-        include_str!("fixtures/fonts/libertinus-math/OFL.txt"),
+        include_bytes!("../fonts/libertinus-math/LibertinusMath-Regular.otf"),
+        include_str!("../fonts/libertinus-math/SOURCE.md"),
+        include_str!("../fonts/libertinus-math/OFL.txt"),
     ),
     (
         "fira-math",
-        include_bytes!("fixtures/fonts/fira-math/FiraMath-Regular.otf"),
-        include_str!("fixtures/fonts/fira-math/SOURCE.md"),
-        include_str!("fixtures/fonts/fira-math/OFL.txt"),
+        include_bytes!("../fonts/fira-math/FiraMath-Regular.otf"),
+        include_str!("../fonts/fira-math/SOURCE.md"),
+        include_str!("../fonts/fira-math/OFL.txt"),
     ),
 ];
 

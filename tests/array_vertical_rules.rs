@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use texpose::{layout_with_em_size_pt, parse, Dim, MathFont, MathOp, MathStyle};
 
-const STIX: &[u8] = include_bytes!("../data/fonts/stix-two-math/STIXTwoMath-Regular.otf");
+const STIX: &[u8] = include_bytes!("../fonts/stix-two-math/STIXTwoMath-Regular.otf");
 
 fn rule_rectangles(source: &str, size: i64) -> Vec<(f32, f32, f32, f32)> {
     let font = MathFont::from_shared_bytes(Arc::from(STIX), 0).expect("STIX Two Math");

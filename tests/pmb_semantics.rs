@@ -5,7 +5,7 @@ use texpose::{
     NumericError,
 };
 
-const STIX: &[u8] = include_bytes!("../data/fonts/stix-two-math/STIXTwoMath-Regular.otf");
+const STIX: &[u8] = include_bytes!("../fonts/stix-two-math/STIXTwoMath-Regular.otf");
 
 fn font() -> MathFont {
     MathFont::from_shared_bytes(Arc::from(STIX), 0).expect("STIX Two Math")

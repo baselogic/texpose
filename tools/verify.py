@@ -346,7 +346,7 @@ class TraceCaseDelta:
 PROFILES: dict[str, MathProfile] = {
     "stix": MathProfile(
         name="stix",
-        fixture="data/fonts/stix-two-math/STIXTwoMath-Regular.otf",
+        fixture="fonts/stix-two-math/STIXTwoMath-Regular.otf",
         sha256="f2076b9f1676438439dd41e23676f5ab99056e83d6b8f8c27841591ef2ccfa72",
         face_index=0,
         required_capabilities=("math-font", "canonical-corpus", "stress-corpus"),
@@ -406,7 +406,7 @@ PROFILES: dict[str, MathProfile] = {
     ),
     "libertinus": MathProfile(
         name="libertinus",
-        fixture="tests/fixtures/fonts/libertinus-math/LibertinusMath-Regular.otf",
+        fixture="fonts/libertinus-math/LibertinusMath-Regular.otf",
         sha256="e81bd44acbb7119c8f00128b36fecc5d980e10d2450a226ba52402ccf4da9d32",
         face_index=0,
         required_capabilities=("math-font", "canonical-corpus", "stress-corpus"),
@@ -457,7 +457,7 @@ PROFILES: dict[str, MathProfile] = {
     ),
     "fira": MathProfile(
         name="fira",
-        fixture="tests/fixtures/fonts/fira-math/FiraMath-Regular.otf",
+        fixture="fonts/fira-math/FiraMath-Regular.otf",
         sha256="2028cbd3dd4d8c0cf1608520eb4759956a83a67931d7b6d8e7c313520186e35b",
         face_index=0,
         required_capabilities=("math-font", "canonical-corpus", "stress-corpus"),

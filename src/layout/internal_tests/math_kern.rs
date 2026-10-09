@@ -1,11 +1,10 @@
 use crate::test_support::{layout, parse, BoxContent, Dim, MathBox, MathFont, MathStyle};
 
-const STIX: &[u8] = include_bytes!("../../../data/fonts/stix-two-math/STIXTwoMath-Regular.otf");
+const STIX: &[u8] = include_bytes!("../../../fonts/stix-two-math/STIXTwoMath-Regular.otf");
 const LIBERTINUS: &[u8] =
-    include_bytes!("../../../tests/fixtures/fonts/libertinus-math/LibertinusMath-Regular.otf");
-const FIRA: &[u8] = include_bytes!("../../../tests/fixtures/fonts/fira-math/FiraMath-Regular.otf");
-const DEJAVU: &[u8] =
-    include_bytes!("../../../tests/fixtures/fonts/dejavu-math/DejaVuMathTeXGyre.ttf");
+    include_bytes!("../../../fonts/libertinus-math/LibertinusMath-Regular.otf");
+const FIRA: &[u8] = include_bytes!("../../../fonts/fira-math/FiraMath-Regular.otf");
+const DEJAVU: &[u8] = include_bytes!("../../../fonts/dejavu-math/DejaVuMathTeXGyre.ttf");
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct GlyphPosition {

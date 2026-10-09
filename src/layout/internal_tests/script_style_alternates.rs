@@ -17,7 +17,7 @@ struct ScriptProfile {
 const PROFILES: &[ScriptProfile] = &[
     ScriptProfile {
         name: "stix",
-        bytes: include_bytes!("../../../data/fonts/stix-two-math/STIXTwoMath-Regular.otf",),
+        bytes: include_bytes!("../../../fonts/stix-two-math/STIXTwoMath-Regular.otf",),
         covered: '\u{210E}',
         script_percent: 70,
         scriptscript_percent: 55,
@@ -27,9 +27,7 @@ const PROFILES: &[ScriptProfile] = &[
     },
     ScriptProfile {
         name: "libertinus",
-        bytes: include_bytes!(
-            "../../../tests/fixtures/fonts/libertinus-math/LibertinusMath-Regular.otf",
-        ),
+        bytes: include_bytes!("../../../fonts/libertinus-math/LibertinusMath-Regular.otf"),
         covered: '\u{2032}',
         script_percent: 80,
         scriptscript_percent: 60,
@@ -39,7 +37,7 @@ const PROFILES: &[ScriptProfile] = &[
     },
     ScriptProfile {
         name: "fira",
-        bytes: include_bytes!("../../../tests/fixtures/fonts/fira-math/FiraMath-Regular.otf"),
+        bytes: include_bytes!("../../../fonts/fira-math/FiraMath-Regular.otf"),
         covered: '\u{2032}',
         script_percent: 72,
         scriptscript_percent: 58,
@@ -49,7 +47,7 @@ const PROFILES: &[ScriptProfile] = &[
     },
     ScriptProfile {
         name: "dejavu",
-        bytes: include_bytes!("../../../tests/fixtures/fonts/dejavu-math/DejaVuMathTeXGyre.ttf"),
+        bytes: include_bytes!("../../../fonts/dejavu-math/DejaVuMathTeXGyre.ttf"),
         covered: '2',
         script_percent: 80,
         scriptscript_percent: 65,

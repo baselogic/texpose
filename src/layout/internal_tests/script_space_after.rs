@@ -2,7 +2,7 @@ use super::common;
 
 use crate::test_support::{layout, parse, Dim, MathFont, MathParams, MathStyle};
 
-const FIRA: &[u8] = include_bytes!("../../../tests/fixtures/fonts/fira-math/FiraMath-Regular.otf");
+const FIRA: &[u8] = include_bytes!("../../../fonts/fira-math/FiraMath-Regular.otf");
 
 fn add(a: &Dim, b: &Dim) -> Dim {
     a.checked_add(b).unwrap()

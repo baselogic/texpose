@@ -6,11 +6,9 @@ use crate::test_support::{
 };
 
 const LIBERTINUS_MATH_OTF: &[u8] =
-    include_bytes!("../../../tests/fixtures/fonts/libertinus-math/LibertinusMath-Regular.otf");
-const FIRA_MATH_OTF: &[u8] =
-    include_bytes!("../../../tests/fixtures/fonts/fira-math/FiraMath-Regular.otf");
-const DEJAVU_MATH_TTF: &[u8] =
-    include_bytes!("../../../tests/fixtures/fonts/dejavu-math/DejaVuMathTeXGyre.ttf");
+    include_bytes!("../../../fonts/libertinus-math/LibertinusMath-Regular.otf");
+const FIRA_MATH_OTF: &[u8] = include_bytes!("../../../fonts/fira-math/FiraMath-Regular.otf");
+const DEJAVU_MATH_TTF: &[u8] = include_bytes!("../../../fonts/dejavu-math/DejaVuMathTeXGyre.ttf");
 
 fn add(a: &Dim, b: &Dim) -> Dim {
     a.checked_add(b).unwrap()
