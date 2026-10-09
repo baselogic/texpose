@@ -15,3 +15,33 @@ for attribution and provenance.
 
 STIX Fonts is a trademark of The Institute of Electrical and
 Electronics Engineers, Inc.
+
+This product includes a modified extract of the dvips named-color definitions
+(dvipsnam.def) from the `%<*dvipsnames>` section of drivers.dtx in the LaTeX
+graphics bundle.
+
+Copyright 1994 David Carlisle and Sebastian Rahtz
+Copyright 1995-1999 David Carlisle
+Copyright 2000-2026 The LaTeX Project
+
+That material is licensed under the LaTeX Project Public License (LPPL),
+version 1.3c or any later version. The license is available at
+https://www.latex-project.org/lppl.txt and accompanies distributions of
+LaTeX from 2008 onward.
+
+data/dvipsnames.tsv is the modified file. The original \DefineNamedColor
+entries were rewritten as a tab-separated table and sorted alphabetically
+by name (Jeffrey S Carr / LaTeX-Rust). TeXpose has adopted the LaTeX-Rust
+2.1.1 correction to the TealBlue CMYK value (0.86, 0, 0.34, 0.02). The
+header in that file explicitly identifies the changes and their provenance.
+It is not a replacement for the original dvipsnam.def. The original
+authors and The LaTeX Project do not maintain or support this modified file.
+
+An unmodified copy of the graphics bundle, including drivers.dtx, is at
+https://github.com/latex3/latex2e/tree/develop/required/graphics
+(CTAN: macros/latex/required/graphics).
+
+The MIT OR Apache-2.0 terms apply to the Rust source, not to this LPPL-
+licensed color table or separately licensed fonts. Distributions containing
+data/dvipsnames.tsv must retain its modification/provenance header and
+this notice.

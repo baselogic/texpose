@@ -1,3 +1,28 @@
+# data/dvipsnames.tsv
+#
+# THIS FILE HAS BEEN MODIFIED. This alphabetically sorted, tab-separated
+# extract is not the original dvipsnam.def and is not a replacement for it.
+#
+# Source: the `%<*dvipsnames>` section of drivers.dtx in the LaTeX graphics
+# bundle (the source of dvipsnam.def):
+# https://github.com/latex3/latex2e/blob/develop/required/graphics/drivers.dtx
+# Checked against that source on 2026-10-08.
+#
+# Copyright 1994 David Carlisle and Sebastian Rahtz
+# Copyright 1995-1999 David Carlisle
+# Copyright 2000-2026 The LaTeX Project
+# License: LaTeX Project Public License, version 1.3c or later.
+# See NOTICE and https://www.latex-project.org/lppl.txt.
+#
+# Modified from dvipsnam.def by Jeffrey S Carr: \DefineNamedColor definitions
+# rewritten into a tab-separated table and reordered alphabetically by name.
+# TeXpose backport of LaTeX-Rust 2.1.1 corrects TealBlue to the original
+# CMYK tuple (0.86, 0, 0.34, 0.02) from drivers.dtx.
+# The original authors and The LaTeX Project do not maintain or support
+# this modified file. The unmodified graphics bundle is available at
+# https://github.com/latex3/latex2e/tree/develop/required/graphics
+# (CTAN: macros/latex/required/graphics).
+#
 name	c	m	y	k
 Apricot	0	0.32	0.52	0
 Aquamarine	0.82	0	0.30	0
@@ -57,7 +82,7 @@ Sepia	0	0.83	1	0.70
 SkyBlue	0.62	0	0.12	0
 SpringGreen	0.26	0	0.76	0
 Tan	0.14	0.42	0.56	0
-TealBlue	0.86	0.09	0.54	0.10
+TealBlue	0.86	0	0.34	0.02
 Thistle	0.12	0.59	0	0
 Turquoise	0.85	0	0.20	0
 Violet	0.79	0.88	0	0

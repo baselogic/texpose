@@ -9,6 +9,8 @@ use std::sync::OnceLock;
 use crate::dim::Dim;
 use crate::error::Error;
 
+// Modified dvipsnam.def extract from the LaTeX graphics bundle (drivers.dtx),
+// under LPPL-1.3c or later. The table header and NOTICE identify its source.
 const DVIPS: &str = include_str!("../data/dvipsnames.tsv");
 
 /// 8-bit sRGB color. Values are integers; conversion from unit intervals uses `Dim`.
@@ -157,7 +159,10 @@ fn dvipsnames() -> &'static [(String, Color)] {
 
 fn load_dvips() -> Vec<(String, Color)> {
     let mut out = Vec::new();
-    let mut lines = DVIPS.lines();
+    let mut lines = DVIPS.lines().filter(|line| {
+        let trimmed = line.trim();
+        !trimmed.is_empty() && !trimmed.starts_with('#')
+    });
     let header = lines.next().expect("dvipsnames header");
     assert_eq!(header, "name\tc\tm\ty\tk", "dvipsnames.tsv schema");
     for line in lines {
