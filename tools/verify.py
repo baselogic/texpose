@@ -10,6 +10,7 @@ import math
 import os
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -506,6 +507,86 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def find_named_math_face(data: bytes, expected_name: str) -> int:
+    """Select an OpenType MATH face by its family/full name, not TTC order.
+
+    Only the SFNT directory and Windows Unicode `name` records are read here;
+    ttf-parser and LuaLaTeX still validate the selected actual font face.
+    """
+    def view(offset: int, length: int) -> bytes:
+        if offset < 0 or length < 0 or offset + length > len(data):
+            fail("malformed system math font: truncated SFNT/TTC table")
+        return data[offset : offset + length]
+
+    if data[:4] == b"ttcf":
+        count = struct.unpack(">I", view(8, 4))[0]
+        if not 1 <= count <= 256:
+            fail("malformed system math font: invalid TTC face count")
+        offsets = [struct.unpack(">I", view(12 + 4 * i, 4))[0] for i in range(count)]
+    else:
+        offsets = [0]
+
+    matched: list[int] = []
+    for index, face_offset in enumerate(offsets):
+        header = view(face_offset, 12)
+        if header[:4] not in {b"\x00\x01\x00\x00", b"OTTO", b"true"}:
+            fail("malformed system math font: invalid SFNT signature")
+        table_count = struct.unpack_from(">H", header, 4)[0]
+        if table_count > 256:
+            fail("malformed system math font: invalid table count")
+        tables: dict[bytes, tuple[int, int]] = {}
+        for table_index in range(table_count):
+            record = view(face_offset + 12 + table_index * 16, 16)
+            tag, _checksum, offset, length = struct.unpack(">4sIII", record)
+            view(offset, length)
+            tables[tag] = (offset, length)
+
+        name_table = tables.get(b"name")
+        if name_table is None:
+            continue
+        start, length = name_table
+        if length < 6:
+            fail("malformed system math font: truncated name table")
+        _format, name_count, string_offset = struct.unpack(">HHH", view(start, 6))
+        if 6 + name_count * 12 > length:
+            fail("malformed system math font: truncated name records")
+        for record_index in range(name_count):
+            record = view(start + 6 + record_index * 12, 12)
+            platform, _encoding, _language, name_id, string_length, offset = struct.unpack(
+                ">HHHHHH", record
+            )
+            if platform != 3 or name_id not in (1, 4, 16):
+                continue
+            if string_offset + offset + string_length > length:
+                fail("malformed system math font: name string outside table")
+            raw_name = view(start + string_offset + offset, string_length)
+            try:
+                name = raw_name.decode("utf-16-be")
+            except UnicodeDecodeError:
+                fail("malformed system math font: invalid UTF-16 name")
+            if name == expected_name:
+                if b"MATH" not in tables:
+                    fail(f"{expected_name} face has no OpenType MATH table")
+                matched.append(index)
+                break
+
+    if len(matched) != 1:
+        fail(f"expected exactly one {expected_name} face, found {len(matched)}")
+    return matched[0]
+
+
+def windows_cambria_math() -> tuple[Path, int]:
+    if os.name != "nt":
+        fail("Cambria Math is a Windows system-font option")
+    windir = os.environ.get("WINDIR")
+    if not windir:
+        fail("WINDIR is missing; cannot locate Cambria Math")
+    font_path = Path(windir) / "Fonts" / "cambria.ttc"
+    require_file(font_path)
+    face_index = find_named_math_face(font_path.read_bytes(), "Cambria Math")
+    return font_path.resolve(), face_index
+
+
 def parse_float(value: str) -> float:
     try:
         parsed = float(value)
@@ -719,7 +800,14 @@ def validate_profile(profile: MathProfile) -> None:
 
 
 def resolve_run_spec(args: argparse.Namespace) -> RunSpec:
-    if args.font is None:
+    use_cambria = args.cambria or (
+        os.name == "nt" and args.font is None and args.profile is None
+    )
+    if use_cambria:
+        if args.face_index is not None:
+            fail("--face-index cannot override the named Cambria Math face")
+        font_path, face_index = windows_cambria_math()
+    elif args.font is None:
         name = args.profile or "stix"
         profile = PROFILES[name]
         validate_profile(profile)
@@ -771,20 +859,19 @@ def resolve_run_spec(args: argparse.Namespace) -> RunSpec:
             collection=fixture.suffix.lower() in {".ttc", ".otc"},
         )
 
-    if args.profile is not None:
-        fail("--profile and --font are mutually exclusive")
-    font_path = args.font.resolve()
-    require_file(font_path)
-    face_index = 0 if args.face_index is None else args.face_index
-    if not 0 <= face_index <= 0xFFFF_FFFF:
-        fail("--face-index must fit u32")
+    if not use_cambria:
+        font_path = args.font.resolve()
+        require_file(font_path)
+        face_index = 0 if args.face_index is None else args.face_index
+        if not 0 <= face_index <= 0xFFFF_FFFF:
+            fail("--face-index must fit u32")
     tolerance = 0.05 if args.tolerance is None else args.tolerance
     return RunSpec(
-        name="adhoc",
+        name="cambria" if use_cambria else "adhoc",
         font_path=font_path,
         font_sha256=sha256_file(font_path),
         face_index=face_index,
-        revision="adhoc-v1",
+        revision="adhoc-cambria-v1" if use_cambria else "adhoc-v1",
         measurement_count=93 if args.stress else 25,
         alias_count=98 if args.stress else 25,
         census_sha256=STRESS_CENSUS_SHA256 if args.stress else CANONICAL_CENSUS_SHA256,
@@ -2309,6 +2396,51 @@ def self_test() -> None:
     for profile in PROFILES.values():
         validate_profile(profile)
 
+    # Synthetic two-face TTC. A font name, not an assumed face index,
+    # must select Cambria Math even when it is not the first face.
+    def sample_face(name: str, face_offset: int) -> bytes:
+        encoded = name.encode("utf-16-be")
+        name_table = (
+            struct.pack(">HHH", 0, 1, 18)
+            + struct.pack(">HHHHHH", 3, 1, 0x409, 4, len(encoded), 0)
+            + encoded
+        )
+        name_offset = face_offset + 12 + 2 * 16
+        math_offset = name_offset + len(name_table)
+        return (
+            struct.pack(">4sHHHH", b"\x00\x01\x00\x00", 2, 0, 0, 0)
+            + struct.pack(">4sIII", b"name", 0, name_offset, len(name_table))
+            + struct.pack(">4sIII", b"MATH", 0, math_offset, 4)
+            + name_table
+            + b"MATH"
+        )
+
+    first = sample_face("Cambria", 20)
+    second = sample_face("Cambria Math", 20 + len(first))
+    ttc = (
+        b"ttcf"
+        + struct.pack(">III", 0x00010000, 2, 20)
+        + struct.pack(">I", 20 + len(first))
+        + first
+        + second
+    )
+    if find_named_math_face(ttc, "Cambria Math") != 1:
+        fail("self-test failed to resolve second TTC math face by name")
+    reverse_ttc = (
+        b"ttcf" + struct.pack(">III", 0x00010000, 2, 20)
+        + struct.pack(">I", 20 + len(second))
+        + sample_face("Cambria Math", 20)
+        + sample_face("Cambria", 20 + len(second))
+    )
+    if find_named_math_face(reverse_ttc, "Cambria Math") != 0:
+        fail("self-test assumed a fixed Cambria Math face index")
+    try:
+        find_named_math_face(ttc, "Nonexistent Math")
+    except OracleError:
+        pass
+    else:
+        fail("self-test accepted an absent font face")
+
     bounded = Deviation(
         geometry_ceiling=0.0811,
         allow_structure=False,
@@ -3168,6 +3300,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     source = math_parser.add_mutually_exclusive_group()
     source.add_argument("--profile", choices=sorted(PROFILES))
     source.add_argument("--font", type=Path)
+    source.add_argument(
+        "--cambria",
+        action="store_true",
+        help="use Windows Cambria Math, selecting the TTC face by name",
+    )
     math_parser.add_argument("--face-index", type=int)
     math_parser.add_argument("--stress", action="store_true")
     math_parser.add_argument("--tolerance", type=float)

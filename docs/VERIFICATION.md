@@ -69,7 +69,51 @@ and uploads the three outputs as `dependency-trees`. These files are evidence of
 
 ## Optional Windows font check
 
-Windows installations with Cambria Math may run additional font/layout tests using `%WINDIR%\Fonts\cambria.ttc`. Resolve the `Cambria Math` face by name rather than assuming a collection index. Do not commit or redistribute the system font.
+On Windows, `uv run --script tools/verify.py math` uses the installed
+`%WINDIR%\Fonts\cambria.ttc` by default. The verifier finds the `Cambria Math`
+face through OpenType name records and checks that the selected face contains
+a MATH table. `--cambria` requests the same local run explicitly. Missing,
+ambiguous, or malformed system fonts fail rather than falling back silently.
+The selected TTC face index and SHA-256 of the full font file are reported in
+the oracle fingerprint. The font must not be committed or redistributed.
+
+Cambria is **diagnostic, not a pinned contractual profile**: Windows font builds
+vary, and its glyph/geometry deviations have not been ratified. `--fail-on-delta`
+with Cambria is intentionally strict and may report existing differences. The
+canonical and stress CI gates remain the explicit `--profile stix`,
+`--profile libertinus`, and `--profile fira` runs; they are unchanged on Windows.
+On other platforms an unqualified `math` run still defaults to `stix`.
+
+```powershell
+uv run --script tools/verify.py self-test
+uv run --script tools/verify.py math --cambria
+uv run --script tools/verify.py math --profile stix --fail-on-delta
+```
+
+### First observed Windows Cambria run (2026-10-09)
+
+On the Windows MiKTeX 26.5 / LuaHBTeX 1.25.7 reference environment
+(environment SHA-256 `b621bc874d9749432eca9f8a66a8bc8ffd72afda0ef8de8624f6a2c2171acbdf`),
+the local `math --cambria` run completed all 25 canonical cases: **25/25 outer
+geometries were within 0.050em**, with no approved geometry deviations. The
+maximum outer-geometry delta was **0.030273em**, the ascent of
+`accent-widehat-j`. Positioned primitive kinds matched **25/25**, while glyph
+identity/order matched **21/25**. The four differing selections were
+`accent-hat-j`, `accent-widehat-j`, `accent-widetilde-xyz`, and
+`accent-widehat-script`. Positioned geometry was comparable for the 21
+identity-aligned cases (maximum **0.019531em**). The other four cases have
+no comparable per-glyph geometry; passing outer geometry does not prove glyph
+selection equivalence.
+
+The same session passed `self-test` and the three pinned canonical
+`--fail-on-delta` runs: STIX **24/25 + one documented deviation**,
+Libertinus **24/25 + one documented deviation**, and Fira **25/25**.
+These results apply only to the observed Windows installation, not to all
+Cambria versions. No Cambria glyph differences or geometry allowances are
+ratified by this diagnostic run. Making Cambria a contractual profile would
+require separately recording and pinning its actual font SHA-256 and face
+index, verifying the corpus and identifying/rationalizing glyph deviations
+across the chosen reference environment.
 
 ## Oracle reference and corpus
 
